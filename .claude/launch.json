@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "wsl",
+      "runtimeArgs": [
+        "-d",
+        "Ubuntu-24.04",
+        "--cd",
+        "/home/cnye/let-ai-write-it-ideas/idea-1",
+        "--",
+        "bash",
+        "-c",
+        "source ~/.nvm/nvm.sh && npm run dev"
+      ],
+      "port": 3000
+    }
+  ]
+}

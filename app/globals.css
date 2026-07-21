@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Token system: one neutral family (zinc-leaning), one accent (cobalt).
+  Radius rule: buttons are pill, cards are 16px, inputs are 10px.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --surface: #fafafa;
+  --raised: #ffffff;
+  --ink: #1a1a1e;
+  --muted: #5b5b66;
+  --faint: #8e8e99;
+  --line: #e5e5ea;
+  --accent: #2b47e0;
+  --accent-soft: #eceffd;
+  --accent-ink: #ffffff;
+  --good: #14804a;
+  --warn: #a16207;
+  --bad: #b42346;
+  --good-soft: #e7f5ee;
+  --warn-soft: #faf3e0;
+  --bad-soft: #fdeaef;
+}
+
+.dark {
+  --surface: #101013;
+  --raised: #17171b;
+  --ink: #f1f1f4;
+  --muted: #a3a3af;
+  --faint: #71717d;
+  --line: #26262c;
+  --accent: #8496ff;
+  --accent-soft: #1c2140;
+  --accent-ink: #0e1015;
+  --good: #4ade80;
+  --warn: #fbbf24;
+  --bad: #fb7185;
+  --good-soft: #12271c;
+  --warn-soft: #2a2113;
+  --bad-soft: #2e161d;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-good-soft: var(--good-soft);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad-soft: var(--bad-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+mark[data-flag] {
+  background: var(--bad-soft);
+  color: inherit;
+  border-bottom: 1.5px solid var(--bad);
+  border-radius: 2px;
+  padding: 0 1px;
+  cursor: help;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
