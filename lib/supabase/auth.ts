@@ -9,5 +9,6 @@ export async function requireUser() {
   if (!userId) {
     throw new UnauthorizedError();
   }
-  return { supabase, userId };
+  const email = data?.claims?.email as string | undefined;
+  return { supabase, userId, email };
 }

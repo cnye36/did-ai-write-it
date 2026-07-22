@@ -49,7 +49,7 @@ afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 describe("humanize engine over the OpenAI SDK", () => {
   it("sends system + user messages and reads back the rewrite", async () => {
     const client = new OpenAI({ apiKey: "test-key", baseURL });
-    const system = buildHumanizeSystem(null);
+    const system = buildHumanizeSystem();
 
     const outcome = await runHumanizePipeline(
       SLOP,

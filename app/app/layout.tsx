@@ -28,23 +28,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               letaiwriteit<span className="text-accent">.com</span>
             </Link>
             <nav className="flex items-center gap-4">
-              <Link href="/app" className="text-sm text-muted transition-colors hover:text-ink">
-                Studio
-              </Link>
               <Link
                 href="/app/humanize"
                 className="text-sm text-muted transition-colors hover:text-ink"
               >
                 Humanize
               </Link>
-              <Link href="/app/write" className="text-sm text-muted transition-colors hover:text-ink">
-                Write
-              </Link>
               <Link
-                href="/app/onboarding"
+                href="/app/billing"
                 className="text-sm text-muted transition-colors hover:text-ink"
               >
-                Voice
+                Billing
               </Link>
             </nav>
           </div>

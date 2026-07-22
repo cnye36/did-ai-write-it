@@ -1,24 +1,4 @@
 import type { DetectorResult } from "./detector";
-import type { ContentFormat, VoiceFingerprint } from "./voice";
-
-export const ANALYZE_VOICE_SYSTEM = `You are a forensic writing-style analyst. You receive several samples of one person's real writing and produce a precise, reusable "voice fingerprint" another writer could follow to imitate them convincingly.
-
-Study what is actually on the page, not what a style guide would say. Notice the unglamorous details: how long their sentences run and how much that varies, whether they open cold or with context, what they do with commas and parentheses, pet words, how blunt their opinions are, what they never do.
-
-Respond with ONLY a JSON object, no markdown fences, matching exactly this shape:
-{
-  "summary": "two sentences capturing the overall voice",
-  "tone": "one sentence on register and attitude",
-  "sentenceRhythm": "one sentence on typical length, variance, fragments",
-  "vocabulary": "one sentence on register, jargon, plainness",
-  "punctuationHabits": ["3-5 short observations"],
-  "signaturePhrases": ["3-8 short phrases or constructions they actually use"],
-  "openers": "how they typically start a piece",
-  "closers": "how they typically end a piece",
-  "opinions": "how strongly and in what manner they take positions",
-  "neverSays": ["3-6 things absent from their writing: words, moves, tones"],
-  "quirks": ["2-5 distinctive habits worth reproducing"]
-}`;
 
 const ANTI_TELL_RULES = `Hard style rules, non-negotiable:
 - Never use an em dash or en dash anywhere. Use a period, comma, colon, or parentheses instead.
@@ -28,47 +8,7 @@ const ANTI_TELL_RULES = `Hard style rules, non-negotiable:
 - Vary sentence length aggressively: some under six words, some over twenty-five. Fragments are allowed.
 - Be concrete. Prefer one specific detail over two abstractions. Small imperfections are good: a parenthetical aside, a self-correction, an opinion stated flatly without hedging.
 - Do not restate the point at the end. End where the thought ends.
-- Do not open with a question unless the voice fingerprint says the writer does that.`;
-
-const FORMAT_SPECS: Record<ContentFormat, string> = {
-  linkedin: `Format: a LinkedIn post.
-- 80 to 220 words. Short paragraphs, often one or two sentences each, with blank lines between.
-- The first line must earn the "see more" click on its own, but must NOT be clickbait or a rhetorical question.
-- No hashtags unless the writer's samples use them. No emoji unless the samples use them.
-- End with substance, not "Agree?" engagement bait.`,
-  newsletter: `Format: a newsletter section.
-- 150 to 400 words of flowing prose. Paragraphs of 2 to 5 sentences.
-- Written to existing subscribers: assume familiarity, skip throat-clearing introductions.
-- One clear idea developed properly, not a listicle.`,
-  thread: `Format: a thread for X.
-- 4 to 8 posts. Separate each post with a line containing only "---".
-- Each post must stand alone and stay under 280 characters.
-- First post hooks with a concrete claim or detail, not "a thread on...".
-- No numbering like 1/ 2/ unless the samples do it.`,
-};
-
-export function buildGenerateSystem(
-  fingerprint: VoiceFingerprint,
-  samples: string[],
-  format: ContentFormat
-): string {
-  const sampleBlock = samples
-    .slice(0, 3)
-    .map((s, i) => `<sample_${i + 1}>\n${s.trim()}\n</sample_${i + 1}>`)
-    .join("\n\n");
-
-  return `You are ghostwriting as one specific person. Your output must be indistinguishable from something they typed themselves. You write the piece and nothing else: no preamble, no options, no commentary.
-
-Their voice fingerprint:
-${JSON.stringify(fingerprint, null, 2)}
-
-Verbatim samples of their real writing. Match this texture, not a polished version of it:
-${sampleBlock}
-
-${FORMAT_SPECS[format]}
-
-${ANTI_TELL_RULES}`;
-}
+- Do not open with a question.`;
 
 const PRESERVATION_RULES = `What must survive the rewrite, without exception:
 - Every fact, claim, name, number, and quote. Invent nothing, drop nothing.
@@ -83,17 +23,11 @@ const RHYTHM_RULES = `How to fix machine rhythm, which is what detectors weigh m
 - Fragments are allowed. Starting a sentence with And or But is allowed. Contractions are preferred.
 - Prefer plain, specific words over impressive ones. Cut adverbs that carry no information.`;
 
-export function buildHumanizeSystem(fingerprint: VoiceFingerprint | null): string {
-  const voiceBlock = fingerprint
-    ? `Rewrite in this specific person's voice. Their fingerprint:
-${JSON.stringify(fingerprint, null, 2)}
-`
-    : `No voice profile was supplied. Write in a plain, natural, everyday human register: the way a competent professional writes when they are not trying to sound impressive.
-`;
-
+export function buildHumanizeSystem(): string {
   return `You rewrite text so it reads as though a human wrote it, while keeping the meaning exactly intact. Your output is the rewritten text and nothing else. No preamble, no explanation, no surrounding quotes.
 
-${voiceBlock}
+Write in a plain, natural, everyday human register: the way a competent professional writes when they are not trying to sound impressive.
+
 You will receive the current draft, its automated "human score" out of 100, and the specific problems a detector flagged. Eliminate every flagged problem. Beyond those, change only what you must to fix rhythm.
 
 ${PRESERVATION_RULES}

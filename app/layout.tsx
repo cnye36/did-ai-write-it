@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Let AI Write It",
+  title: "Let AI Write It | Free AI Humanizer & Detector",
   description:
-    "AI writing that learns your voice from your real writing, drafts in it, and proves the result reads human.",
+    "Paste any AI-written draft and get a free instant AI-detection score, then rewrite it until it reads human. Built for LinkedIn posts, newsletters, and marketing copy, not homework.",
 };
 
 export default function RootLayout({

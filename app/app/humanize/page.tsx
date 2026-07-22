@@ -9,7 +9,7 @@ import {
   ArrowRightIcon,
 } from "@phosphor-icons/react";
 import { analyzeText, type MetricScore, type Verdict } from "@/lib/detector";
-import { loadProfile, HANDOFF_KEY, type VoiceProfile } from "@/lib/voice";
+import { HANDOFF_KEY } from "@/lib/handoff";
 import { ScoreGauge } from "@/components/score-gauge";
 
 interface Summary {
@@ -36,15 +36,12 @@ interface HumanizeResponse {
 export default function HumanizePage() {
   const router = useRouter();
   const [input, setInput] = useState("");
-  const [profile, setProfile] = useState<VoiceProfile | null>(null);
-  const [useVoice, setUseVoice] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<HumanizeResponse | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    setProfile(loadProfile());
     const handoff = sessionStorage.getItem(HANDOFF_KEY);
     if (handoff) {
       setInput(handoff);
@@ -63,10 +60,7 @@ export default function HumanizePage() {
       const res = await fetch("/api/humanize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: input,
-          fingerprint: useVoice && profile ? profile.fingerprint : null,
-        }),
+        body: JSON.stringify({ text: input }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Humanize failed.");
@@ -91,8 +85,8 @@ export default function HumanizePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Humanize</h1>
         <p className="mt-1 max-w-[60ch] text-sm leading-relaxed text-muted">
-          Paste AI-written text. It gets rewritten until it reads human, with the
-          meaning left intact. Each pass is scored and only kept if it improves.
+          Paste AI-written text and get back writing that reads human, with the
+          meaning left fully intact.
         </p>
       </div>
 
@@ -114,20 +108,7 @@ export default function HumanizePage() {
             placeholder="Paste the text you want to humanize..."
             className="min-h-[340px] flex-1 resize-y bg-transparent p-4 text-sm leading-relaxed outline-none placeholder:text-faint"
           />
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3">
-            {profile ? (
-              <label className="flex items-center gap-2 text-xs text-muted">
-                <input
-                  type="checkbox"
-                  checked={useVoice}
-                  onChange={(e) => setUseVoice(e.target.checked)}
-                  className="size-3.5 accent-[var(--accent)]"
-                />
-                Rewrite in my voice
-              </label>
-            ) : (
-              <span className="text-xs text-faint">No voice profile saved</span>
-            )}
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line px-4 py-3">
             <button
               type="button"
               disabled={!canRun}

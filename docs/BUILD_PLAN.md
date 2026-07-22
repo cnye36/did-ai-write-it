@@ -5,31 +5,57 @@ score, then rewrite it through a multi-pass engine until it reads human. See `CL
 product/architecture rundown. This doc tracks the milestone roadmap so the project stays legible as it's
 built in public.
 
-Pricing tiers are already committed on the landing page (`app/page.tsx`): **Free** ($0, 500 humanized
-words/mo, drafts in browser), **Pro** ($19/mo, 50,000 words/mo, one saved voice profile), **Studio**
-($39/mo, 200,000 words/mo, multiple synced voices, real detector pass reports, API access).
+**Focus: detect + humanize, and only that.** Every competitor in this space (WriteHuman, GPTHuman,
+Undetectable.ai, StealthGPT) is a pure paste-in-content-from-elsewhere → detect → rewrite tool; none
+of them lead with a "write from scratch in your voice" feature. We had one (voice fingerprint +
+on-brand drafting) and pulled it out (see M4's old scope, removed 2026-07-22) to go all-in on the
+two components that actually win this category: a detector credible enough to flag what real
+detectors flag, and a humanizer aggressive enough to clear them. A "guaranteed pass, write from
+scratch" voice feature is still on the radar longer-term, but only once the core detect/humanize loop
+is winning on its own.
+
+Pricing tiers (see `docs/subscriptions.md` for the competitor research behind these numbers, and
+`lib/plans.ts`/`lib/usage.ts` for the source of truth): **Free** ($0, 500 words/mo, 300 words/output),
+**Lite** ($9/mo, 10,000 words/mo, 800 words/output), **Pro** ($19/mo, 30,000 words/mo, 1,500
+words/output, priority processing), **Studio** ($39/mo, 100,000 words/mo, 2,500 words/output, real
+detector pass reports, API access).
 
 ## Milestones
 
 - **M0 — Done.** Landing page, client-side AI-detection heuristic (`lib/detector.ts`), the multi-pass
-  humanize engine (`lib/humanize.ts`), the voice studio (analyze → draft → save), dual light/dark themes.
-- **M1 — Auth + usage metering (in progress).** Supabase email/password accounts, `/app/**` behind login,
-  per-plan monthly word quotas enforced on `/api/humanize`, usage shown in the product nav. Prerequisite
-  for everything below.
-- **M2 — Stripe subscriptions.** Stripe Checkout for Pro/Studio, a webhook that syncs `profiles.plan` on
-  subscription create/update/cancel, a customer-portal link for self-serve upgrade/downgrade/cancel. Word
-  quota limits (`lib/usage.ts`) switch automatically with `profiles.plan`.
-- **M3 — Lint debt cleanup.** Four `set-state-in-effect` ESLint errors (`theme-toggle.tsx`,
-  `app/app/onboarding/page.tsx`, `app/app/write/page.tsx`, `app/app/humanize/page.tsx`) all stem from
-  reading `localStorage` via `setState` inside `useEffect`. Fix once with a shared
-  `useLocalStorage`/`useSyncExternalStore` hook — reusable for the client-side auth session too.
-- **M4 — Voice profile/draft DB migration.** Move `VoiceProfile`/`Draft` (currently `lib/voice.ts`'s
-  `localStorage` layer) into Supabase tables, gated by plan: Free stays browser-only (per the pricing
-  copy), Pro gets one synced profile, Studio gets multiple synced profiles.
-- **M5 — Real detector integration.** `analyzeText` is a heuristic proxy, not a real detector. Integrate
-  a real detector API (GPTZero/Originality) for Studio's "real detector pass reports."
+  humanize engine (`lib/humanize.ts`), dual light/dark themes.
+- **M1 — Auth + usage metering. Done.** Supabase email/password accounts, `/app/**` behind login
+  (proxy-level redirect plus per-route `requireUser()` on every API endpoint), per-plan monthly word
+  quotas enforced on `/api/humanize` via the `increment_usage` RPC, usage shown in the product nav.
+- **M2 — Stripe subscriptions. Done.** Stripe Checkout for Lite/Pro/Studio (`/api/stripe/checkout`),
+  monthly and annual (2 months free, `lib/plans.ts`), a webhook (`/api/stripe/webhook`) that syncs
+  `profiles.plan`/`stripe_customer_id`/`stripe_subscription_id` on `checkout.session.completed`,
+  `customer.subscription.updated`, and `customer.subscription.deleted`, and a customer-portal link
+  (`/api/stripe/portal`) for self-serve upgrade/downgrade/cancel from `/app/billing`. A dedicated
+  `/pricing` page has the full plan-comparison table plus a "coming soon" roadmap teaser (see
+  `docs/subscriptions.md`). Word quota limits (`lib/usage.ts`) switch automatically with
+  `profiles.plan`. A `DEV_BYPASS_EMAIL` env var exempts one account from all quota/output checks
+  for internal testing.
+- **M3 — Lint debt cleanup.** Two `set-state-in-effect` ESLint errors remain (`theme-toggle.tsx`,
+  `app/app/humanize/page.tsx`) — both read/write client-only state inside a `useEffect`. Fix with a
+  shared `useLocalStorage`/`useSyncExternalStore`-style pattern.
+- **M4 — Real detector integration (promoted, now the top product priority).** `analyzeText` is a
+  heuristic proxy, not a real detector — the whole "great detector + great humanizer" strategy leans
+  on closing this gap. Integrate a real detector API (GPTZero/Originality/Copyleaks) for verified
+  scoring, and/or substantially strengthen the heuristic so its flag rate actually correlates with
+  theirs. Unlocks the "real detector pass reports" Studio feature and the "guaranteed pass" claims
+  already teased (as "Coming soon") on `/pricing`.
+- **M5 — Humanizer engine hardening.** The other half of the bet: make `lib/humanize.ts` itself more
+  aggressive and tunable (per-detector rewrite strategies, higher target scores, more passes when it's
+  worth the cost) so a confident "clears every major detector" claim is backed by M4's real scoring,
+  not just our own heuristic. Multi-language humanizing (already teased on `/pricing`) likely lands
+  here too.
 - **M6 — Growth.** `.docx`/`.pdf` upload support (today: `.txt`/`.md` only, client-side `file.text()`),
   referral codes, SEO landing pages.
+- **Later, not scoped — "write in your voice" v2.** A from-scratch drafting feature that guarantees a
+  detector pass up front, once M4/M5 make that guarantee credible. Deliberately not now: it's a
+  different battle (content creation) than the one the market is actually fighting (detection
+  evasion), and splitting focus there was diluting the pitch.
 
 ## Model/infra strategy
 

@@ -1,12 +1,18 @@
 import { NextRequest } from "next/server";
-import { errorResponse, QuotaExceededError } from "@/lib/api-errors";
+import { errorResponse, MaxOutputWordsExceededError, QuotaExceededError } from "@/lib/api-errors";
 import { getOpenAI, OPENAI_MODEL } from "@/lib/openai";
 import { buildHumanizeSystem, buildHumanizeUser } from "@/lib/prompts";
 import { runHumanizePipeline } from "@/lib/humanize";
 import { analyzeText, type DetectorResult } from "@/lib/detector";
 import { requireUser } from "@/lib/supabase/auth";
-import { isCurrentPeriod, PLAN_LIMITS, remainingWords, type Plan } from "@/lib/usage";
-import type { VoiceFingerprint } from "@/lib/voice";
+import {
+  isCurrentPeriod,
+  isDevBypass,
+  PLAN_LIMITS,
+  PLAN_MAX_OUTPUT_WORDS,
+  remainingWords,
+  type Plan,
+} from "@/lib/usage";
 
 export const maxDuration = 120;
 
@@ -14,14 +20,13 @@ const MAX_CHARS = 12000;
 
 interface HumanizeBody {
   text: string;
-  fingerprint?: VoiceFingerprint | null;
   targetScore?: number;
   maxPasses?: number;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { supabase, userId } = await requireUser();
+    const { supabase, userId, email } = await requireUser();
 
     const body = (await req.json()) as HumanizeBody;
     const text = body.text?.trim();
@@ -42,14 +47,21 @@ export async function POST(req: NextRequest) {
     ]);
     const plan = (profile?.plan as Plan | undefined) ?? "free";
     const wordsUsed = usage && isCurrentPeriod(usage.period_start) ? usage.words_used : 0;
-    const remaining = remainingWords(plan, wordsUsed);
     const requestedWords = analyzeText(text).wordCount;
-    if (requestedWords > remaining) {
-      throw new QuotaExceededError(plan, PLAN_LIMITS[plan]);
+    const bypass = isDevBypass(email);
+
+    if (!bypass) {
+      if (requestedWords > PLAN_MAX_OUTPUT_WORDS[plan]) {
+        throw new MaxOutputWordsExceededError(plan, PLAN_MAX_OUTPUT_WORDS[plan]);
+      }
+      const remaining = remainingWords(plan, wordsUsed);
+      if (requestedWords > remaining) {
+        throw new QuotaExceededError(plan, PLAN_LIMITS[plan]);
+      }
     }
 
     const client = getOpenAI();
-    const system = buildHumanizeSystem(body.fingerprint ?? null);
+    const system = buildHumanizeSystem();
 
     const outcome = await runHumanizePipeline(
       text,

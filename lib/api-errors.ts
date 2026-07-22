@@ -28,6 +28,20 @@ export class QuotaExceededError extends Error {
   }
 }
 
+export class MaxOutputWordsExceededError extends Error {
+  plan: string;
+  limit: number;
+
+  constructor(plan: string, limit: number) {
+    super(
+      `This plan is capped at ${limit.toLocaleString()} words per request. Shorten the text or upgrade for a higher per-request limit.`
+    );
+    this.name = "MaxOutputWordsExceededError";
+    this.plan = plan;
+    this.limit = limit;
+  }
+}
+
 export function errorResponse(err: unknown): Response {
   if (err instanceof UnauthorizedError) {
     return Response.json({ error: err.message }, { status: 401 });
@@ -36,6 +50,12 @@ export function errorResponse(err: unknown): Response {
     return Response.json(
       { error: err.message, plan: err.plan, limit: err.limit },
       { status: 402 }
+    );
+  }
+  if (err instanceof MaxOutputWordsExceededError) {
+    return Response.json(
+      { error: err.message, plan: err.plan, limit: err.limit },
+      { status: 400 }
     );
   }
   const message =

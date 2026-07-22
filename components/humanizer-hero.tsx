@@ -10,7 +10,7 @@ import {
   ShieldCheckIcon,
 } from "@phosphor-icons/react";
 import { analyzeText } from "@/lib/detector";
-import { HANDOFF_KEY } from "@/lib/voice";
+import { HANDOFF_KEY } from "@/lib/handoff";
 import { ScoreGauge } from "./score-gauge";
 
 const SAMPLE = `In today's fast-paced digital landscape, leveraging AI has become crucial for success. It is not just about working harder, it is about working smarter. Businesses must delve into these cutting-edge tools to unlock their full potential. Furthermore, this seamless integration fosters innovation, efficiency, and growth. Companies that embrace this robust technology will elevate their content to new heights. Moreover, it is a testament to how far automation has come. The results speak for themselves, and the future looks incredibly bright. Ultimately, this powerful shift will revolutionize the way we work — forever.`;

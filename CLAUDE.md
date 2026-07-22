@@ -57,19 +57,23 @@ For multi-step tasks, state a brief plan:
 
 ## About this project
 
-**letaiwriteit.com** is a **humanizer-first** AI writing tool. The primary product: paste or upload
-AI-written text (from ChatGPT, Claude, etc.), get a free instant AI-detection score, then rewrite it
-through a multi-pass engine until it reads human, with the meaning preserved. A secondary feature
-lets users write on-brand content from scratch in their own learned voice.
+**letaiwriteit.com** is a **humanizer-first** AI writing tool, and only that. The product: paste or
+upload AI-written text (from ChatGPT, Claude, etc.), get a free instant AI-detection score, then
+rewrite it through a multi-pass engine until it reads human, with the meaning preserved.
 
 Positioning: *"Let AI write it. Nobody will know."* Framing is deliberately **professional/marketing**
 (LinkedIn posts, newsletters, marketing copy), **not** academic-cheating. It was pivoted from a
 voice-first writer to a humanizer-first tool to compete with undetectable.ai / writehuman.ai /
-gpthuman.ai, which are hot right now.
+gpthuman.ai, which are hot right now. A later pivot (2026-07-22) removed the voice/on-brand-drafting
+feature entirely: none of those competitors lead with a "write from scratch" feature either, they're
+all paste-in-content → detect → rewrite, so the bet is two components done extremely well — a
+detector credible enough to flag what real detectors flag, and a humanizer aggressive enough to
+clear them — rather than splitting focus. A from-scratch "guaranteed pass" voice feature is a
+possible v2, not scoped (see `docs/BUILD_PLAN.md`).
 
 **Stack:** Next.js 16 (App Router, Turbopack), TypeScript, Tailwind v4, pnpm, WSL2. Dual light/dark
-themes, cobalt accent (`#2b47e0`, chosen to stand apart from the competitors' purple). Two AI
-providers: **OpenAI** powers the humanize engine; **Anthropic** powers voice analysis + drafting.
+themes, cobalt accent (`#2b47e0`, chosen to stand apart from the competitors' purple). **OpenAI**
+powers the humanize engine; no other model provider is in use.
 
 ## Commands
 
@@ -84,17 +88,23 @@ Run everything through WSL with nvm sourced (default WSL node is v18; project ne
 - **Use pnpm, never npm** (npm throws a bogus ERESOLVE against the pnpm tree). pnpm installs prompt
   interactively — prefix `CI=true` to auto-confirm.
 - Keys in `.env.local` (copy from `.env.local.example`): `OPENAI_API_KEY` (humanize),
-  `ANTHROPIC_API_KEY` (voice). Optional: `OPENAI_MODEL` (default `gpt-5.5`), `OPENAI_BASE_URL`
-  (point at any OpenAI-compatible serverless provider — Together/DeepInfra/Groq — with no code change).
+  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`/`SUPABASE_SECRET_KEY` (auth/DB),
+  `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`STRIPE_PRICE_{LITE,PRO,STUDIO}_{MONTHLY,ANNUAL}`
+  (billing, six price IDs total). Optional: `OPENAI_MODEL` (default `gpt-5.5`), `OPENAI_BASE_URL`
+  (point at any OpenAI-compatible serverless provider — Together/DeepInfra/Groq — with no code
+  change), `DEV_BYPASS_EMAIL` (one account exempt from all word quotas).
 - Browser-pane **screenshots time out in this environment**; verify via page text / JS eval / network
   inspection instead.
 
 ## Architecture
 
-**No database, no auth yet.** Voice profiles and drafts persist only in the browser `localStorage`
-(`lib/voice.ts`: `loadProfile`/`saveProfile`, `loadDrafts`/`saveDraft`/`deleteDraft`). Text handed
-from the landing page to the humanizer rides in `sessionStorage` under `HANDOFF_KEY`. Server routes
-are stateless wrappers around the AI providers; the client always sends state in the request body.
+**Supabase auth + Postgres for accounts/billing.** `/app/**` is gated by `proxy.ts`
+(`lib/supabase/proxy.ts`) and every API route independently calls `requireUser()`
+(`lib/supabase/auth.ts`) — defense in depth, since the proxy alone wouldn't stop a direct API call.
+`profiles` (plan, Stripe IDs) and `usage` (monthly word counter, rolled over by comparing
+`period_start` to the current month, not a cron job) live in Postgres (`supabase/migrations/`). Text
+handed from the landing page to the humanizer rides in `sessionStorage` under `HANDOFF_KEY`
+(`lib/handoff.ts`).
 
 **The humanize engine — `lib/humanize.ts` (the core product).** `runHumanizePipeline(original,
 rewrite, opts)` is **provider-agnostic**: it takes a `rewrite` callback so the loop is unit-testable
@@ -113,60 +123,66 @@ sentence-length variance, uniform-length runs, em dashes, and stacked rule-of-th
 Phase-2 addition.
 
 **API routes (`app/api/*/route.ts`)** are thin. All errors funnel through `errorResponse()` in
-`lib/api-errors.ts` (shared by both providers): 503 for a missing key (`MissingKeyError`), 500
-otherwise.
-- `/api/humanize` — OpenAI (`lib/openai.ts`: `getOpenAI()`, `OPENAI_MODEL`). Body `{ text,
-  fingerprint?, targetScore?, maxPasses? }` → `{ text, before, after, passes, model }`. Fingerprint
-  is **optional** (the main flow has no voice profile).
-- `/api/analyze-voice` — Anthropic (`lib/anthropic.ts`: `getClient()`, `MODEL`). Samples → a
-  `VoiceFingerprint` JSON object.
-- `/api/generate` — Anthropic, **streamed** `ReadableStream` of text deltas. Brief + fingerprint →
-  a draft in the user's voice.
+`lib/api-errors.ts`: 503 for a missing key (`MissingKeyError`), 500 otherwise.
+- `/api/humanize` — OpenAI (`lib/openai.ts`: `getOpenAI()`, `OPENAI_MODEL`). Requires auth. Body
+  `{ text, targetScore?, maxPasses? }` → `{ text, before, after, passes, model, usage }`. Enforces
+  `PLAN_MAX_OUTPUT_WORDS` (per-request cap) then the monthly `PLAN_LIMITS` quota (`lib/usage.ts`),
+  both skipped for the `DEV_BYPASS_EMAIL` account; a passing request calls the `increment_usage`
+  Postgres RPC.
+- `/api/stripe/checkout`, `/api/stripe/portal` — requires auth; create a Stripe Checkout/Billing
+  Portal session (`lib/stripe.ts`) and return `{ url }` for the client to redirect to.
+- `/api/stripe/webhook` — no auth (Stripe calls it directly); verifies the signature and syncs
+  `profiles.plan`/`stripe_customer_id`/`stripe_subscription_id` via the service-role client
+  (`lib/supabase/service.ts`, the only route that bypasses RLS).
 
 **Pages under `app/`:**
 - `app/page.tsx` + `app/layout.tsx` — public landing (humanizer-first). Hero embeds
   `components/humanizer-hero.tsx`, a live paste/upload → client-side `analyzeText` score card with a
-  locked "rewrite" CTA that hands text to `/app/humanize` via `sessionStorage`.
-- `app/app/**` — product shell (no real auth) under `app/app/layout.tsx`, nav = Studio / Humanize /
-  Write / Voice:
-  - `app/app/humanize/page.tsx` — **the main product**: paste/upload → `/api/humanize` → before/after
-    gauges, per-metric deltas, and the pass log. Optional "rewrite in my voice" if a profile exists.
-  - `app/app/page.tsx` — dashboard (voice profile summary + saved drafts).
-  - `app/app/onboarding/page.tsx` — collects samples, calls `/api/analyze-voice`, saves a
-    `VoiceProfile`.
-  - `app/app/write/page.tsx` — voice studio: pick a `ContentFormat`, `/api/generate` (streamed) draft,
-    live `analyzeText` score, `saveDraft`.
+  locked "rewrite" CTA that hands text to `/app/humanize` via `sessionStorage`. Shares
+  `components/site-header.tsx` with `/pricing`.
+- `app/pricing/page.tsx` — full plan comparison (`components/pricing/pricing-comparison.tsx`):
+  monthly/annual toggle, plan cards, a feature-by-feature table (some rows badged "Coming soon" —
+  see `docs/subscriptions.md`), and a non-plan-specific roadmap teaser.
+- `app/login/page.tsx`, `app/signup/page.tsx`, `app/auth/callback/route.ts` — Supabase email/password
+  auth (`components/auth/`), gated off `/app` by `proxy.ts`.
+- `app/app/**` — product shell behind login, under `app/app/layout.tsx`, nav = Humanize / Billing:
+  - `app/app/page.tsx` — redirects straight to `/app/humanize`; there's no separate dashboard.
+  - `app/app/humanize/page.tsx` — **the whole product**: paste/upload → `/api/humanize` → before/after
+    gauges, per-metric deltas, and the pass log.
+  - `app/app/billing/page.tsx` — current plan/usage, `components/billing/plan-picker.tsx` (Stripe
+    Checkout per plan) and `manage-subscription-button.tsx` (Stripe Billing Portal).
 
-**Prompts live in `lib/prompts.ts`**, not inline. `ANALYZE_VOICE_SYSTEM` → `VoiceFingerprint`.
-`buildGenerateSystem` drafts in-voice. `buildHumanizeSystem(fingerprint | null)` accepts a **null**
-fingerprint (plain-human register for the main flow) and `buildHumanizeUser(text, result, pass)`
-feeds the detector's actual flags and weakest metrics back into each pass. All three share the
-`ANTI_TELL_RULES` block (banned words, no em dashes, no "not just X, it's Y") — this is the **single
-source of truth for AI tells** and must stay in sync with `LEXICON` in `lib/detector.ts`: edit one,
-check the other, so generated/humanized text actually scores well against the detector grading it.
+**Prompts live in `lib/prompts.ts`**, not inline. `buildHumanizeSystem()` (no arguments — always a
+plain, natural human register, there's no voice fingerprint anymore) and `buildHumanizeUser(text,
+result, pass)`, which feeds the detector's actual flags and weakest metrics back into each pass.
+Both share the `ANTI_TELL_RULES` block (banned words, no em dashes, no "not just X, it's Y") — this
+is the **single source of truth for AI tells** and must stay in sync with `LEXICON` in
+`lib/detector.ts`: edit one, check the other, so humanized text actually scores well against the
+detector grading it.
 
-**Tests (14, all passing):** `lib/detector.test.ts` (6), `lib/humanize.test.ts` (7, pipeline logic),
-`lib/openai.test.ts` (1, an SDK contract test against a mock server — pins the OpenAI **v6** request/
-response shape so an SDK upgrade can't break the engine silently).
+**Tests:** `lib/detector.test.ts` (6), `lib/humanize.test.ts` (7, pipeline logic), `lib/openai.test.ts`
+(1, an SDK contract test against a mock server — pins the OpenAI **v6** request/response shape so an
+SDK upgrade can't break the engine silently), `lib/usage.test.ts` (plan limits, period rollover,
+`isDevBypass`).
 
 ## Current state & how to proceed (handoff)
 
 **Done and verified:** landing page, client-side detection, the full multi-pass humanize engine
-(confirmed live against `gpt-5.5`: e.g. 50→80→100 over two passes), the voice studio, dual themes.
+(confirmed live against `gpt-5.5`: e.g. 50→80→100 over two passes), dual themes, Supabase auth +
+per-plan word quotas, Stripe subscriptions (Checkout/webhook/portal, monthly + annual), the `/pricing`
+comparison page.
 
-**Known debt / gaps (in priority order):**
-1. **No auth, no DB, no billing** — the biggest gap. Free/paid word-quota gating can't exist until
-   this lands. Likely next task: add auth + a DB (e.g. Supabase/Clerk + Postgres) and per-user
-   monthly word quotas.
-2. **`pnpm lint` is red — 4 errors, one shared cause.** React 19's `set-state-in-effect` rule fires
-   in `theme-toggle.tsx`, `app/app/onboarding/page.tsx`, `app/app/write/page.tsx`, and
-   `app/app/humanize/page.tsx` — all read `localStorage` via `setState` in a `useEffect`. Fix once
-   with a shared `useLocalStorage`/`useSyncExternalStore` hook. (Three pre-date the humanizer work.)
+**Known debt / gaps (in priority order — see `docs/BUILD_PLAN.md` for the full milestone writeup):**
+1. **Detection is a heuristic proxy, not a real detector** — this is now the top priority (M4).
+   Integrate a real detector API (GPTZero/Originality/Copyleaks) and/or strengthen the heuristic so
+   its flag rate credibly correlates with theirs. Everything else (real "pass reports", "guaranteed
+   pass" marketing claims already teased on `/pricing`) is downstream of this.
+2. **`pnpm lint` is red — 2 errors, one shared cause.** React 19's `set-state-in-effect` rule fires
+   in `theme-toggle.tsx` and `app/app/humanize/page.tsx`. Fix with a shared
+   `useLocalStorage`/`useSyncExternalStore`-style pattern.
 3. **`components/live-demo.tsx` is dead code** (superseded by `humanizer-hero.tsx`); safe to delete.
-4. **Detection is a heuristic proxy** — integrate real detector APIs (GPTZero/Originality) for paid
-   "pass reports."
-5. **Upload only handles `.txt`/`.md`** (client-side `file.text()`); add `.docx`/`.pdf`.
-6. **Growth hooks** (referral codes, SEO landing pages) — how this category actually grows.
+4. **Upload only handles `.txt`/`.md`** (client-side `file.text()`); add `.docx`/`.pdf`.
+5. **Growth hooks** (referral codes, SEO landing pages) — how this category actually grows.
 
 **Model/infra strategy:** no owned server, ever. Launch on OpenAI; scale on **serverless inference**
 via `OPENAI_BASE_URL` (per-token, ~$0 fixed cost). Later, distill logged winning rewrites into a
