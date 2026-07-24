@@ -117,10 +117,15 @@ passes }`. `/api/humanize` wires this to OpenAI Chat Completions.
 **`lib/detector.ts`** — pure, synchronous, unit-tested heuristic scorer (`analyzeText`), no network,
 safe on every keystroke. Scores 0–100 where **higher = more human**, on four weighted metrics
 (lexicon 30%, burstiness 25%, rhythm 25%, punctuation 20%) against a `LEXICON` of stock AI phrases,
-sentence-length variance, uniform-length runs, em dashes, and stacked rule-of-three lists. Returns
-`score`, `verdict`, `metrics`, and `flags` (with character offsets for highlighting). This is a
-**heuristic proxy**, not a real detector like GPTZero — good directionally; real detector APIs are a
-Phase-2 addition.
+sentence-length variance, uniform-length runs, em dashes, and stacked rule-of-three lists. The raw
+weighted score then gets an explicit `AI_LEAN_PENALTY` and raised verdict thresholds
+(`HUMAN_THRESHOLD`/`AI_THRESHOLD`) — a deliberate product decision to score skeptically (see
+`docs/BUILD_PLAN.md` M4a), not part of the accuracy model. Returns `score`, `verdict`, `metrics`,
+`flags` (whole-document, with character offsets), and `sentences` (every sentence individually
+scored/verdicted with its own `reasons`, reusing the same flags via range overlap — powers the
+line-by-line report). This is a **heuristic proxy**, not a real detector like GPTZero. Real
+perplexity scoring was investigated and ruled out for now (gpt-5.5 can't score arbitrary input text,
+only its own generated tokens); a real third-party detector API is the planned M4b, not yet funded.
 
 **API routes (`app/api/*/route.ts`)** are thin. All errors funnel through `errorResponse()` in
 `lib/api-errors.ts`: 503 for a missing key (`MissingKeyError`), 500 otherwise.
@@ -167,20 +172,24 @@ SDK upgrade can't break the engine silently), `lib/usage.test.ts` (plan limits, 
 
 ## Current state & how to proceed (handoff)
 
-**Done and verified:** landing page, client-side detection, the full multi-pass humanize engine
-(confirmed live against `gpt-5.5`: e.g. 50→80→100 over two passes), dual themes, Supabase auth +
-per-plan word quotas, Stripe subscriptions (Checkout/webhook/portal, monthly + annual), the `/pricing`
-comparison page.
+**Done and verified:** landing page, client-side detection (now per-sentence, with a line-by-line
+report — `components/detection-report.tsx`), the full multi-pass humanize engine (confirmed live
+against `gpt-5.5`: e.g. 50→80→100 over two passes), dual themes, Supabase auth + per-plan word
+quotas, Stripe subscriptions (Checkout/webhook/portal, monthly + annual), the `/pricing` comparison
+page.
 
 **Known debt / gaps (in priority order — see `docs/BUILD_PLAN.md` for the full milestone writeup):**
-1. **Detection is a heuristic proxy, not a real detector** — this is now the top priority (M4).
-   Integrate a real detector API (GPTZero/Originality/Copyleaks) and/or strengthen the heuristic so
-   its flag rate credibly correlates with theirs. Everything else (real "pass reports", "guaranteed
-   pass" marketing claims already teased on `/pricing`) is downstream of this.
+1. **Detection is a heuristic proxy, not a real detector (M4b, not yet funded)** — still the top
+   priority. The free heuristic itself was hardened (M4a: per-sentence scoring, explicit AI-lean
+   bias, line-by-line report), but a real detector API (GPTZero/Originality/Copyleaks) is what
+   actually backs "real pass reports" and "guaranteed pass" claims already teased on `/pricing`.
+   Every option researched has a real floor of ~$25-50/mo minimum for API access.
 2. **`pnpm lint` is red — 2 errors, one shared cause.** React 19's `set-state-in-effect` rule fires
    in `theme-toggle.tsx` and `app/app/humanize/page.tsx`. Fix with a shared
    `useLocalStorage`/`useSyncExternalStore`-style pattern.
-3. **`components/live-demo.tsx` is dead code** (superseded by `humanizer-hero.tsx`); safe to delete.
+3. **`components/live-demo.tsx` and `components/highlighted-text.tsx` are dead code** (the former
+   superseded by `humanizer-hero.tsx`, the latter by `detection-report.tsx`'s per-sentence
+   highlighting); safe to delete.
 4. **Upload only handles `.txt`/`.md`** (client-side `file.text()`); add `.docx`/`.pdf`.
 5. **Growth hooks** (referral codes, SEO landing pages) — how this category actually grows.
 
@@ -215,7 +224,7 @@ variants) with light values on `:root` and overrides under `.dark`, toggled by `
 - **Real images, never div-based fake screenshots.** Local assets live in `public/img/`.
 - **Motion** via `motion` (`components/reveal.tsx` for scroll reveals); always honor
   `prefers-reduced-motion`. Keep it subtle and motivated, not decorative.
-- Reuse existing primitives — `ScoreGauge`, `HighlightedText`, `Reveal`, `ThemeToggle` — before
+- Reuse existing primitives — `ScoreGauge`, `DetectionReport`, `Reveal`, `ThemeToggle` — before
   building new ones. Match the tone and density of the existing pages.
 
 ## Working in this repo

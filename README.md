@@ -1,36 +1,161 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Let AI Write It
 
-## Getting Started
+**Let AI write it. Nobody will know.**
 
-First, run the development server:
+[letaiwriteit.com](https://letaiwriteit.com) is a humanizer-first AI writing tool for professional copy. Paste or upload text from ChatGPT, Claude, or anything else, get an instant AI-detection score, then rewrite it through a multi-pass engine until it reads human. Meaning stays. The machine fingerprint does not.
+
+Built for LinkedIn posts, newsletters, and marketing drafts, not academic cheating.
+
+---
+
+## How it works
+
+1. **Paste or upload** — Drop in AI-written text (`.txt` / `.md` today).
+2. **See the tells** — Instant client-side score plus a line-by-line report: stock lexicon, flat rhythm, burstiness, em dashes, rule-of-three piles.
+3. **Rewrite until it's clean** — The multi-pass humanizer keeps refining until the score clears (or it hits the pass cap). Clean input costs zero model calls.
+
+Detection runs in the browser on every keystroke. Humanizing runs server-side through OpenAI (or any OpenAI-compatible provider).
+
+---
+
+## Stack
+
+| Layer | Choice |
+| --- | --- |
+| App | Next.js 16 (App Router, Turbopack), React 19, TypeScript |
+| UI | Tailwind CSS v4, Phosphor icons, `motion`, dual light/dark themes |
+| Auth + DB | Supabase (email/password, Postgres, RLS) |
+| Billing | Stripe Checkout + Customer Portal (monthly + annual) |
+| Humanize | OpenAI Chat Completions (`gpt-5.5` by default) |
+| Package manager | **pnpm** (do not use npm) |
+
+---
+
+## Quick start
+
+**Requires Node 24+** (WSL default Node 18 will not work). Source nvm if needed:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+source ~/.nvm/nvm.sh
+node -v   # expect v24.x
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+```bash
+pnpm install
+cp .env.local.example .env.local
+# fill in keys (see below)
+pnpm dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Open [http://localhost:3000](http://localhost:3000).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Next 16 refuses a second `pnpm dev` for the same directory. Stop the first one before starting another.
 
-## Learn More
+### Environment
 
-To learn more about Next.js, take a look at the following resources:
+Copy `.env.local.example` → `.env.local` and set:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` | Humanize engine |
+| `OPENAI_MODEL` | Optional. Defaults to `gpt-5.5` |
+| `OPENAI_BASE_URL` | Optional. Point at Together / DeepInfra / Groq with no code change |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser + server auth client |
+| `SUPABASE_SECRET_KEY` | Stripe webhook only (bypasses RLS) |
+| `STRIPE_SECRET_KEY` | Billing |
+| `STRIPE_WEBHOOK_SECRET` | Webhook signature verification |
+| `STRIPE_PRICE_{LITE,PRO,STUDIO}_{MONTHLY,ANNUAL}` | Six Price IDs (one per plan × interval) |
+| `DEV_BYPASS_EMAIL` | Optional. One account exempt from word quotas |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Database
 
-## Deploy on Vercel
+Run the SQL migrations in order against your Supabase project (SQL Editor):
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. `supabase/migrations/0001_auth_and_usage.sql` — profiles, usage, signup trigger, `increment_usage` RPC
+2. `supabase/migrations/0002_lite_plan.sql` — adds the Lite plan to the plan check constraint
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Stripe (local)
+
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
+
+Paste the signing secret into `STRIPE_WEBHOOK_SECRET`. Create Lite / Pro / Studio products with monthly and annual prices (annual = 50% off, billed yearly), then wire the six Price IDs into `.env.local`.
+
+---
+
+## Commands
+
+```bash
+pnpm dev              # Turbopack dev server (port 3000)
+pnpm build            # Production build
+pnpm start            # Serve production build
+pnpm lint             # ESLint
+pnpm test             # Vitest (all)
+pnpm vitest run lib/humanize.test.ts   # Single file
+pnpm eval:humanize    # Run corpus through the live humanize pipeline
+```
+
+Prefix installs with `CI=true` when you need non-interactive pnpm confirms.
+
+---
+
+## Project map
+
+```
+app/
+  page.tsx                 Landing (live detect → handoff to /app/humanize)
+  pricing/                 Plan comparison
+  login|signup|auth/       Supabase email/password auth
+  app/humanize/            The product: paste → detect → rewrite
+  app/billing/             Plan, usage, Stripe Checkout / Portal
+  api/humanize/            Multi-pass rewrite + quota enforcement
+  api/stripe/              Checkout, portal, webhook
+components/                UI (hero, score gauge, detection report, billing)
+lib/
+  detector.ts              Heuristic AI scorer (pure, sync, unit-tested)
+  humanize.ts              Provider-agnostic multi-pass pipeline
+  prompts.ts               System/user prompts + ANTI_TELL_RULES
+  usage.ts / plans.ts      Quotas, output caps, plan display copy
+  openai.ts / stripe.ts    Provider clients
+  supabase/                Auth helpers, proxy gate, service-role client
+docs/
+  BUILD_PLAN.md            Milestone roadmap
+  subscriptions.md         Pricing research + plan rationale
+```
+
+Auth is defense-in-depth: `proxy.ts` gates `/app/**`, and every API route also calls `requireUser()`.
+
+---
+
+## Plans
+
+| Plan | Monthly | Annual (billed yearly) | Words / month | Max words / request |
+| --- | --- | --- | --- | --- |
+| Free | $0 | $0 | 500 | 300 |
+| Lite | $9/mo | $5/mo | 10,000 | 800 |
+| Pro | $24/mo | $12/mo | 30,000 | 1,500 |
+| Studio | $49/mo | $24/mo | 100,000 | 2,500 |
+
+Annual is 50% off, shown as a discounted monthly rate (not a yearly lump sum). Numbers live in `lib/plans.ts`. Details and competitor context: [`docs/subscriptions.md`](docs/subscriptions.md).
+
+---
+
+## Architecture notes
+
+**Detector** (`lib/detector.ts`) — Heuristic proxy, not GPTZero. Scores 0–100 (higher = more human) on lexicon, burstiness, rhythm, and punctuation. Deliberately skeptical (`AI_LEAN_PENALTY`, raised thresholds): a false "human" is worse for the user than a false "AI." Real third-party detector APIs are planned (M4b), not yet funded.
+
+**Humanize pipeline** (`lib/humanize.ts`) — Takes a `rewrite` callback so the loop is unit-testable and the provider is swappable. Each pass rewrites, re-scores with `analyzeText`, and keeps the result only if the score improved. Stops at `targetScore` (default 85) or `maxPasses` (default 3). Rejects empty responses and rewrites that drift outside 0.5×–2× the original word count.
+
+**Prompts** (`lib/prompts.ts`) — Single source of truth for banned AI tells. Keep `ANTI_TELL_RULES` in sync with `LEXICON` in the detector.
+
+Deeper product context and agent working notes: [`CLAUDE.md`](CLAUDE.md). Roadmap: [`docs/BUILD_PLAN.md`](docs/BUILD_PLAN.md).
+
+---
+
+## Status
+
+**Live:** landing detect widget, multi-pass humanizer, per-sentence detection report, Supabase auth, per-plan quotas, Stripe subscriptions (Checkout / webhook / portal), `/pricing`.
+
+**Next priorities:** real detector API integration, humanizer hardening, `.docx` / `.pdf` upload, growth hooks. See the build plan for the full milestone list.

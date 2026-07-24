@@ -4,14 +4,23 @@
 
   Models the signals GPTZero-class detectors weight:
   - burstiness: variance in sentence length (humans vary, models flatten)
-  - rhythm: runs of consecutive same-length sentences
-  - lexicon: stock AI vocabulary and constructions
+  - rhythm: runs of same-length sentences, uniform paragraph blocks
+  - lexicon: stock AI vocabulary and constructions, old-gen and current-gen
+  - structure: formal transition openers, sentence-starter anaphora,
+    contrast-pivot pairs, pasted markdown formatting
+  - voice: contractions, first person, concrete numbers vs. hedged generality
   - punctuation: em-dash density, tricolon ("x, y, and z") stacking
 
   Scores are 0-100 where higher = reads more human.
 */
 
-export type FlagCategory = "lexicon" | "punctuation" | "rhythm" | "structure";
+export type FlagCategory =
+  | "lexicon"
+  | "punctuation"
+  | "rhythm"
+  | "structure"
+  | "opener"
+  | "hedging";
 
 export interface Flag {
   start: number;
@@ -22,7 +31,7 @@ export interface Flag {
 }
 
 export interface MetricScore {
-  id: "burstiness" | "rhythm" | "lexicon" | "punctuation";
+  id: "burstiness" | "rhythm" | "lexicon" | "punctuation" | "structure" | "voice";
   label: string;
   score: number;
   detail: string;
@@ -30,27 +39,68 @@ export interface MetricScore {
 
 export type Verdict = "human" | "mixed" | "ai";
 
+export interface SentenceScore {
+  text: string;
+  start: number;
+  end: number;
+  score: number;
+  verdict: Verdict;
+  reasons: string[];
+}
+
 export interface DetectorResult {
   score: number;
   verdict: Verdict;
   metrics: MetricScore[];
   flags: Flag[];
+  sentences: SentenceScore[];
   wordCount: number;
   sentenceCount: number;
   /** true when the sample is too short to score reliably */
   thin: boolean;
 }
 
+/*
+  Product decision, not an accuracy tweak: score skeptically. A flat penalty
+  plus raised verdict thresholds mean borderline text reads "ai" or "mixed"
+  more often than "human". A false "reads human" costs us a user who thinks
+  they're safe when they're not; a false "reads ai" just costs a re-check.
+  Tune these two constants to adjust the skew without touching the scoring
+  logic itself.
+*/
+const AI_LEAN_PENALTY = 10;
+const HUMAN_THRESHOLD = 75;
+const AI_THRESHOLD = 55;
+
+function verdictFor(score: number): Verdict {
+  return score >= HUMAN_THRESHOLD ? "human" : score >= AI_THRESHOLD ? "mixed" : "ai";
+}
+
+function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+  return aStart < bEnd && aEnd > bStart;
+}
+
+const SENTENCE_PENALTY: Record<FlagCategory, number> = {
+  lexicon: 22,
+  punctuation: 35,
+  structure: 25,
+  rhythm: 20,
+  opener: 16,
+  hedging: 8,
+};
+
 interface LexiconRule {
   pattern: RegExp;
   reason: string;
+  /** contribution toward the lexicon hit rate; default 1, use 0.5 for words humans also use */
+  weight?: number;
 }
 
 const LEXICON: LexiconRule[] = [
+  // --- old-gen slop (2023-era, still worth catching in pasted archives) ---
   { pattern: /\bdelv(?:e|es|ed|ing)\b/gi, reason: "“Delve” is the single most-cited AI verb" },
   { pattern: /\btapestry\b/gi, reason: "“Tapestry” is a stock AI metaphor" },
   { pattern: /\bin today['’]s (?:fast-paced|digital|ever-changing|rapidly evolving|modern)\b/gi, reason: "Stock AI opener" },
-  { pattern: /\b(?:it|this|that|he|she|AI)['’]s not (?:just|about|only) [^.!?\n]{3,60}?[,;.] (?:it|this|that)['’]s\b/gi, reason: "The “not just X, it's Y” pivot is a signature AI construction" },
   { pattern: /\bgame[- ]?changer\b/gi, reason: "Marketing filler detectors weight heavily" },
   { pattern: /\bunlock(?:ing|s)? (?:the )?(?:power|potential|secrets?|value)\b/gi, reason: "Stock AI promise" },
   { pattern: /\bseamless(?:ly)?\b/gi, reason: "“Seamless” is high-frequency AI filler" },
@@ -81,7 +131,133 @@ const LEXICON: LexiconRule[] = [
   { pattern: /\bever[- ]evolving\b/gi, reason: "Stock AI adjective" },
   { pattern: /\bstreamlin(?:e|es|ing|ed)\b/gi, reason: "“Streamline” is high-frequency AI filler" },
   { pattern: /\bfoster(?:ing|s)? (?:a|an|the|collaboration|innovation|growth)\b/gi, reason: "“Fostering” is a stock AI verb" },
+
+  // --- current-gen templates (what a 2025+ model writes when it avoids the list above) ---
+  { pattern: /\bone of the (?:most|biggest|best|key) [\w-]+ (?:advantages|benefits|ways|reasons|challenges|aspects|factors|steps|tools)?\b/gi, reason: "“One of the most ...” is a stock AI superlative frame", weight: 1 },
+  { pattern: /\bone of the (?:biggest|most important|most effective|most powerful|key) \w+\b/gi, reason: "“One of the most ...” is a stock AI superlative frame" },
+  { pattern: /\bplays? a (?:vital|key|central|crucial|critical|significant|major|pivotal|essential|important) (?:role|part)\b/gi, reason: "“Plays a vital role” is a stock AI construction" },
+  { pattern: /\bis not without its\b/gi, reason: "“Is not without its challenges” is a stock AI hedge frame" },
+  { pattern: /\bbest of both worlds\b/gi, reason: "Stock AI idiom" },
+  { pattern: /\bhere to stay\b/gi, reason: "“Here to stay” is a stock AI closer" },
+  { pattern: /\b(?:easier|faster|more \w+) than ever(?: before)?\b/gi, reason: "“Than ever before” is stock AI intensifier" },
+  { pattern: /\bmore (?:important|relevant|critical) than ever\b/gi, reason: "“More important than ever” is stock AI intensifier" },
+  { pattern: /\ba wide (?:range|variety|array) of\b/gi, reason: "“A wide range of” is high-frequency AI filler" },
+  { pattern: /\bwhen it comes to\b/gi, reason: "“When it comes to” is high-frequency AI filler", weight: 0.5 },
+  { pattern: /\bat the end of the day\b/gi, reason: "Stock AI idiom", weight: 0.5 },
+  { pattern: /\bhere['’]s the thing\b/gi, reason: "“Here's the thing” is a stock AI pivot opener" },
+  { pattern: /\bthe (?:truth|reality) is\b/gi, reason: "“The truth is ...” is a stock AI pivot opener", weight: 0.5 },
+  { pattern: /\blet['’]s (?:be honest|face it|break (?:it|this) down|dive in)\b/gi, reason: "“Let's break it down” is a stock AI opener" },
+  { pattern: /\bthe bottom line\b/gi, reason: "“The bottom line” is a stock AI closer", weight: 0.5 },
+  { pattern: /\bat its core\b/gi, reason: "“At its core” is a stock AI frame", weight: 0.5 },
+  { pattern: /\bin a world (?:where|of)\b/gi, reason: "“In a world where” is a stock AI opener" },
+  { pattern: /\bgone are the days\b/gi, reason: "“Gone are the days” is a stock AI opener" },
+  { pattern: /\bthat['’]s where [^.!?\n]{2,40} comes? in\b/gi, reason: "“That's where X comes in” is a stock AI construction" },
+  { pattern: /\baims? to\b/gi, reason: "“Aims to” is high-frequency AI filler", weight: 0.5 },
+  { pattern: /\bserves? as a\b/gi, reason: "“Serves as a” is high-frequency AI filler", weight: 0.5 },
+  { pattern: /\b(?:is|are) designed to\b/gi, reason: "“Is designed to” is high-frequency AI filler", weight: 0.5 },
+  { pattern: /\bfundamentally (?:chang|transform|reshap|alter)\w*\b/gi, reason: "“Fundamentally changed” is a stock AI intensifier" },
+  { pattern: /\bit['’]s (?:also )?(?:important|worth) (?:to note|noting|to remember|to understand|remembering)\b/gi, reason: "“It's worth noting” is a stock AI hedge" },
+  { pattern: /\bit is (?:also )?(?:important|worth) (?:to note|noting|to remember|to understand)\b/gi, reason: "“It is important to note” is a stock AI hedge" },
+  { pattern: /\bevery single (?:time|day|one)\b/gi, reason: "“Every single time” is a stock AI intensifier", weight: 0.5 },
+  { pattern: /\b(?:again and again|time and time again)\b/gi, reason: "Stock AI intensifier", weight: 0.5 },
+  { pattern: /\bmore than just\b/gi, reason: "“More than just” is a stock AI pivot", weight: 0.5 },
+  { pattern: /\b(?:is|are) no longer (?:just |about |whether )\b/gi, reason: "“No longer whether X but Y” is a stock AI frame" },
+  { pattern: /\bmatters? more than (?:most people|you might|you'd) (?:realize|think|expect)\b/gi, reason: "“More than most people realize” is a stock AI frame" },
+  { pattern: /\bBy [a-z]+ing\b[^.!?\n]{0,60}, (?:you|we|businesses|companies|organizations|teams) (?:can|will)\b/g, reason: "“By doing X, you can Y” is a stock AI construction" },
+  { pattern: /\bleverag(?:e|es|ing|ed)\b/gi, reason: "“Leverage” as a verb is high-frequency AI filler", weight: 0.5 },
+  { pattern: /\butiliz(?:e|es|ing|ed)\b/gi, reason: "“Utilize” where “use” would do is an AI tell", weight: 0.5 },
+  { pattern: /\bcomprehensive\b/gi, reason: "“Comprehensive” is high-frequency AI filler", weight: 0.5 },
+  { pattern: /\bempower(?:s|ing|ed)?\b/gi, reason: "“Empower” is a stock AI verb", weight: 0.5 },
+  { pattern: /\bunleash(?:es|ing|ed)?\b/gi, reason: "“Unleash” is a stock AI verb" },
+  { pattern: /\bmyriad\b/gi, reason: "“Myriad” is a stock AI noun" },
+  { pattern: /\bplethora\b/gi, reason: "“Plethora” is a stock AI noun" },
+  { pattern: /\btreasure trove\b/gi, reason: "Stock AI metaphor" },
+  { pattern: /\bunwavering\b/gi, reason: "“Unwavering” is a stock AI adjective" },
+  { pattern: /\bunparalleled\b/gi, reason: "“Unparalleled” is a stock AI adjective" },
+  { pattern: /\binvaluable\b/gi, reason: "“Invaluable” is a stock AI adjective", weight: 0.5 },
+  { pattern: /\bindispensable\b/gi, reason: "“Indispensable” is a stock AI adjective", weight: 0.5 },
+  { pattern: /\bholistic\b/gi, reason: "“Holistic” is a stock AI adjective", weight: 0.5 },
+  { pattern: /\bdouble[- ]edged sword\b/gi, reason: "Stock AI idiom" },
+  { pattern: /\bkey takeaways?\b/gi, reason: "“Key takeaway” is a stock AI frame" },
+  { pattern: /\bpro tip\b/gi, reason: "“Pro tip” is a stock AI frame", weight: 0.5 },
+  { pattern: /\brapidly (?:transform|evolv|chang|grow)\w*\b/gi, reason: "“Rapidly transforming” is a stock AI intensifier" },
+  { pattern: /\bincreasingly (?:popular|important|common|difficult|complex)\b/gi, reason: "“Increasingly popular” is a stock AI intensifier", weight: 0.5 },
+  { pattern: /\bcontinues? to (?:evolve|grow|expand|improve|advance|shrink)\b/gi, reason: "“Continues to evolve” is a stock AI construction", weight: 0.5 },
+  { pattern: /\bwill likely continue\b/gi, reason: "“Will likely continue” is a stock AI closer" },
+  { pattern: /\b(?:another|a) (?:significant|key|major|important|notable) (?:advantage|benefit|aspect|factor|consideration)\b/gi, reason: "“Another significant advantage” is the machine essay paragraph opener" },
+  { pattern: /\brole in shaping\b/gi, reason: "“Role in shaping” is a top AI trigram (writehuman 2026 corpus)" },
+  { pattern: /\bis essential for\b/gi, reason: "“Is essential for” is a top AI trigram (writehuman 2026 corpus)", weight: 0.5 },
+  { pattern: /\bin recent years\b/gi, reason: "“In recent years” is a formulaic AI opener" },
+  { pattern: /\bthis (?:paper|article|post|essay) (?:introduces|explores|examines|discusses)\b/gi, reason: "“This paper introduces” is a formulaic AI opener" },
 ];
+
+/*
+  Frequency tells: ordinary words statistically over-represented in AI text
+  (writehuman.ai 2026 corpus, 80k humanization pairs, ranked by G² against
+  the humanized versions; see public/dataset.csv). Humans use every one of
+  these, so no single hit means anything. AI text runs roughly 2.8 of them
+  per 100 words against a human baseline near 1.2, so only the density above
+  that baseline is penalized, and individual words are only flagged once the
+  text clearly leans on them.
+*/
+const FREQUENCY_TELLS: LexiconRule[] = [
+  { pattern: /\bensur(?:e|es|ing)(?: that)?\b/gi, reason: "“Ensuring” is the most AI-skewed word in the 2026 corpus" },
+  { pattern: /\bhighlight(?:s|ing)\b/gi, reason: "“Highlights” as a verb is heavily AI-skewed" },
+  { pattern: /\breflect(?:s|ing)\b/gi, reason: "“Reflects” is heavily AI-skewed" },
+  { pattern: /\balign(?:s|ing)? with\b/gi, reason: "“Aligns with” is heavily AI-skewed" },
+  { pattern: /\benabling\b/gi, reason: "“Enabling” is heavily AI-skewed" },
+  { pattern: /\bsignificantly\b/gi, reason: "“Significantly” is an AI-skewed intensifier" },
+  { pattern: /\beffectively\b/gi, reason: "“Effectively” is an AI-skewed intensifier" },
+  { pattern: /\bconsistently\b/gi, reason: "“Consistently” is an AI-skewed intensifier" },
+  { pattern: /\bcarefully\b/gi, reason: "“Carefully” is an AI-skewed adverb" },
+  { pattern: /\bwidely\b/gi, reason: "“Widely” is an AI-skewed adverb" },
+  { pattern: /\bstrongly\b/gi, reason: "“Strongly” is an AI-skewed adverb" },
+  { pattern: /\bmeaningful\b/gi, reason: "“Meaningful” is an AI-skewed adjective" },
+  { pattern: /\bstructured\b/gi, reason: "“Structured” is an AI-skewed adjective" },
+  { pattern: /\bgrounded\b/gi, reason: "“Grounded” is an AI-skewed adjective" },
+  { pattern: /\bbroader\b/gi, reason: "“Broader” is an AI-skewed adjective" },
+  { pattern: /\bessential\b/gi, reason: "“Essential” is an AI-skewed adjective" },
+  { pattern: /\bmaintaining\b/gi, reason: "“Maintaining” is an AI-skewed verb" },
+  { pattern: /\bsupporting\b/gi, reason: "“Supporting” is an AI-skewed verb" },
+  { pattern: /\bcontribut(?:e|es|ing) to\b/gi, reason: "“Contribute to” is AI-skewed" },
+  { pattern: /\breduc(?:e|es|ing)\b/gi, reason: "“Reducing” is AI-skewed", weight: 0.5 },
+  { pattern: /\binsights?\b/gi, reason: "“Insights” is AI-skewed", weight: 0.5 },
+  { pattern: /\brather than\b/gi, reason: "“Rather than” is the strongest multi-word AI indicator in the 2026 corpus" },
+  { pattern: /\bsuch as\b/gi, reason: "“Such as” is AI-skewed", weight: 0.5 },
+  { pattern: /\bdirectly\b/gi, reason: "“Directly” is an AI-skewed adverb", weight: 0.5 },
+];
+
+/*
+  The "not just X. It's Y" contrast pivot, in all its modern spellings. One
+  such contrast is ordinary rhetoric; models stack them, so like tricolons
+  they only count when they repeat.
+*/
+const CONTRAST_RULES: LexiconRule[] = [
+  { pattern: /\b(?:it|this|that|he|she|AI)['’]s not (?:just|only|merely|simply|about) [^.!?\n]{3,60}?[,;.] (?:it|this|that)['’]s\b/gi, reason: "The “not just X, it's Y” pivot is a signature AI construction" },
+  { pattern: /\b(?:isn|aren|doesn|don|won|wasn|weren)['’]t (?:just|only|merely|simply|about)\b/gi, reason: "The “isn't just X” pivot is a signature AI construction" },
+  { pattern: /\b(?:isn|aren|doesn|don|won)['’]t\b[^.!?\n]{0,60}[.!?] (?:It|They|That|This)(?:['’]s|['’]re| is| are| will|['’]ll)\b/g, reason: "Back-to-back “not X. It's Y” contrast pair is a signature AI rhythm" },
+  { pattern: /^(?:It|They|That|This) (?:doesn|don|isn|aren|won|didn)['’]t\.$/gm, reason: "The one-line “It doesn't.” contradiction is a stock AI punch" },
+];
+
+/** Formal transition sentence-openers. One is normal; a pileup is a tell. */
+const TRANSITION_OPENER =
+  /^(?:However|Furthermore|Moreover|Additionally|Ultimately|Overall|Finally|Firstly|Secondly|Thirdly|Consequently|Therefore|Thus|Likewise|Similarly|Meanwhile|Notably|Importantly|Crucially|Instead|In addition|In conclusion|In essence|In short|In fact|In summary|As a result|On the other hand|That said|Beyond that|More importantly|To address|To understand|To combat|The (?:first|second|third|next|final) step|For example|For instance|First|Second|Third|Lastly)\b[,:]?/;
+
+/** Hedged-generality markers. Only flagged when the whole text leans on them. */
+const HEDGES: RegExp[] = [
+  /\bcan (?:help|lead to|make|create|improve|boost|reduce|enhance)\b/gi,
+  /\b(?:may|might) (?:find|help|seem|be|feel|struggle|vary)\b/gi,
+  /\b(?:often|typically|generally|usually|frequently)\b/gi,
+  /\btends? to\b/gi,
+  /\b(?:research|studies|science) (?:suggests?|shows?|indicates?|has shown|have shown)\b/gi,
+  /\bhas been shown to\b/gi,
+  /\b(?:many|most|some) (?:people|of us|experts|companies|businesses|workers|employees)\b/gi,
+];
+
+const CONTRACTION_RE =
+  /\b(?:\w+n['’]t|(?:I|you|we|they|it|that|there|here|he|she|who|what|let)['’](?:s|re|ve|ll|d|m))\b/gi;
+
+const FIRST_PERSON_RE = /\b(?:I|I['’]m|I['’]ve|I['’]d|I['’]ll|me|my|mine)\b/g;
 
 const clamp = (n: number, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
 
@@ -123,15 +299,16 @@ function stdev(nums: number[]): number {
   return Math.sqrt(v);
 }
 
-export function analyzeText(text: string): DetectorResult {
-  const wordCount = countWords(text);
-  const sentences = splitSentences(text);
+function coefficientOfVariation(nums: number[]): number {
+  if (nums.length < 2) return 0;
+  const mean = nums.reduce((a, b) => a + b, 0) / nums.length;
+  return mean > 0 ? stdev(nums) / mean : 0;
+}
+
+function collectMatches(text: string, rules: LexiconRule[], category: FlagCategory): { flags: Flag[]; weighted: number } {
   const flags: Flag[] = [];
-
-  const thin = wordCount < 40 || sentences.length < 3;
-
-  // --- Lexicon ---
-  for (const rule of LEXICON) {
+  let weighted = 0;
+  for (const rule of rules) {
     rule.pattern.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = rule.pattern.exec(text)) !== null) {
@@ -140,13 +317,41 @@ export function analyzeText(text: string): DetectorResult {
         end: m.index + m[0].length,
         text: m[0],
         reason: rule.reason,
-        category: "lexicon",
+        category,
       });
+      weighted += rule.weight ?? 1;
       if (m.index === rule.pattern.lastIndex) rule.pattern.lastIndex++;
     }
   }
-  const lexHitsPer100 = wordCount > 0 ? (flags.length / wordCount) * 100 : 0;
-  const lexiconScore = clamp(100 - lexHitsPer100 * 28);
+  return { flags, weighted };
+}
+
+export function analyzeText(text: string): DetectorResult {
+  const wordCount = countWords(text);
+  const sentences = splitSentences(text);
+  const flags: Flag[] = [];
+
+  const thin = wordCount < 40 || sentences.length < 3;
+
+  // --- Lexicon: stock phrases, old-gen and current-gen ---
+  const lex = collectMatches(text, LEXICON, "lexicon");
+  flags.push(...lex.flags);
+  const lexHitsPer100 = wordCount > 0 ? (lex.weighted / wordCount) * 100 : 0;
+
+  // Frequency tells only count as density above the human baseline, and only
+  // get flagged (report + rewrite feedback) once the lean is unambiguous.
+  const freq = collectMatches(text, FREQUENCY_TELLS, "lexicon");
+  // flat allowance first (a couple of these words is just writing), then the
+  // remaining density is measured against the human baseline
+  const freqAdjusted = Math.max(0, freq.weighted - 1.5);
+  const freqPer100 = wordCount > 0 ? (freqAdjusted / wordCount) * 100 : 0;
+  const freqExcess = Math.max(0, freqPer100 - 1.0);
+  const freqLeaning = !thin && freqPer100 >= 1.8;
+  if (freqLeaning) flags.push(...freq.flags);
+
+  const lexiconScore = clamp(
+    100 - lexHitsPer100 * 26 - (thin ? 0 : Math.min(freqExcess * 20, 45))
+  );
 
   // --- Punctuation: em dashes + tricolons ---
   const punctFlags: Flag[] = [];
@@ -163,7 +368,10 @@ export function analyzeText(text: string): DetectorResult {
   }
   const dashPer100 = wordCount > 0 ? (punctFlags.length / wordCount) * 100 : 0;
 
-  const triRe = /\b[\w'’-]+, [\w'’-]+, and [\w'’-]+\b/g;
+  // serial lists with up to three words per item, e.g. "improve efficiency,
+  // increase productivity, and save valuable time"
+  const triRe =
+    /\b(?:[\w'’-]+ ){0,2}[\w'’-]+, (?:[\w'’-]+ ){0,2}[\w'’-]+, (?:[\w'’-]+, )*and (?:[\w'’-]+ ){0,2}[\w'’-]+\b/g;
   const triMatches: Flag[] = [];
   let tm: RegExpExecArray | null;
   while ((tm = triRe.exec(text)) !== null) {
@@ -171,27 +379,27 @@ export function analyzeText(text: string): DetectorResult {
       start: tm.index,
       end: tm.index + tm[0].length,
       text: tm[0],
-      reason: "Stacked rule-of-three lists (x, y, and z) read machine-written",
+      reason: "Stacked serial lists (x, y, and z) read machine-written",
       category: "structure",
     });
   }
-  // one tricolon is normal writing; repetition is the tell
-  if (triMatches.length >= 2) flags.push(...triMatches);
+  // a couple of serial lists are normal writing; a pileup is the tell
+  const triStacked = triMatches.length >= 3;
+  if (triStacked) flags.push(...triMatches);
   flags.push(...punctFlags);
 
   const triPerSentence = sentences.length > 0 ? triMatches.length / sentences.length : 0;
   const punctuationScore = clamp(
-    100 - dashPer100 * 55 - (triMatches.length >= 2 ? triPerSentence * 160 : 0)
+    100 - dashPer100 * 55 - (triStacked ? triPerSentence * 160 : 0)
   );
 
   // --- Burstiness ---
   const lens = sentences.map((s) => s.words);
-  const mean = lens.length ? lens.reduce((a, b) => a + b, 0) / lens.length : 0;
-  const cv = mean > 0 ? stdev(lens) / mean : 0;
-  // human prose usually lands around cv 0.5-0.8; model prose 0.15-0.35
-  const burstinessScore = thin ? 60 : clamp((cv / 0.55) * 100);
+  const cv = coefficientOfVariation(lens);
+  // human prose usually lands around cv 0.5-0.8; model prose 0.2-0.45
+  const burstinessScore = thin ? 60 : clamp(((cv - 0.15) / 0.35) * 100);
 
-  // --- Rhythm: runs of near-identical sentence lengths ---
+  // --- Rhythm: runs of near-identical sentence lengths + uniform paragraphs ---
   let uniformRuns = 0;
   let runStart = -1;
   for (let i = 1; i < sentences.length; i++) {
@@ -222,9 +430,211 @@ export function analyzeText(text: string): DetectorResult {
       category: "rhythm",
     });
   }
-  const rhythmScore = thin ? 60 : clamp(100 - uniformRuns * 30 - (cv < 0.25 ? 25 : 0));
+
+  // Uniform paragraph blocks: the essay template (intro, N same-size bodies,
+  // conclusion) produces paragraphs of near-identical length. Doc-level flag
+  // only (zero-length range) so it informs the rewrite without smearing every
+  // sentence in the report.
+  const paraLens = text
+    .split(/\n\s*\n+/)
+    .map((p) => countWords(p))
+    .filter((w) => w >= 15);
+  const paraCv = coefficientOfVariation(paraLens);
+  const uniformParagraphs = paraLens.length >= 4 && paraCv < 0.25;
+  if (uniformParagraphs) {
+    flags.push({
+      start: 0,
+      end: 0,
+      text: "",
+      reason: "Every paragraph is nearly the same length: the machine essay template",
+      category: "rhythm",
+    });
+  }
+
+  const rhythmScore = thin
+    ? 60
+    : clamp(100 - uniformRuns * 30 - (cv < 0.25 ? 25 : 0) - (uniformParagraphs ? 30 : 0));
+
+  // --- Structure: transition openers, anaphora, contrast pivots, markdown ---
+  const openerFlags: Flag[] = [];
+  for (const s of sentences) {
+    const m = TRANSITION_OPENER.exec(s.text);
+    if (m) {
+      openerFlags.push({
+        start: s.start,
+        end: s.start + m[0].length,
+        text: m[0],
+        reason: "Formal transition openers (However, Additionally, Finally) are how models glue paragraphs",
+        category: "opener",
+      });
+    }
+  }
+  // one formal transition is normal writing; a pileup is the tell
+  if (openerFlags.length >= 2) flags.push(...openerFlags);
+  const openerRatio =
+    sentences.length > 0 ? Math.max(0, openerFlags.length - 1) / sentences.length : 0;
+
+  let anaphoraRuns = 0;
+  const firstWords = sentences.map((s) => (s.text.split(/\s+/)[0] ?? "").toLowerCase());
+  let aStart = -1;
+  for (let i = 1; i <= sentences.length; i++) {
+    const same =
+      i < sentences.length &&
+      firstWords[i].length >= 2 && // exempt "I", legitimate in diary-style prose
+      firstWords[i] === firstWords[i - 1];
+    if (same) {
+      if (aStart === -1) aStart = i - 1;
+    } else {
+      if (aStart !== -1 && i - aStart >= 3) {
+        anaphoraRuns++;
+        flags.push({
+          start: sentences[aStart].start,
+          end: sentences[i - 1].end,
+          text: "",
+          reason: "Three or more sentences in a row opening with the same word: machine anaphora",
+          category: "structure",
+        });
+      }
+      aStart = -1;
+    }
+  }
+
+  // "This allows... These questions... This means..." as the glue between
+  // sentences: models lean on demonstrative openers to chain claims.
+  const demoStarts = sentences.filter((s) => /^(?:This|These) [a-z]/.test(s.text));
+  const demoRatio = sentences.length > 0 ? demoStarts.length / sentences.length : 0;
+  const demoExcess = Math.max(0, demoRatio - 0.09);
+  if (demoStarts.length >= 3 && demoExcess > 0) {
+    for (const s of demoStarts) {
+      flags.push({
+        start: s.start,
+        end: s.start + s.text.split(/\s+/).slice(0, 2).join(" ").length,
+        text: s.text.split(/\s+/).slice(0, 2).join(" "),
+        reason: "Sentences chained with “This ...” or “These ...” openers: machine glue between claims",
+        category: "opener",
+      });
+    }
+  }
+
+  const contrast = collectMatches(text, CONTRAST_RULES, "structure");
+  // one contrast pivot is ordinary rhetoric; models stack them
+  if (contrast.flags.length >= 2) flags.push(...contrast.flags);
+  const contrastCount = contrast.flags.length >= 2 ? contrast.flags.length : 0;
+
+  // Pasted ChatGPT markdown: headers and bold-led bullets
+  const mdFlags: Flag[] = [];
+  const mdRe = /^(?:#{1,4} .+|\s*[-*•] \*\*[^*\n]+\*\*.*)$/gm;
+  let mdm: RegExpExecArray | null;
+  while ((mdm = mdRe.exec(text)) !== null) {
+    mdFlags.push({
+      start: mdm.index,
+      end: mdm.index + mdm[0].length,
+      text: mdm[0].slice(0, 40),
+      reason: "Markdown headers and bold-led bullets are the raw ChatGPT export format",
+      category: "structure",
+    });
+  }
+  flags.push(...mdFlags);
+
+  const structureScore = thin
+    ? 60
+    : clamp(
+        100 -
+          openerRatio * 300 -
+          (demoStarts.length >= 3 ? demoExcess * 250 : 0) -
+          anaphoraRuns * 25 -
+          contrastCount * 15 -
+          Math.min(mdFlags.length * 18, 45)
+      );
+
+  // --- Voice: contractions, first person, concrete numbers vs. hedging ---
+  const contractions = (text.match(CONTRACTION_RE) ?? []).length;
+  const contractionRate = wordCount > 0 ? (contractions / wordCount) * 100 : 0;
+  const firstPerson = (text.match(FIRST_PERSON_RE) ?? []).length;
+  const digitTokens = (text.match(/(?:^|\s)[$€£]?\d[\d,.:%]*/g) ?? []).length;
+
+  const hedgeFlags: Flag[] = [];
+  for (const h of HEDGES) {
+    h.lastIndex = 0;
+    let hm: RegExpExecArray | null;
+    while ((hm = h.exec(text)) !== null) {
+      hedgeFlags.push({
+        start: hm.index,
+        end: hm.index + hm[0].length,
+        text: hm[0],
+        reason: "Hedged generality (can help, research suggests, many people) with no concrete detail",
+        category: "hedging",
+      });
+    }
+  }
+  const hedgesPer100 = wordCount > 0 ? (hedgeFlags.length / wordCount) * 100 : 0;
+  // sparse hedging is normal writing; flag it only when the text leans on it
+  if (hedgesPer100 >= 1.5) flags.push(...hedgeFlags);
+
+  const voiceScore = thin
+    ? 60
+    : clamp(
+        28 +
+          Math.min(contractionRate * 14, 42) +
+          (firstPerson > 0 ? 12 : 0) +
+          (digitTokens > 0 ? 12 : 0) -
+          hedgesPer100 * 9
+      );
+
+  const voiceDetail = thin
+    ? "Not enough text to measure"
+    : [
+        contractionRate < 0.5 ? "no contractions" : null,
+        firstPerson === 0 ? "no first person" : null,
+        digitTokens === 0 ? "no concrete numbers" : null,
+        hedgesPer100 >= 1.5 ? "heavy hedging" : null,
+      ]
+        .filter(Boolean)
+        .join(", ") || "Contractions, specifics, and a real point of view";
 
   const metrics: MetricScore[] = [
+    {
+      id: "lexicon",
+      label: "Vocabulary",
+      score: Math.round(lexiconScore),
+      detail:
+        lex.flags.length > 0 || freqLeaning
+          ? [
+              lex.flags.length > 0
+                ? `${lex.flags.length} stock AI phrase${lex.flags.length > 1 ? "s" : ""} found`
+                : null,
+              freqLeaning
+                ? `leans on AI-skewed vocabulary (${freqPer100.toFixed(1)} per 100 words)`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(", ")
+          : "No stock AI phrases",
+    },
+    {
+      id: "structure",
+      label: "Structure",
+      score: Math.round(structureScore),
+      detail: thin
+        ? "Not enough text to measure"
+        : openerFlags.length >= 2 || demoStarts.length >= 3 || anaphoraRuns > 0 || contrastCount > 0 || mdFlags.length > 0
+          ? [
+              openerFlags.length >= 2 ? `${openerFlags.length} formal transition openers` : null,
+              demoStarts.length >= 3 ? `${demoStarts.length} “This/These ...” sentence openers` : null,
+              anaphoraRuns > 0 ? "repeated sentence starters" : null,
+              contrastCount > 0 ? `${contrastCount} stacked contrast pivots` : null,
+              mdFlags.length > 0 ? "raw markdown formatting" : null,
+            ]
+              .filter(Boolean)
+              .join(", ")
+          : "No templated structure",
+    },
+    {
+      id: "voice",
+      label: "Voice",
+      score: Math.round(voiceScore),
+      detail: voiceDetail,
+    },
     {
       id: "burstiness",
       label: "Burstiness",
@@ -238,18 +648,16 @@ export function analyzeText(text: string): DetectorResult {
       label: "Rhythm",
       score: Math.round(rhythmScore),
       detail:
-        uniformRuns > 0
-          ? `${uniformRuns} flat run${uniformRuns > 1 ? "s" : ""} of same-length sentences`
+        uniformRuns > 0 || uniformParagraphs
+          ? [
+              uniformRuns > 0
+                ? `${uniformRuns} flat run${uniformRuns > 1 ? "s" : ""} of same-length sentences`
+                : null,
+              uniformParagraphs ? "uniform paragraph lengths" : null,
+            ]
+              .filter(Boolean)
+              .join(", ")
           : "No flat sentence runs",
-    },
-    {
-      id: "lexicon",
-      label: "Vocabulary",
-      score: Math.round(lexiconScore),
-      detail:
-        flags.filter((f) => f.category === "lexicon").length > 0
-          ? `${flags.filter((f) => f.category === "lexicon").length} stock AI phrase${flags.filter((f) => f.category === "lexicon").length > 1 ? "s" : ""} found`
-          : "No stock AI phrases",
     },
     {
       id: "punctuation",
@@ -257,26 +665,46 @@ export function analyzeText(text: string): DetectorResult {
       score: Math.round(punctuationScore),
       detail:
         punctFlags.length > 0
-          ? `${punctFlags.length} em dash${punctFlags.length > 1 ? "es" : ""}${triMatches.length >= 2 ? `, ${triMatches.length} stacked lists` : ""}`
-          : triMatches.length >= 2
-            ? `${triMatches.length} stacked rule-of-three lists`
+          ? `${punctFlags.length} em dash${punctFlags.length > 1 ? "es" : ""}${triStacked ? `, ${triMatches.length} stacked lists` : ""}`
+          : triStacked
+            ? `${triMatches.length} stacked serial lists`
             : "Clean",
     },
   ];
 
-  const score = Math.round(
-    lexiconScore * 0.3 + burstinessScore * 0.25 + rhythmScore * 0.25 + punctuationScore * 0.2
-  );
-
-  const verdict: Verdict = score >= 70 ? "human" : score >= 45 ? "mixed" : "ai";
+  const rawScore =
+    lexiconScore * 0.25 +
+    structureScore * 0.2 +
+    voiceScore * 0.2 +
+    burstinessScore * 0.15 +
+    rhythmScore * 0.1 +
+    punctuationScore * 0.1;
+  const score = clamp(Math.round(rawScore) - AI_LEAN_PENALTY);
+  const verdict = verdictFor(score);
 
   flags.sort((a, b) => a.start - b.start);
+
+  const sentenceScores: SentenceScore[] = sentences.map((s) => {
+    const hits = flags.filter((f) => overlaps(s.start, s.end, f.start, f.end));
+    const penalty = hits.reduce((sum, f) => sum + SENTENCE_PENALTY[f.category], 0);
+    const sScore = clamp(100 - penalty - AI_LEAN_PENALTY);
+    const reasons = Array.from(new Set(hits.map((f) => f.reason))).slice(0, 4);
+    return {
+      text: s.text,
+      start: s.start,
+      end: s.end,
+      score: sScore,
+      verdict: verdictFor(sScore),
+      reasons,
+    };
+  });
 
   return {
     score,
     verdict,
     metrics,
     flags,
+    sentences: sentenceScores,
     wordCount,
     sentenceCount: sentences.length,
     thin,

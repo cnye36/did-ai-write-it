@@ -9,8 +9,14 @@ import { analyzeText, type DetectorResult } from "./detector";
   at most `maxPasses`. Provider-agnostic: the caller supplies `rewrite`.
 */
 
+/*
+  85 is deliberately just above the detector's "human" verdict threshold (75):
+  solidly human, and actually reachable. Impersonal third-person copy caps out
+  around 84-86 under the skeptical scoring (no first person, no concrete
+  numbers), so a higher target would burn the whole pass budget on every run.
+*/
 export const DEFAULT_TARGET_SCORE = 85;
-export const DEFAULT_MAX_PASSES = 3;
+export const DEFAULT_MAX_PASSES = 4;
 
 /** Guards against a rewrite that drops or invents content instead of rephrasing. */
 const MIN_LENGTH_RATIO = 0.5;

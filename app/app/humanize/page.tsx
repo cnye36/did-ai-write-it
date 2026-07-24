@@ -11,6 +11,7 @@ import {
 import { analyzeText, type MetricScore, type Verdict } from "@/lib/detector";
 import { HANDOFF_KEY } from "@/lib/handoff";
 import { ScoreGauge } from "@/components/score-gauge";
+import { DetectionReport } from "@/components/detection-report";
 
 interface Summary {
   score: number;
@@ -174,6 +175,8 @@ export default function HumanizePage() {
       {error && (
         <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{error}</p>
       )}
+
+      {live.wordCount >= 15 && <DetectionReport text={input} result={live} />}
 
       {result && (
         <div className="rounded-2xl border border-line bg-raised p-6">

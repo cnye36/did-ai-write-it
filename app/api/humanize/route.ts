@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { errorResponse, MaxOutputWordsExceededError, QuotaExceededError } from "@/lib/api-errors";
-import { getOpenAI, OPENAI_MODEL } from "@/lib/openai";
+import { createSampledCompletion, getOpenAI, OPENAI_MODEL } from "@/lib/openai";
 import { buildHumanizeSystem, buildHumanizeUser } from "@/lib/prompts";
 import { runHumanizePipeline } from "@/lib/humanize";
 import { analyzeText, type DetectorResult } from "@/lib/detector";
@@ -66,14 +66,28 @@ export async function POST(req: NextRequest) {
     const outcome = await runHumanizePipeline(
       text,
       async ({ text: current, result, pass }) => {
-        const completion = await client.chat.completions.create({
+        // Sampled hot on purpose: detectors score token predictability, so
+        // rarer word choices are the point. n=2 buys a second candidate for
+        // only the extra output tokens. Knobs the model rejects are dropped
+        // automatically (OpenAI reasoning models take none of them).
+        const completion = await createSampledCompletion(client, {
           model: OPENAI_MODEL,
           messages: [
             { role: "system", content: system },
             { role: "user", content: buildHumanizeUser(current, result, pass) },
           ],
+          temperature: 1.2,
+          frequency_penalty: 0.4,
+          presence_penalty: 0.2,
+          n: 2,
         });
-        return completion.choices[0]?.message?.content ?? "";
+        const candidates = completion.choices
+          .map((c) => c.message?.content?.trim() ?? "")
+          .filter(Boolean);
+        if (candidates.length === 0) return "";
+        return candidates.reduce((best, c) =>
+          analyzeText(c).score > analyzeText(best).score ? c : best
+        );
       },
       { targetScore: body.targetScore, maxPasses: body.maxPasses }
     );

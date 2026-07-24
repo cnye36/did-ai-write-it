@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# humanizer eval output (pasted into external detectors by hand)
+/scripts/eval-output/
+
 # vercel
 .vercel
 

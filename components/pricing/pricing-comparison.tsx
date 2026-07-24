@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CheckIcon, MinusIcon } from "@phosphor-icons/react";
-import { PLAN_INFO, PLAN_ORDER, priceForInterval, type BillingInterval } from "@/lib/plans";
+import { PLAN_INFO, PLAN_ORDER, formatPlanPrice, priceForInterval, type BillingInterval } from "@/lib/plans";
 import { IntervalToggle } from "@/components/billing/interval-toggle";
 
 type Cell = boolean | string;
@@ -94,7 +94,7 @@ export function PricingComparison() {
         {PLAN_ORDER.map((plan) => {
           const info = PLAN_INFO[plan];
           const highlight = plan === "pro";
-          const price = priceForInterval(info.priceMonthly, interval);
+          const price = priceForInterval(plan, interval);
           return (
             <div
               key={plan}
@@ -104,10 +104,8 @@ export function PricingComparison() {
             >
               <h3 className="font-semibold tracking-tight">{info.name}</h3>
               <p className="mt-1 font-mono text-2xl font-semibold">
-                ${price}
-                <span className="text-sm font-normal text-muted">
-                  /{interval === "year" ? "yr" : "mo"}
-                </span>
+                ${formatPlanPrice(price)}
+                <span className="text-sm font-normal text-muted">/mo</span>
               </p>
               <ul className="mt-4 flex-1 space-y-2 text-sm leading-relaxed text-muted">
                 {info.features.map((f) => (

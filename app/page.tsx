@@ -12,7 +12,7 @@ import {
 import { HumanizerHero } from "@/components/humanizer-hero";
 import { SiteHeader } from "@/components/site-header";
 import { Reveal } from "@/components/reveal";
-import { PLAN_INFO, PLAN_ORDER } from "@/lib/plans";
+import { PLAN_INFO, PLAN_ORDER, formatPlanPrice } from "@/lib/plans";
 
 const STEPS = [
   {
@@ -231,7 +231,7 @@ export default function Landing() {
                 >
                   <h3 className="font-semibold tracking-tight">{info.name}</h3>
                   <p className="mt-1 font-mono text-2xl font-semibold">
-                    ${info.priceMonthly}
+                    ${formatPlanPrice(info.priceMonthly)}
                     <span className="text-sm font-normal text-muted">/mo</span>
                   </p>
                   <ul className="mt-4 flex-1 space-y-2 text-sm leading-relaxed text-muted">

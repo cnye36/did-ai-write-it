@@ -5,23 +5,28 @@ export type BillingInterval = "month" | "year";
 export interface PlanInfo {
   plan: Plan;
   name: string;
+  /** List price when billed monthly. */
   priceMonthly: number;
+  /** Effective monthly rate when billed annually (50% off). Always shown as /mo. */
+  priceAnnualMonthly: number;
   features: string[];
 }
 
 export const PLAN_ORDER: Plan[] = ["free", "lite", "pro", "studio"];
 
-/** Annual plans bill for 10 months, so 2 are free. */
-export const ANNUAL_MONTHS_FREE = 2;
+/** Annual billing is half the monthly list price. */
+export const ANNUAL_DISCOUNT_PERCENT = 50;
 
-export function annualPrice(priceMonthly: number): number {
-  return priceMonthly * (12 - ANNUAL_MONTHS_FREE);
+/** Display price for a plan at a given billing interval (always a monthly rate). */
+export function priceForInterval(plan: Plan, interval: BillingInterval): number {
+  const info = PLAN_INFO[plan];
+  if (info.priceMonthly === 0) return 0;
+  return interval === "year" ? info.priceAnnualMonthly : info.priceMonthly;
 }
 
-/** Price to display for a plan at a given billing interval. */
-export function priceForInterval(priceMonthly: number, interval: BillingInterval): number {
-  if (priceMonthly === 0) return 0;
-  return interval === "year" ? annualPrice(priceMonthly) : priceMonthly;
+/** Format a plan price for UI ($2.5 → "2.50", $24 → "24"). */
+export function formatPlanPrice(price: number): string {
+  return Number.isInteger(price) ? String(price) : price.toFixed(2);
 }
 
 export const PLAN_INFO: Record<Plan, PlanInfo> = {
@@ -29,6 +34,7 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     plan: "free",
     name: "Free",
     priceMonthly: 0,
+    priceAnnualMonthly: 0,
     features: [
       "Unlimited AI detection",
       "Full signal breakdown",
@@ -40,6 +46,7 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     plan: "lite",
     name: "Lite",
     priceMonthly: 9,
+    priceAnnualMonthly: 5,
     features: [
       `${PLAN_LIMITS.lite.toLocaleString()} humanized words / month`,
       `${PLAN_MAX_OUTPUT_WORDS.lite.toLocaleString()} words max per request`,
@@ -49,7 +56,8 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
   pro: {
     plan: "pro",
     name: "Pro",
-    priceMonthly: 19,
+    priceMonthly: 24,
+    priceAnnualMonthly: 12,
     features: [
       `${PLAN_LIMITS.pro.toLocaleString()} humanized words / month`,
       `${PLAN_MAX_OUTPUT_WORDS.pro.toLocaleString()} words max per request`,
@@ -59,7 +67,8 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
   studio: {
     plan: "studio",
     name: "Studio",
-    priceMonthly: 39,
+    priceMonthly: 49,
+    priceAnnualMonthly: 24,
     features: [
       `${PLAN_LIMITS.studio.toLocaleString()} humanized words / month`,
       `${PLAN_MAX_OUTPUT_WORDS.studio.toLocaleString()} words max per request`,

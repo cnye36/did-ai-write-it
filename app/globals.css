@@ -82,6 +82,24 @@ mark[data-flag] {
   cursor: help;
 }
 
+mark[data-severity="ai"] {
+  background: var(--bad-soft);
+  color: inherit;
+  border-bottom: 1.5px solid var(--bad);
+  border-radius: 2px;
+  padding: 0 1px;
+  cursor: help;
+}
+
+mark[data-severity="mixed"] {
+  background: var(--warn-soft);
+  color: inherit;
+  border-bottom: 1.5px solid var(--warn);
+  border-radius: 2px;
+  padding: 0 1px;
+  cursor: help;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

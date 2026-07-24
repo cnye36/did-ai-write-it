@@ -18,3 +18,35 @@ export function getOpenAI(): OpenAI {
     baseURL: process.env.OPENAI_BASE_URL,
   });
 }
+
+/*
+  Create a completion with sampling knobs (temperature, penalties, n) that not
+  every model accepts: OpenAI's reasoning models reject them outright, while
+  open models behind OPENAI_BASE_URL support them all. Whichever parameter the
+  provider rejects gets dropped and the request retried, so the same call works
+  everywhere and uses as much sampling heat as the model allows.
+*/
+export async function createSampledCompletion(
+  client: OpenAI,
+  params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
+): Promise<OpenAI.Chat.Completions.ChatCompletion> {
+  const p = { ...params };
+  for (;;) {
+    try {
+      return await client.chat.completions.create(p);
+    } catch (err) {
+      if (
+        err instanceof OpenAI.APIError &&
+        typeof err.param === "string" &&
+        (err.code === "unsupported_value" ||
+          err.code === "unsupported_parameter" ||
+          err.code === "unknown_parameter") &&
+        err.param in p
+      ) {
+        delete (p as unknown as Record<string, unknown>)[err.param];
+        continue;
+      }
+      throw err;
+    }
+  }
+}

@@ -39,12 +39,32 @@ detector pass reports, API access).
 - **M3 — Lint debt cleanup.** Two `set-state-in-effect` ESLint errors remain (`theme-toggle.tsx`,
   `app/app/humanize/page.tsx`) — both read/write client-only state inside a `useEffect`. Fix with a
   shared `useLocalStorage`/`useSyncExternalStore`-style pattern.
-- **M4 — Real detector integration (promoted, now the top product priority).** `analyzeText` is a
-  heuristic proxy, not a real detector — the whole "great detector + great humanizer" strategy leans
-  on closing this gap. Integrate a real detector API (GPTZero/Originality/Copyleaks) for verified
-  scoring, and/or substantially strengthen the heuristic so its flag rate actually correlates with
-  theirs. Unlocks the "real detector pass reports" Studio feature and the "guaranteed pass" claims
-  already teased (as "Coming soon") on `/pricing`.
+- **M4 — Real detector integration (top product priority, split in two).**
+  - **M4a — Free heuristic hardening. Done.** `analyzeText` (`lib/detector.ts`) now scores every
+    sentence individually, not just the whole document (`DetectorResult.sentences`), and applies an
+    explicit `AI_LEAN_PENALTY` plus raised verdict thresholds (`HUMAN_THRESHOLD`/`AI_THRESHOLD`) —
+    a deliberate product decision to score skeptically, not an accuracy claim: a false "reads human"
+    costs a user who thinks they're safe when they're not, which is worse than a false "reads ai."
+    Backing regression test (`lib/detector.test.ts`): a realistic, unedited generic AI blog post must
+    not verdict "human." `components/detection-report.tsx` renders the line-by-line breakdown (every
+    flagged sentence highlighted with its reasons) — free/anonymous users on the landing widget see
+    only the first flagged sentence plus a signup gate for the rest; logged-in users on
+    `/app/humanize` see the full report, live, as they type.
+  - **Investigated and ruled out: perplexity via our own OpenAI calls.** True perplexity needs
+    log-probabilities for text *you feed the model*, not text it generates. That only ever existed on
+    OpenAI's legacy Completions API (`echo` + `logprobs`), tied to old base models mostly already shut
+    down (fully sunsetting September 2026); `gpt-5.5` is Chat-Completions-only and its `logprobs` only
+    cover the model's own generated tokens. Confirmed against OpenAI's deprecations docs, not assumed.
+    A real path exists (an open-weight base model via a serverless provider that still exposes
+    `echo`/`logprobs`, using the same `OPENAI_BASE_URL`-swap architecture noted below) but that's a
+    new per-call cost and its own feasibility spike — not attempted this round.
+  - **M4b — Integrate a real third-party detector API. Committed, not yet funded.** Researched
+    GPTZero, Originality.ai, Copyleaks, Winston AI, and Sapling: every option has a real floor of
+    roughly $25–50/month minimum just to unlock API access (see chat history / revisit and move into
+    `docs/subscriptions.md` when scoping this), before per-word usage even matters at current volume.
+    Do this as soon as there's budget for it. Unlocks the "real detector pass reports" Studio feature
+    and the "guaranteed pass" claims already teased (as "Coming soon") on `/pricing` — those badges
+    stay honest ("coming soon," not live) until this actually lands.
 - **M5 — Humanizer engine hardening.** The other half of the bet: make `lib/humanize.ts` itself more
   aggressive and tunable (per-detector rewrite strategies, higher target scores, more passes when it's
   worth the cost) so a confident "clears every major detector" claim is backed by M4's real scoring,

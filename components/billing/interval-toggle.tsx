@@ -33,7 +33,7 @@ export function IntervalToggle({
             interval === "year" ? "bg-accent-ink/15 text-accent-ink" : "bg-good-soft text-good"
           }`}
         >
-          2 months free
+          50% off
         </span>
       </button>
     </div>

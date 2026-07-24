@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { UserMenu } from "@/components/auth/user-menu";
+import { UserNav } from "@/components/auth/user-nav";
 import { createClient } from "@/lib/supabase/server";
 import { isCurrentPeriod, PLAN_LIMITS, type Plan } from "@/lib/usage";
 
@@ -34,20 +33,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               >
                 Humanize
               </Link>
-              <Link
-                href="/app/billing"
-                className="text-sm text-muted transition-colors hover:text-ink"
-              >
-                Billing
-              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4">
-            <span className="hidden font-mono text-xs tabular-nums text-faint md:inline">
-              {wordsUsed.toLocaleString()} / {PLAN_LIMITS[plan].toLocaleString()} words
-            </span>
-            <ThemeToggle />
-            <UserMenu email={email} />
+            <UserNav email={email} plan={plan} wordsUsed={wordsUsed} wordLimit={PLAN_LIMITS[plan]} />
           </div>
         </div>
       </header>
