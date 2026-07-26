@@ -1,3 +1,5 @@
+import { MaxOutputWordsExceededError, QuotaExceededError } from "./api-errors";
+
 export type Plan = "free" | "lite" | "pro" | "studio";
 
 export const PLAN_LIMITS: Record<Plan, number> = {
@@ -17,6 +19,27 @@ export const PLAN_MAX_OUTPUT_WORDS: Record<Plan, number> = {
 
 export function remainingWords(plan: Plan, wordsUsed: number): number {
   return Math.max(0, PLAN_LIMITS[plan] - wordsUsed);
+}
+
+/**
+ * Shared quota gate for humanize and detect requests, both of which draw from
+ * the same monthly words_used pool. Throws MaxOutputWordsExceededError or
+ * QuotaExceededError; no-op for the DEV_BYPASS_EMAIL account.
+ */
+export function assertWithinQuota(
+  plan: Plan,
+  wordsUsed: number,
+  requestedWords: number,
+  bypass: boolean
+): void {
+  if (bypass) return;
+  if (requestedWords > PLAN_MAX_OUTPUT_WORDS[plan]) {
+    throw new MaxOutputWordsExceededError(plan, PLAN_MAX_OUTPUT_WORDS[plan]);
+  }
+  const remaining = remainingWords(plan, wordsUsed);
+  if (requestedWords > remaining) {
+    throw new QuotaExceededError(plan, PLAN_LIMITS[plan]);
+  }
 }
 
 /** True if a stored `usage.period_start` (a "YYYY-MM-DD" date) falls in the current UTC month. */

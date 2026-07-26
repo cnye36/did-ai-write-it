@@ -8,29 +8,41 @@ import {
   LockSimpleIcon,
   ArrowRightIcon,
 } from "@phosphor-icons/react";
-import { analyzeText } from "@/lib/detector";
+import { analyzeText, verdictFor } from "@/lib/detector";
 import { HANDOFF_KEY } from "@/lib/handoff";
 import { ScoreGauge } from "./score-gauge";
-import { DetectionReportBody, countHiddenFlagged } from "./detection-report";
+import { WinstonSentenceList, type WinstonSentence } from "./winston-sentence-list";
 import { Modal } from "./modal";
 
 const SAMPLE = `In today's fast-paced digital landscape, leveraging AI has become crucial for success. It is not just about working harder, it is about working smarter. Businesses must delve into these cutting-edge tools to unlock their full potential. Furthermore, this seamless integration fosters innovation, efficiency, and growth. Companies that embrace this robust technology will elevate their content to new heights. Moreover, it is a testament to how far automation has come. The results speak for themselves, and the future looks incredibly bright. Ultimately, this powerful shift will revolutionize the way we work — forever.`;
 
 const FREE_PREVIEW = { revealCount: 1, ctaHref: "/signup" };
+const MAX_SCAN_WORDS = 300;
 
 type Tab = "paste" | "upload";
 
-export function HumanizerHero() {
+function firstWords(text: string, maxWords: number): string {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  return words.slice(0, maxWords).join(" ");
+}
+
+export function DetectorHero() {
   const [tab, setTab] = useState<Tab>("paste");
   const [text, setText] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const result = useMemo(() => analyzeText(text), [text]);
-  const words = result.wordCount;
+  const [modalOpen, setModalOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<{ score: number; sentences: WinstonSentence[] } | null>(
+    null
+  );
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [rateLimited, setRateLimited] = useState(false);
+
+  const words = useMemo(() => analyzeText(text).wordCount, [text]);
   const canCheck = words >= 15;
-  const hiddenCount = countHiddenFlagged(result, FREE_PREVIEW.revealCount);
+  const scannedText = useMemo(() => firstWords(text, MAX_SCAN_WORDS), [text]);
 
   function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -39,6 +51,34 @@ export function HumanizerHero() {
     file.text().then((t) => {
       setText(t.slice(0, 12000));
     });
+  }
+
+  async function analyze() {
+    setPreviewError(null);
+    setRateLimited(false);
+    setPreview(null);
+    setBusy(true);
+    setModalOpen(true);
+    try {
+      const res = await fetch("/api/preview-detect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: scannedText }),
+      });
+      if (res.status === 429) {
+        setModalOpen(false);
+        setRateLimited(true);
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Check failed.");
+      setPreview(data.winston);
+    } catch (e) {
+      setModalOpen(false);
+      setPreviewError(e instanceof Error ? e.message : "Check failed.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -88,6 +128,7 @@ export function HumanizerHero() {
         <div className="mt-2 flex items-center justify-between border-t border-line pt-3">
           <div className="flex items-center gap-3 text-xs text-faint">
             <span className="font-mono tabular-nums">{words} words</span>
+            {words > MAX_SCAN_WORDS && <span>(scoring first {MAX_SCAN_WORDS})</span>}
             {fileName && <span className="max-w-[140px] truncate">{fileName}</span>}
             {!text && (
               <button
@@ -101,35 +142,61 @@ export function HumanizerHero() {
           </div>
           <button
             type="button"
-            disabled={!canCheck}
-            onClick={() => setModalOpen(true)}
+            disabled={!canCheck || busy}
+            onClick={analyze}
             className="rounded-full bg-accent px-5 py-2 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Analyze
+            {busy ? "Checking..." : "Analyze"}
           </button>
         </div>
       </div>
 
-      {/* Locked humanize row */}
+      {previewError && <p className="mt-2 text-xs text-bad">{previewError}</p>}
+      {rateLimited && (
+        <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-2xl border border-line bg-warn-soft px-4 py-3 sm:flex-row">
+          <p className="text-sm leading-snug text-ink">
+            You have used your free checks for today. Sign up free to keep going.
+          </p>
+          <Link
+            href="/signup"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
+          >
+            Sign up free
+          </Link>
+        </div>
+      )}
+
+      {/* Locked signup row */}
       <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-2xl border border-dashed border-line bg-surface px-4 py-3 sm:flex-row">
         <div className="flex items-center gap-3">
           <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
             <LockSimpleIcon size={18} weight="bold" />
           </span>
           <p className="text-sm leading-snug text-muted">
-            <span className="font-medium text-ink">Rewrite it to read human</span> and see the
-            full breakdown. Free account, no card.
+            <span className="font-medium text-ink">Get unlimited Winston checks</span> and the
+            full report. Free account, no card.
           </p>
         </div>
-        <Link
-          href="/app/humanize"
-          onClick={() => {
-            if (text.trim()) sessionStorage.setItem(HANDOFF_KEY, text);
-          }}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
-        >
-          Humanize free <ArrowRightIcon size={15} weight="bold" />
-        </Link>
+        <div className="flex shrink-0 flex-col items-center gap-1.5 sm:items-end">
+          <Link
+            href="/app/detect"
+            onClick={() => {
+              if (text.trim()) sessionStorage.setItem(HANDOFF_KEY, text);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
+          >
+            Sign up free for unlimited checks <ArrowRightIcon size={15} weight="bold" />
+          </Link>
+          <Link
+            href="/app/humanize"
+            onClick={() => {
+              if (text.trim()) sessionStorage.setItem(HANDOFF_KEY, text);
+            }}
+            className="text-xs font-medium text-muted transition-colors hover:text-ink"
+          >
+            or humanize it instead
+          </Link>
+        </div>
       </div>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
@@ -139,56 +206,48 @@ export function HumanizerHero() {
             <p className="mb-3 text-xs font-medium uppercase tracking-wide text-faint">
               Your text
             </p>
-            <DetectionReportBody text={text} result={result} freePreview={FREE_PREVIEW} />
+            <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted">
+              {scannedText}
+            </div>
           </div>
 
           {/* Score, never scrolls, CTA always visible */}
           <div className="flex flex-col p-5">
-            <div className="flex items-center gap-4">
-              <ScoreGauge score={100 - result.score} verdict={result.verdict} size={92} />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs text-faint">Likely AI-written</p>
-                <p className="font-mono text-2xl font-semibold tabular-nums">
-                  {100 - result.score}%
-                </p>
-              </div>
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-wide text-faint">
+                Verified score
+              </p>
+              <span className="text-xs text-faint">Powered by Winston AI</span>
             </div>
-            <ul className="mt-4 space-y-1.5">
-              {result.metrics.map((m) => (
-                <li key={m.id} className="flex items-center gap-2 text-xs">
-                  <span className="w-20 shrink-0 text-muted">{m.label}</span>
-                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
-                    <span
-                      className="block h-full rounded-full"
-                      style={{
-                        width: `${m.score}%`,
-                        background:
-                          m.score >= 70
-                            ? "var(--good)"
-                            : m.score >= 45
-                              ? "var(--warn)"
-                              : "var(--bad)",
-                      }}
-                    />
-                  </span>
-                </li>
-              ))}
-            </ul>
-            {hiddenCount > 0 && (
-              <div className="mt-auto flex flex-col items-center gap-2 rounded-2xl border border-dashed border-line bg-surface p-4 pt-6 text-center">
-                <span className="inline-flex size-9 items-center justify-center rounded-full bg-accent-soft text-accent">
-                  <LockSimpleIcon size={18} weight="bold" />
-                </span>
-                <p className="text-sm text-muted">
-                  {hiddenCount} more flagged sentence{hiddenCount > 1 ? "s" : ""} hidden.
-                </p>
-                <Link
-                  href={FREE_PREVIEW.ctaHref}
-                  className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-accent-ink transition-transform active:scale-[0.97]"
-                >
-                  Sign up free to see the full report
-                </Link>
+            {busy ? (
+              <div className="space-y-3">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="h-4 animate-pulse rounded bg-line"
+                    style={{ width: `${80 - i * 10}%` }}
+                  />
+                ))}
               </div>
+            ) : preview ? (
+              <>
+                <div className="flex items-center gap-4">
+                  <ScoreGauge score={preview.score} verdict={verdictFor(preview.score)} size={92} />
+                </div>
+                {preview.sentences.length > 0 && (
+                  <div className="mt-4">
+                    <WinstonSentenceList
+                      sentences={preview.sentences}
+                      revealCount={FREE_PREVIEW.revealCount}
+                      ctaHref={FREE_PREVIEW.ctaHref}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-muted">
+                Winston check unavailable for this text right now. Try again shortly.
+              </p>
             )}
           </div>
         </div>

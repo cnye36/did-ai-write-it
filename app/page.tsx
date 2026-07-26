@@ -9,7 +9,7 @@ import {
   TextAlignLeftIcon,
   QuotesIcon,
 } from "@phosphor-icons/react/dist/ssr";
-import { HumanizerHero } from "@/components/humanizer-hero";
+import { DetectorHero } from "@/components/detector-hero";
 import { SiteHeader } from "@/components/site-header";
 import { Reveal } from "@/components/reveal";
 import { PLAN_INFO, PLAN_ORDER, formatPlanPrice } from "@/lib/plans";
@@ -18,19 +18,19 @@ const STEPS = [
   {
     icon: ClipboardTextIcon,
     title: "Paste or upload",
-    body: "Drop in anything AI wrote: a post, an essay draft, a whole newsletter. Text or file both work.",
+    body: "Drop in anything you are unsure about: an email, an essay, a full report. Text or file both work.",
     highlight: false,
   },
   {
     icon: MagnifyingGlassIcon,
-    title: "See the tells",
-    body: "Get an instant AI score and the exact signals behind it: flat rhythm, stock phrases, giveaway punctuation.",
+    title: "See the score",
+    body: "Get an instant AI-detection score and see exactly which sentences got flagged, with the reasoning behind each one.",
     highlight: false,
   },
   {
     icon: PenNibIcon,
-    title: "Rewrite until it's clean",
-    body: "It keeps refining automatically until the score clears. No manual editing, no guessing whether it's done.",
+    title: "Verify or fix it",
+    body: "Sign up free to confirm the score against Winston AI, then humanize the flagged parts until it reads clean.",
     highlight: true,
   },
 ];
@@ -45,7 +45,7 @@ const SIGNALS = [
   {
     icon: TextAlignLeftIcon,
     title: "Rhythm",
-    body: "Runs of same-length sentences read machine-made. We find them and break them up.",
+    body: "Runs of same-length sentences read machine-made. We flag every one and show you where.",
     tint: false,
   },
   {
@@ -65,23 +65,23 @@ const SIGNALS = [
 const FAQ = [
   {
     q: "Is the detection score the same as GPTZero?",
-    a: "It is a proxy built on the same measurable signals detectors use, so it moves in the same direction. It is meant to show you where a draft is weak and improving, not to replace a specific vendor's verdict. Paid plans add real detector pass reports.",
+    a: "The free score is a heuristic proxy built on the same measurable signals real detectors use, so it moves in the same direction. Sign up free and we can verify it against Winston AI, a third-party detector, for an independent score.",
   },
   {
-    q: "Does humanizing change what my text says?",
-    a: "No. The rewrite targets the machine fingerprint (rhythm, stock phrasing, punctuation) while keeping your meaning and structure. You can compare before and after side by side.",
+    q: "Does the humanizer change what my text says?",
+    a: "No. It targets the machine fingerprint (rhythm, stock phrasing, punctuation) while keeping your meaning and structure. You can compare before and after side by side, from the Humanizer section once you are signed in.",
   },
   {
     q: "What should I use this for?",
-    a: "Professional writing: marketing copy, LinkedIn posts, newsletters, and drafts where sounding human matters. It is built for people whose byline is their business.",
+    a: "Checking any draft you are not sure about, and cleaning up your own AI-assisted writing before it goes out: marketing copy, LinkedIn posts, newsletters, reports. Built for professional writing, not homework.",
   },
   {
     q: "What happens if I go over my word limit?",
-    a: "You will see the option to upgrade before any request fails. Free, Lite, Pro, and Studio each raise both the monthly total and the max length of a single rewrite.",
+    a: "You will see the option to upgrade before any request fails. Free, Lite, Pro, and Studio each raise your monthly quota, which covers both Winston-verified checks and humanize rewrites.",
   },
   {
     q: "Do I need to install anything?",
-    a: "No. Paste or upload text in the browser. Detection runs instantly with no account.",
+    a: "No. Paste or upload text in the browser. The free score runs instantly with no account; Winston-verified checks and humanizing just need a free sign in.",
   },
 ];
 
@@ -122,18 +122,18 @@ export default function Landing() {
               Free to check. No account needed.
             </span>
             <h1 className="mt-4 text-4xl font-semibold leading-[1.05] tracking-tighter md:text-6xl">
-              AI wrote it.
+              Did AI write it?
               <br />
-              Nobody will know.
+              Find out for free.
             </h1>
             <p className="mx-auto mt-5 max-w-[46ch] text-lg leading-relaxed text-muted">
-              Paste your ChatGPT or Claude draft. We rewrite it until it reads
-              human, not just different.
+              Paste any draft and get an instant AI-detection score, then
+              verify it against a real detector for free.
             </p>
           </Reveal>
         </div>
         <Reveal delay={0.12} className="mx-auto mt-10 max-w-4xl">
-          <HumanizerHero />
+          <DetectorHero />
         </Reveal>
       </section>
 
@@ -141,7 +141,7 @@ export default function Landing() {
       <section id="how" className="border-t border-line py-20 md:py-28">
         <Reveal>
           <h2 className="max-w-[22ch] text-3xl font-semibold tracking-tighter md:text-4xl">
-            From flagged to invisible
+            From flagged to verified
           </h2>
         </Reveal>
         <div className="mt-10 divide-y divide-line border-y border-line">
@@ -174,12 +174,12 @@ export default function Landing() {
         <div className="grid gap-10 md:grid-cols-[1fr_1.15fr] md:gap-16">
           <Reveal>
             <h2 className="text-3xl font-semibold tracking-tighter md:text-4xl">
-              Most humanizers are a black box. We show ours.
+              Most detectors are a black box. We show ours.
             </h2>
             <p className="mt-4 max-w-[46ch] leading-relaxed text-muted">
-              Detectors do not flag &ldquo;AI.&rdquo; They flag measurable patterns.
-              We surface the same four, so you can see why a draft reads machine-made
-              and watch each one improve after a rewrite.
+              Detectors do not just say yes or no. They flag measurable patterns.
+              We surface the same four, so you can see exactly why a draft reads
+              machine-made, whether it is yours or someone else&apos;s.
             </p>
           </Reveal>
           <Reveal delay={0.1}>
@@ -231,11 +231,11 @@ export default function Landing() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/20" />
             <div className="relative w-full px-6 py-12 text-center text-white sm:px-12 sm:py-16">
               <h2 className="text-3xl font-semibold tracking-tighter md:text-5xl">
-                Try it on your worst AI draft.
+                Try it on the draft you are least sure about.
               </h2>
               <p className="mx-auto mt-4 max-w-[46ch] text-white/80">
-                The one that reads the most like a robot wrote it. That&apos;s
-                the one we want. No card required to start.
+                Paste it, see the score, and if it needs work, clean it up
+                until it reads human. No card required to start.
               </p>
               <Link
                 href="/signup"
@@ -251,7 +251,7 @@ export default function Landing() {
       <footer className="flex flex-col items-start justify-between gap-6 border-t border-line py-12 md:flex-row md:items-center">
         <div>
           <p className="text-sm font-semibold tracking-tight">
-            letaiwriteit<span className="text-accent">.com</span>
+            didaiwriteit<span className="text-accent">.com</span>
           </p>
           <p className="mt-1 max-w-[46ch] text-sm text-muted">
             Detect and humanize AI writing. Built for professional content, not for

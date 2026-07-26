@@ -1,9 +1,31 @@
 # Build plan
 
-letaiwriteit.com is a humanizer-first AI writing tool: paste AI text, get a free instant AI-detection
-score, then rewrite it through a multi-pass engine until it reads human. See `CLAUDE.md` for the full
-product/architecture rundown. This doc tracks the milestone roadmap so the project stays legible as it's
-built in public.
+didaiwriteit.com (renamed from letaiwriteit.com, pivot dated 2026-07-25) is a detector-first AI
+writing tool: paste any text, get a real Winston-verified AI-detection score, then humanize it
+through a multi-pass engine until it reads human. See `CLAUDE.md` for the full product/architecture
+rundown. This doc tracks the milestone roadmap so the project stays legible as it's built in public.
+
+**2026-07-25 pivot: detector-first, didaiwriteit.com.** Acquired the exact-match domain
+didaiwriteit.com and repositioned the product around it: the AI detector (already strong from M4a)
+is now the headline feature and the primary public-facing tool, with the humanizer kept as a
+secondary "Humanizer" section alongside a new "Detector" section once signed in
+(`app/app/detect/page.tsx`, `/api/detect`). Winston AI checks now run standalone, not just inside the
+humanize pipeline, but only for signed-in users; the public landing widget stays on the free
+client-side heuristic to avoid unbounded per-word Winston cost from anonymous traffic. Detector
+checks draw from the same monthly word quota as humanize (`lib/usage.ts`'s `assertWithinQuota`), not
+a separate pool. Multi-provider aggregation (GPTZero, Turnitin alongside Winston) stays on the
+roadmap, not built.
+
+**2026-07-26 follow-up: Winston on the public homepage too.** The heuristic (M4a) turned out to be
+too generous, scoring most AI text as human, which undermines the product's whole premise on its own
+front door. The public homepage scan (`components/detector-hero.tsx`) now hits Winston directly via
+a new unauthenticated route, `/api/preview-detect`, instead of `analyzeText`: capped at 300 words per
+scan (`MAX_WORDS`) and rate-limited to 5 free checks per IP per 24h (`DAILY_LIMIT`, tracked in the new
+`public.preview_checks` table, `supabase/migrations/0003_preview_checks.sql`) so the reversal of the
+2026-07-25 "stay on the heuristic to avoid unbounded Winston cost" decision has a real ceiling instead
+of none. The heuristic is no longer the customer-facing score anywhere in the product; it survives
+only as a free, zero-network, explicitly-labeled "quick estimate" (`/app/detect`'s as-you-type
+readout) and as the humanize pipeline's internal per-pass scoring signal.
 
 **Focus: detect + humanize, and only that.** Every competitor in this space (WriteHuman, GPTHuman,
 Undetectable.ai, StealthGPT) is a pure paste-in-content-from-elsewhere → detect → rewrite tool; none
@@ -36,9 +58,10 @@ detector pass reports, API access).
   `docs/subscriptions.md`). Word quota limits (`lib/usage.ts`) switch automatically with
   `profiles.plan`. A `DEV_BYPASS_EMAIL` env var exempts one account from all quota/output checks
   for internal testing.
-- **M3 — Lint debt cleanup.** Two `set-state-in-effect` ESLint errors remain (`theme-toggle.tsx`,
-  `app/app/humanize/page.tsx`) — both read/write client-only state inside a `useEffect`. Fix with a
-  shared `useLocalStorage`/`useSyncExternalStore`-style pattern.
+- **M3 — Lint debt cleanup.** Four `set-state-in-effect` ESLint errors remain (`theme-toggle.tsx`,
+  `components/auth/user-nav.tsx`, `app/app/humanize/page.tsx`, `app/app/detect/page.tsx`) — all
+  read/write client-only state inside a `useEffect`. Fix with a shared
+  `useLocalStorage`/`useSyncExternalStore`-style pattern.
 - **M4 — Real detector integration (top product priority, split in two).**
   - **M4a — Free heuristic hardening. Done.** `analyzeText` (`lib/detector.ts`) now scores every
     sentence individually, not just the whole document (`DetectorResult.sentences`), and applies an
@@ -47,9 +70,10 @@ detector pass reports, API access).
     costs a user who thinks they're safe when they're not, which is worse than a false "reads ai."
     Backing regression test (`lib/detector.test.ts`): a realistic, unedited generic AI blog post must
     not verdict "human." `components/detection-report.tsx` renders the line-by-line breakdown (every
-    flagged sentence highlighted with its reasons) — free/anonymous users on the landing widget see
-    only the first flagged sentence plus a signup gate for the rest; logged-in users on
-    `/app/humanize` see the full report, live, as they type.
+    flagged sentence highlighted with its reasons) for logged-in users on `/app/humanize` and
+    `/app/detect`'s live "quick estimate," full report, as they type. The public landing widget no
+    longer uses this heuristic report at all (see the 2026-07-26 follow-up above): it shows a
+    partial-reveal Winston report instead (`components/winston-sentence-list.tsx`).
   - **Investigated and ruled out: perplexity via our own OpenAI calls.** True perplexity needs
     log-probabilities for text *you feed the model*, not text it generates. That only ever existed on
     OpenAI's legacy Completions API (`echo` + `logprobs`), tied to old base models mostly already shut

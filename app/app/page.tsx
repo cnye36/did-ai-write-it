@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function AppIndex() {
-  redirect("/app/humanize");
+  redirect("/app/detect");
 }

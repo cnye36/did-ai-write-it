@@ -1,19 +1,12 @@
 import { NextRequest } from "next/server";
-import { errorResponse, MaxOutputWordsExceededError, QuotaExceededError } from "@/lib/api-errors";
+import { errorResponse } from "@/lib/api-errors";
 import { buildHumanizeSystem, buildHumanizeUser } from "@/lib/prompts";
 import { runHumanizePipeline } from "@/lib/humanize";
 import { analyzeText, type DetectorResult } from "@/lib/detector";
 import { generateBestRewrite, getModelLabel } from "@/lib/rewrite";
 import { winstonScoreOnly } from "@/lib/winston";
 import { requireUser } from "@/lib/supabase/auth";
-import {
-  isCurrentPeriod,
-  isDevBypass,
-  PLAN_LIMITS,
-  PLAN_MAX_OUTPUT_WORDS,
-  remainingWords,
-  type Plan,
-} from "@/lib/usage";
+import { assertWithinQuota, isCurrentPeriod, isDevBypass, PLAN_LIMITS, type Plan } from "@/lib/usage";
 
 export const maxDuration = 120;
 
@@ -50,16 +43,7 @@ export async function POST(req: NextRequest) {
     const wordsUsed = usage && isCurrentPeriod(usage.period_start) ? usage.words_used : 0;
     const requestedWords = analyzeText(text).wordCount;
     const bypass = isDevBypass(email);
-
-    if (!bypass) {
-      if (requestedWords > PLAN_MAX_OUTPUT_WORDS[plan]) {
-        throw new MaxOutputWordsExceededError(plan, PLAN_MAX_OUTPUT_WORDS[plan]);
-      }
-      const remaining = remainingWords(plan, wordsUsed);
-      if (requestedWords > remaining) {
-        throw new QuotaExceededError(plan, PLAN_LIMITS[plan]);
-      }
-    }
+    assertWithinQuota(plan, wordsUsed, requestedWords, bypass);
 
     const system = buildHumanizeSystem();
 

@@ -5,7 +5,7 @@ export function SiteHeader({ navLinks }: { navLinks: React.ReactNode }) {
   return (
     <header className="flex h-16 items-center justify-between">
       <Link href="/" className="text-sm font-semibold tracking-tight">
-        letaiwriteit<span className="text-accent">.com</span>
+        didaiwriteit<span className="text-accent">.com</span>
       </Link>
       <nav className="flex items-center gap-5">
         {navLinks}

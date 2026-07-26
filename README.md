@@ -1,8 +1,8 @@
-# Let AI Write It
+# Did AI Write It
 
-**Let AI write it. Nobody will know.**
+**Did AI write it? Find out.**
 
-[letaiwriteit.com](https://letaiwriteit.com) is a humanizer-first AI writing tool for professional copy. Paste or upload text from ChatGPT, Claude, or anything else, get an instant AI-detection score, then rewrite it through a multi-pass engine until it reads human. Meaning stays. The machine fingerprint does not.
+[didaiwriteit.com](https://didaiwriteit.com) is a detector-first AI writing tool. Paste or upload any text, get an instant free AI-detection score, then verify it against Winston AI (a real third-party detector) and humanize it through a multi-pass engine until it reads human. Meaning stays. The machine fingerprint does not.
 
 Built for LinkedIn posts, newsletters, and marketing drafts, not academic cheating.
 
@@ -10,11 +10,11 @@ Built for LinkedIn posts, newsletters, and marketing drafts, not academic cheati
 
 ## How it works
 
-1. **Paste or upload** — Drop in AI-written text (`.txt` / `.md` today).
-2. **See the tells** — Instant client-side score plus a line-by-line report: stock lexicon, flat rhythm, burstiness, em dashes, rule-of-three piles.
-3. **Rewrite until it's clean** — The multi-pass humanizer keeps refining until the score clears (or it hits the pass cap). Clean input costs zero model calls.
+1. **Paste or upload** — Drop in any text (`.txt` / `.md` today).
+2. **See the score** — Instant client-side score plus a line-by-line report: stock lexicon, flat rhythm, burstiness, em dashes, rule-of-three piles.
+3. **Verify or humanize** — Sign up free to confirm the score against Winston AI, then run it through the multi-pass humanizer until it reads clean (or it hits the pass cap). Clean input costs zero model calls.
 
-Detection runs in the browser on every keystroke. Humanizing runs server-side through OpenAI (or any OpenAI-compatible provider).
+Detection runs in the browser on every keystroke, free and unlimited, no account needed. Winston-verified checks and humanizing run server-side and require a free account.
 
 ---
 
@@ -105,11 +105,13 @@ Prefix installs with `CI=true` when you need non-interactive pnpm confirms.
 
 ```
 app/
-  page.tsx                 Landing (live detect → handoff to /app/humanize)
+  page.tsx                 Landing (live free detect → handoff to /app/detect or /app/humanize)
   pricing/                 Plan comparison
   login|signup|auth/       Supabase email/password auth
-  app/humanize/            The product: paste → detect → rewrite
+  app/detect/              Live detect + Winston-verified real-detector check
+  app/humanize/            Paste → detect → rewrite
   app/billing/             Plan, usage, Stripe Checkout / Portal
+  api/detect/              Winston-verified check + quota enforcement
   api/humanize/            Multi-pass rewrite + quota enforcement
   api/stripe/              Checkout, portal, webhook
 components/                UI (hero, score gauge, detection report, billing)
@@ -156,6 +158,6 @@ Deeper product context and agent working notes: [`CLAUDE.md`](CLAUDE.md). Roadma
 
 ## Status
 
-**Live:** landing detect widget, multi-pass humanizer, per-sentence detection report, Supabase auth, per-plan quotas, Stripe subscriptions (Checkout / webhook / portal), `/pricing`.
+**Live:** landing detect widget, standalone Winston-verified detector check, multi-pass humanizer, per-sentence detection report, Supabase auth, per-plan quotas, Stripe subscriptions (Checkout / webhook / portal), `/pricing`.
 
 **Next priorities:** real detector API integration, humanizer hardening, `.docx` / `.pdf` upload, growth hooks. See the build plan for the full milestone list.

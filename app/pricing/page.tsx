@@ -5,9 +5,9 @@ import { Reveal } from "@/components/reveal";
 import { PricingComparison } from "@/components/pricing/pricing-comparison";
 
 export const metadata: Metadata = {
-  title: "Pricing | Let AI Write It",
+  title: "Pricing | Did AI Write It",
   description:
-    "Compare every letaiwriteit.com plan: monthly word limits, per-request caps, real detector pass reports, and what's shipping next.",
+    "Compare every didaiwriteit.com plan: monthly word limits, Winston-verified detection checks, real detector pass reports, and what's shipping next.",
 };
 
 export default function PricingPage() {
@@ -38,8 +38,9 @@ export default function PricingPage() {
             Simple pricing, real limits
           </h1>
           <p className="mx-auto mt-4 max-w-[52ch] text-lg leading-relaxed text-muted">
-            Detection is always free. Pick a plan for how much you rewrite each
-            month, and how long a single draft can be.
+            The free heuristic score is always free, no account needed. Pick a
+            plan for Winston-verified checks, how much you rewrite each month,
+            and how long a single draft can be.
           </p>
         </Reveal>
       </section>
@@ -53,7 +54,7 @@ export default function PricingPage() {
       <footer className="flex flex-col items-start justify-between gap-6 border-t border-line py-12 md:flex-row md:items-center">
         <div>
           <p className="text-sm font-semibold tracking-tight">
-            letaiwriteit<span className="text-accent">.com</span>
+            didaiwriteit<span className="text-accent">.com</span>
           </p>
           <p className="mt-1 max-w-[46ch] text-sm text-muted">
             Detect and humanize AI writing. Built for professional content, not for

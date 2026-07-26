@@ -24,14 +24,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="mx-auto flex h-14 w-full max-w-[1100px] items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-6">
             <Link href="/" className="text-sm font-semibold tracking-tight">
-              letaiwriteit<span className="text-accent">.com</span>
+              didaiwriteit<span className="text-accent">.com</span>
             </Link>
             <nav className="flex items-center gap-4">
+              <Link
+                href="/app/detect"
+                className="text-sm text-muted transition-colors hover:text-ink"
+              >
+                Detector
+              </Link>
               <Link
                 href="/app/humanize"
                 className="text-sm text-muted transition-colors hover:text-ink"
               >
-                Humanize
+                Humanizer
               </Link>
             </nav>
           </div>

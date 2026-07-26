@@ -57,19 +57,29 @@ For multi-step tasks, state a brief plan:
 
 ## About this project
 
-**letaiwriteit.com** is a **humanizer-first** AI writing tool, and only that. The product: paste or
-upload AI-written text (from ChatGPT, Claude, etc.), get a free instant AI-detection score, then
-rewrite it through a multi-pass engine until it reads human, with the meaning preserved.
+**didaiwriteit.com** (renamed from letaiwriteit.com, pivot dated 2026-07-25) is a **detector-first**
+AI writing tool: paste or upload any text, get a real Winston-verified AI-detection score, then
+optionally humanize it until it reads human. The detector is now the primary product; the humanizer
+is a secondary feature reachable from its own section once signed in, not the headline pitch.
 
-Positioning: *"Let AI write it. Nobody will know."* Framing is deliberately **professional/marketing**
-(LinkedIn posts, newsletters, marketing copy), **not** academic-cheating. It was pivoted from a
-voice-first writer to a humanizer-first tool to compete with undetectable.ai / writehuman.ai /
-gpthuman.ai, which are hot right now. A later pivot (2026-07-22) removed the voice/on-brand-drafting
-feature entirely: none of those competitors lead with a "write from scratch" feature either, they're
-all paste-in-content → detect → rewrite, so the bet is two components done extremely well — a
-detector credible enough to flag what real detectors flag, and a humanizer aggressive enough to
-clear them — rather than splitting focus. A from-scratch "guaranteed pass" voice feature is a
-possible v2, not scoped (see `docs/BUILD_PLAN.md`).
+**The free heuristic (`lib/detector.ts`) is not the customer-facing score anywhere it matters
+(as of 2026-07-26).** It scores most AI text as too human to be credible as *the* score for a
+product literally named "did AI write it," so Winston AI now powers every score a user is actually
+shown: the public homepage scan (`/api/preview-detect`, rate-limited) and the signed-in detector
+(`/api/detect`). The heuristic survives only as free, instant, zero-network supplementary signal
+(the homepage's live word count, `/app/detect`'s "quick estimate" as-you-type readout) and as the
+per-pass scoring signal feeding the humanize pipeline's prompts, never as a final verdict.
+
+Positioning: *"Did AI write it? Find out."* Framing is deliberately **professional/marketing**
+(LinkedIn posts, newsletters, marketing copy), **not** academic-cheating. The project pivoted from a
+voice-first writer to a humanizer-first tool (to compete with undetectable.ai / writehuman.ai /
+gpthuman.ai), then again (2026-07-22) removed the voice/on-brand-drafting feature entirely to focus
+on detect + humanize, and then again (2026-07-25) to the current detector-first framing once the
+didaiwriteit.com domain was acquired: the exact-match domain is a real SEO angle for "did ai write
+it"-style search intent, and none of the competitors above lead with detection the way this one now
+does. Multi-provider aggregation (GPTZero, Turnitin, alongside Winston) is on the roadmap but not
+built; only Winston is wired in today. A from-scratch "guaranteed pass" voice feature is a possible
+v2, not scoped (see `docs/BUILD_PLAN.md`).
 
 **Stack:** Next.js 16 (App Router, Turbopack), TypeScript, Tailwind v4, pnpm, WSL2. Dual light/dark
 themes, cobalt accent (`#2b47e0`, chosen to stand apart from the competitors' purple). **OpenAI**
@@ -109,8 +119,13 @@ Run everything through WSL with nvm sourced (default WSL node is v18; project ne
 (`lib/supabase/auth.ts`) — defense in depth, since the proxy alone wouldn't stop a direct API call.
 `profiles` (plan, Stripe IDs) and `usage` (monthly word counter, rolled over by comparing
 `period_start` to the current month, not a cron job) live in Postgres (`supabase/migrations/`). Text
-handed from the landing page to the humanizer rides in `sessionStorage` under `HANDOFF_KEY`
-(`lib/handoff.ts`).
+handed from the landing page to the detector or humanizer rides in `sessionStorage` under
+`HANDOFF_KEY` (`lib/handoff.ts`). Quota enforcement (`PLAN_MAX_OUTPUT_WORDS` per-request cap, then
+the monthly `PLAN_LIMITS` quota) is a single shared `assertWithinQuota()` in `lib/usage.ts`, used by
+both `/api/humanize` and `/api/detect` since Winston-verified detector checks draw from the same
+monthly word pool as humanize rewrites, not a separate quota. `preview_checks` (ip, created_at) is a
+separate, unauthenticated rate-limit table for the anonymous homepage scan, unrelated to per-user
+quota, written only via the service-role client since there's no user session to scope it to.
 
 **The humanize engine — `lib/humanize.ts` (the core product).** `runHumanizePipeline(original,
 rewrite, opts)` is **provider-agnostic** (takes a `rewrite` callback, so the loop is unit-testable
@@ -142,30 +157,52 @@ only its own generated tokens); a real third-party detector API is the planned M
 **API routes (`app/api/*/route.ts`)** are thin. All errors funnel through `errorResponse()` in
 `lib/api-errors.ts`: 503 for a missing key (`MissingKeyError`), 500 otherwise.
 - `/api/humanize` — OpenAI (`lib/openai.ts`: `getOpenAI()`, `OPENAI_MODEL`). Requires auth. Body
-  `{ text, targetScore?, maxPasses? }` → `{ text, before, after, passes, model, usage }`. Enforces
-  `PLAN_MAX_OUTPUT_WORDS` (per-request cap) then the monthly `PLAN_LIMITS` quota (`lib/usage.ts`),
-  both skipped for the `DEV_BYPASS_EMAIL` account; a passing request calls the `increment_usage`
+  `{ text, targetScore?, maxPasses? }` → `{ text, before, after, passes, model, usage }`. Quota
+  checks skipped for the `DEV_BYPASS_EMAIL` account; a passing request calls the `increment_usage`
   Postgres RPC.
+- `/api/detect` — standalone real-detector check for signed-in users, unlimited length (up to
+  `MAX_CHARS`). Requires auth. Body `{ text }` → `{ winston: { score, sentences } | null, usage }`.
+  Quota (`assertWithinQuota`) is checked before calling Winston, but `increment_usage` only fires
+  when Winston actually returns a score: if it's unconfigured, the text is under
+  `WINSTON_MIN_CHARS`, or the request fails, the response still carries `winston: null` but consumes
+  no quota, since nothing billable happened.
+- `/api/preview-detect` — the anonymous homepage scan (2026-07-26). No auth. Body `{ text }` →
+  `{ winston: { score, sentences } | null }`. Server-truncates to the first 300 words regardless of
+  what the client sends (`MAX_WORDS`), then via `createServiceClient()` checks a per-IP daily
+  counter against `public.preview_checks` (`DAILY_LIMIT`, currently 5/24h; IP read from
+  `x-forwarded-for`, not `request.ip`, which isn't reliable on current Next.js) and returns 429 once
+  exhausted. Only inserts a `preview_checks` row, i.e. only spends a rate-limit slot, when Winston
+  actually returns a score, same "don't debit on a no-op" principle as `/api/detect`.
 - `/api/stripe/checkout`, `/api/stripe/portal` — requires auth; create a Stripe Checkout/Billing
   Portal session (`lib/stripe.ts`) and return `{ url }` for the client to redirect to.
 - `/api/stripe/webhook` — no auth (Stripe calls it directly); verifies the signature and syncs
   `profiles.plan`/`stripe_customer_id`/`stripe_subscription_id` via the service-role client
-  (`lib/supabase/service.ts`, the only route that bypasses RLS).
+  (`lib/supabase/service.ts`). `/api/preview-detect` also uses the service-role client (no user
+  session to scope RLS to for an anonymous rate-limit table), so it's no longer the only route that
+  bypasses RLS.
 
 **Pages under `app/`:**
-- `app/page.tsx` + `app/layout.tsx` — public landing (humanizer-first). Hero embeds
-  `components/humanizer-hero.tsx`, a live paste/upload → client-side `analyzeText` score card with a
-  locked "rewrite" CTA that hands text to `/app/humanize` via `sessionStorage`. Shares
+- `app/page.tsx` + `app/layout.tsx` — public landing (detector-first). Hero embeds
+  `components/detector-hero.tsx`: paste/upload, an "Analyze" click hits `/api/preview-detect` (free,
+  no account, real Winston score capped at 300 words and rate-limited per IP), the result renders in
+  a modal with a partial reveal (`components/winston-sentence-list.tsx`) behind a "sign up free to
+  see the full report" CTA, plus a locked row offering unlimited checks that hands text to
+  `/app/detect` via `sessionStorage`, and a smaller secondary link to `/app/humanize`. Shares
   `components/site-header.tsx` with `/pricing`.
 - `app/pricing/page.tsx` — full plan comparison (`components/pricing/pricing-comparison.tsx`):
   monthly/annual toggle, plan cards, a feature-by-feature table (some rows badged "Coming soon" —
   see `docs/subscriptions.md`), and a non-plan-specific roadmap teaser.
 - `app/login/page.tsx`, `app/signup/page.tsx`, `app/auth/callback/route.ts` — Supabase email/password
   auth (`components/auth/`), gated off `/app` by `proxy.ts`.
-- `app/app/**` — product shell behind login, under `app/app/layout.tsx`, nav = Humanize / Billing:
-  - `app/app/page.tsx` — redirects straight to `/app/humanize`; there's no separate dashboard.
-  - `app/app/humanize/page.tsx` — **the whole product**: paste/upload → `/api/humanize` → before/after
-    gauges, per-metric deltas, and the pass log.
+- `app/app/**` — product shell behind login, under `app/app/layout.tsx`, nav = Detector / Humanizer /
+  Billing:
+  - `app/app/page.tsx` — redirects straight to `/app/detect`; there's no separate dashboard.
+  - `app/app/detect/page.tsx` — live free heuristic score-as-you-type (`analyzeText`,
+    `DetectionReport`, labeled "quick estimate") plus a "Check with Winston" button hitting
+    `/api/detect` for a real, quota-metered score and per-sentence breakdown
+    (`components/winston-sentence-list.tsx`).
+  - `app/app/humanize/page.tsx` — paste/upload → `/api/humanize` → before/after gauges, per-metric
+    deltas, and the pass log.
   - `app/app/billing/page.tsx` — current plan/usage, `components/billing/plan-picker.tsx` (Stripe
     Checkout per plan) and `manage-subscription-button.tsx` (Stripe Billing Portal).
 
@@ -196,11 +233,13 @@ page.
    bias, line-by-line report), but a real detector API (GPTZero/Originality/Copyleaks) is what
    actually backs "real pass reports" and "guaranteed pass" claims already teased on `/pricing`.
    Every option researched has a real floor of ~$25-50/mo minimum for API access.
-2. **`pnpm lint` is red — 2 errors, one shared cause.** React 19's `set-state-in-effect` rule fires
-   in `theme-toggle.tsx` and `app/app/humanize/page.tsx`. Fix with a shared
-   `useLocalStorage`/`useSyncExternalStore`-style pattern.
+2. **`pnpm lint` is red — 4 errors, one shared cause.** React 19's `set-state-in-effect` rule fires
+   in `theme-toggle.tsx`, `components/auth/user-nav.tsx`, `app/app/humanize/page.tsx`, and (as of the
+   2026-07-25 detector-first pivot, which added a second page using the same sessionStorage-handoff
+   pattern) `app/app/detect/page.tsx`. Fix with a shared `useLocalStorage`/`useSyncExternalStore`-style
+   pattern.
 3. **`components/live-demo.tsx` and `components/highlighted-text.tsx` are dead code** (the former
-   superseded by `humanizer-hero.tsx`, the latter by `detection-report.tsx`'s per-sentence
+   superseded by `detector-hero.tsx`, the latter by `detection-report.tsx`'s per-sentence
    highlighting); safe to delete.
 4. **Upload only handles `.txt`/`.md`** (client-side `file.text()`); add `.docx`/`.pdf`.
 5. **Growth hooks** (referral codes, SEO landing pages) — how this category actually grows.
