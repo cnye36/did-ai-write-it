@@ -199,63 +199,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="border-t border-line py-20 md:py-28">
-        <Reveal>
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h2 className="text-3xl font-semibold tracking-tighter md:text-4xl">Pricing</h2>
-              <p className="mt-3 max-w-[48ch] leading-relaxed text-muted">
-                Detection is always free. You only pay to rewrite, by how much you
-                humanize each month.
-              </p>
-            </div>
-            <Link
-              href="/pricing"
-              className="text-sm font-medium text-accent hover:underline"
-            >
-              Full comparison and annual plans
-            </Link>
-          </div>
-        </Reveal>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {PLAN_ORDER.map((plan, i) => {
-            const info = PLAN_INFO[plan];
-            const highlight = plan === "pro";
-            return (
-              <Reveal key={plan} delay={i * 0.05}>
-                <div
-                  className={`flex h-full flex-col rounded-2xl p-6 ${
-                    highlight ? "bg-accent-soft" : "border border-line"
-                  }`}
-                >
-                  <h3 className="font-semibold tracking-tight">{info.name}</h3>
-                  <p className="mt-1 font-mono text-2xl font-semibold">
-                    ${formatPlanPrice(info.priceMonthly)}
-                    <span className="text-sm font-normal text-muted">/mo</span>
-                  </p>
-                  <ul className="mt-4 flex-1 space-y-2 text-sm leading-relaxed text-muted">
-                    {info.features.map((f) => (
-                      <li key={f}>{f}</li>
-                    ))}
-                  </ul>
-                  <Link
-                    href={plan === "free" ? "/signup" : `/app/billing?plan=${plan}`}
-                    className={`mt-6 rounded-full px-5 py-2.5 text-center text-sm font-medium transition-transform active:scale-[0.97] ${
-                      highlight
-                        ? "bg-accent text-accent-ink"
-                        : "border border-line text-ink hover:border-faint"
-                    }`}
-                  >
-                    {plan === "free" ? "Start free" : `Go ${info.name}`}
-                  </Link>
-                </div>
-              </Reveal>
-            );
-          })}
-        </div>
-      </section>
-
       {/* FAQ */}
       <section className="border-t border-line py-20 md:py-28">
         <Reveal>

@@ -8,7 +8,7 @@ import {
   CheckIcon,
   ArrowRightIcon,
 } from "@phosphor-icons/react";
-import { analyzeText, type MetricScore, type Verdict } from "@/lib/detector";
+import { analyzeText, verdictFor, type MetricScore, type Verdict } from "@/lib/detector";
 import { HANDOFF_KEY } from "@/lib/handoff";
 import { ScoreGauge } from "@/components/score-gauge";
 import { DetectionReport } from "@/components/detection-report";
@@ -22,8 +22,14 @@ interface Summary {
 interface PassRecord {
   pass: number;
   score: number;
+  /** Real-detector score for this pass, when Winston was available; null/undefined otherwise. */
+  externalScore?: number | null;
   accepted: boolean;
   rejectedBecause?: string;
+}
+
+interface WinstonScore {
+  score: number;
 }
 
 interface HumanizeResponse {
@@ -31,6 +37,8 @@ interface HumanizeResponse {
   before: Summary;
   after: Summary;
   passes: PassRecord[];
+  /** null when Winston isn't configured, the text was too short, or the request failed. */
+  winston: { before: WinstonScore; after: WinstonScore } | null;
   usage: { used: number; limit: number };
 }
 
@@ -231,11 +239,47 @@ export default function HumanizePage() {
               </p>
               {result.passes.map((p) => (
                 <p key={p.pass}>
-                  Pass {p.pass}: {p.score}/100{" "}
+                  Pass {p.pass}: {p.score}/100
+                  {p.externalScore != null && ` (Winston ${p.externalScore})`}{" "}
                   {p.accepted ? "kept" : `discarded (${p.rejectedBecause})`}
                 </p>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {result?.winston && (
+        <div className="rounded-2xl border border-line bg-raised p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-xs font-medium uppercase tracking-wide text-faint">
+              Real detector check
+            </p>
+            <span className="text-xs text-faint">Winston AI</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-8">
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <ScoreGauge
+                  score={result.winston.before.score}
+                  verdict={verdictFor(result.winston.before.score)}
+                  size={72}
+                />
+                <p className="mt-1 text-xs text-faint">Before</p>
+              </div>
+              <ArrowRightIcon size={20} weight="bold" className="text-faint" />
+              <div className="text-center">
+                <ScoreGauge
+                  score={result.winston.after.score}
+                  verdict={verdictFor(result.winston.after.score)}
+                  size={72}
+                />
+                <p className="mt-1 text-xs text-faint">After</p>
+              </div>
+            </div>
+            <p className="max-w-[36ch] text-xs leading-relaxed text-faint">
+              Scored by Winston AI, a third-party detector, independent of the heuristic score above.
+            </p>
           </div>
         </div>
       )}

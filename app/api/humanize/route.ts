@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { errorResponse, MaxOutputWordsExceededError, QuotaExceededError } from "@/lib/api-errors";
-import { createSampledCompletion, getOpenAI, OPENAI_MODEL } from "@/lib/openai";
 import { buildHumanizeSystem, buildHumanizeUser } from "@/lib/prompts";
 import { runHumanizePipeline } from "@/lib/humanize";
 import { analyzeText, type DetectorResult } from "@/lib/detector";
+import { generateBestRewrite, getModelLabel } from "@/lib/rewrite";
+import { winstonScoreOnly } from "@/lib/winston";
 import { requireUser } from "@/lib/supabase/auth";
 import {
   isCurrentPeriod,
@@ -60,36 +61,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const client = getOpenAI();
     const system = buildHumanizeSystem();
 
     const outcome = await runHumanizePipeline(
       text,
-      async ({ text: current, result, pass }) => {
-        // Sampled hot on purpose: detectors score token predictability, so
-        // rarer word choices are the point. n=2 buys a second candidate for
-        // only the extra output tokens. Knobs the model rejects are dropped
-        // automatically (OpenAI reasoning models take none of them).
-        const completion = await createSampledCompletion(client, {
-          model: OPENAI_MODEL,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: buildHumanizeUser(current, result, pass) },
-          ],
-          temperature: 1.2,
-          frequency_penalty: 0.4,
-          presence_penalty: 0.2,
-          n: 2,
-        });
-        const candidates = completion.choices
-          .map((c) => c.message?.content?.trim() ?? "")
-          .filter(Boolean);
-        if (candidates.length === 0) return "";
-        return candidates.reduce((best, c) =>
-          analyzeText(c).score > analyzeText(best).score ? c : best
-        );
-      },
-      { targetScore: body.targetScore, maxPasses: body.maxPasses }
+      ({ text: current, result, pass }) =>
+        generateBestRewrite(system, buildHumanizeUser(current, result, pass)),
+      {
+        targetScore: body.targetScore,
+        maxPasses: body.maxPasses,
+        // Real-detector check (M4b): drives accept/reject and the stop
+        // condition when available, not just a before/after report. Called
+        // on every candidate, so this is where most of the Winston credit
+        // spend on a request goes.
+        scoreExternally: winstonScoreOnly,
+      }
     );
 
     const outputWords = analyzeText(outcome.text).wordCount;
@@ -102,7 +88,8 @@ export async function POST(req: NextRequest) {
       before: summarize(outcome.before),
       after: summarize(outcome.after),
       passes: outcome.passes,
-      model: OPENAI_MODEL,
+      model: getModelLabel(),
+      winston: summarizeWinston(outcome.externalBefore, outcome.externalAfter),
       usage: {
         used: updated?.words_used ?? wordsUsed + outputWords,
         limit: PLAN_LIMITS[plan],
@@ -116,4 +103,10 @@ export async function POST(req: NextRequest) {
 /** Trim the detector result down to what the UI renders. */
 function summarize(r: DetectorResult) {
   return { score: r.score, verdict: r.verdict, metrics: r.metrics };
+}
+
+/** null when Winston isn't configured, the text was too short, or every request failed. */
+function summarizeWinston(before: number | null | undefined, after: number | null | undefined) {
+  if (before == null || after == null) return null;
+  return { before: { score: before }, after: { score: after } };
 }

@@ -72,7 +72,10 @@ const AI_LEAN_PENALTY = 10;
 const HUMAN_THRESHOLD = 75;
 const AI_THRESHOLD = 55;
 
-function verdictFor(score: number): Verdict {
+/** Same 0-100/higher-is-human scale as an external detector score, so callers
+ *  scoring against a real API (Winston, etc.) can reuse these thresholds
+ *  instead of duplicating the skew logic. */
+export function verdictFor(score: number): Verdict {
   return score >= HUMAN_THRESHOLD ? "human" : score >= AI_THRESHOLD ? "mixed" : "ai";
 }
 

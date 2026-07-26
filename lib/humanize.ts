@@ -3,10 +3,20 @@ import { analyzeText, type DetectorResult } from "./detector";
 /*
   Multi-pass humanize pipeline.
 
-  Each pass rewrites the text, re-scores it with the detector, and keeps the
-  result only if it actually improved. The loop stops early once the target
-  score is reached, so a clean draft costs one model call and a bad one costs
-  at most `maxPasses`. Provider-agnostic: the caller supplies `rewrite`.
+  Each pass rewrites the text, re-scores it, and keeps the result only if it
+  actually improved. The loop stops early once the target score is reached,
+  so a clean draft costs one model call and a bad one costs at most
+  `maxPasses`. Provider-agnostic: the caller supplies `rewrite`.
+
+  Detector-agnostic too: our own heuristic (lib/detector.ts) always scores
+  every candidate, since it's free and it's what feeds the per-pass prompt
+  feedback (flags, weakest metrics). But when the caller supplies
+  `scoreExternally` (a real third-party detector, e.g. Winston), that score
+  becomes the authority for accept/reject and for the stop condition,
+  because a good heuristic score does not reliably predict a good real one.
+  `scoreExternally` returning null for a given text (not configured, request
+  failed) falls back to the heuristic score for that comparison, so this is
+  never a hard dependency.
 */
 
 /*
@@ -14,6 +24,9 @@ import { analyzeText, type DetectorResult } from "./detector";
   solidly human, and actually reachable. Impersonal third-person copy caps out
   around 84-86 under the skeptical scoring (no first person, no concrete
   numbers), so a higher target would burn the whole pass budget on every run.
+  Note this bar gets meaningfully harder when scoreExternally is wired in:
+  a real detector does not track our heuristic closely, so hitting 85 there
+  can take more passes, or may not happen at all for some genres of text.
 */
 export const DEFAULT_TARGET_SCORE = 85;
 export const DEFAULT_MAX_PASSES = 4;
@@ -30,9 +43,16 @@ export interface RewriteContext {
   pass: number;
 }
 
+/** Scores a candidate against a real third-party detector. Null means unavailable
+ *  for this text (not configured, request failed): the pipeline falls back to
+ *  the heuristic score for that comparison. */
+export type ExternalScorer = (text: string) => Promise<number | null>;
+
 export interface HumanizePass {
   pass: number;
   score: number;
+  /** Real-detector score for this pass's candidate, when scoreExternally was supplied. */
+  externalScore?: number | null;
   accepted: boolean;
   rejectedBecause?: "empty response" | "length drifted" | "no improvement";
 }
@@ -41,29 +61,43 @@ export interface HumanizeOutcome {
   text: string;
   before: DetectorResult;
   after: DetectorResult;
+  externalBefore?: number | null;
+  externalAfter?: number | null;
   passes: HumanizePass[];
 }
 
 export async function runHumanizePipeline(
   original: string,
   rewrite: (ctx: RewriteContext) => Promise<string>,
-  opts: { targetScore?: number; maxPasses?: number } = {}
+  opts: { targetScore?: number; maxPasses?: number; scoreExternally?: ExternalScorer } = {}
 ): Promise<HumanizeOutcome> {
   const targetScore = opts.targetScore ?? DEFAULT_TARGET_SCORE;
   const maxPasses = opts.maxPasses ?? DEFAULT_MAX_PASSES;
+  const scoreExternally = opts.scoreExternally;
+
+  /** The metric actually driving accept/reject/stop: external when available, heuristic otherwise. */
+  const metricFor = (heuristicScore: number, external: number | null) => external ?? heuristicScore;
 
   const before = analyzeText(original);
+  const externalBefore = scoreExternally ? await scoreExternally(original) : null;
+
   let bestText = original;
   let bestResult = before;
+  let bestExternal = externalBefore;
   const passes: HumanizePass[] = [];
 
-  for (let pass = 1; pass <= maxPasses && bestResult.score < targetScore; pass++) {
+  for (
+    let pass = 1;
+    pass <= maxPasses && metricFor(bestResult.score, bestExternal) < targetScore;
+    pass++
+  ) {
     const candidate = (await rewrite({ text: bestText, result: bestResult, pass })).trim();
 
     if (!candidate) {
       passes.push({
         pass,
         score: bestResult.score,
+        externalScore: bestExternal,
         accepted: false,
         rejectedBecause: "empty response",
       });
@@ -76,16 +110,21 @@ export async function runHumanizePipeline(
       passes.push({
         pass,
         score: candidateResult.score,
+        externalScore: null,
         accepted: false,
         rejectedBecause: "length drifted",
       });
       continue;
     }
 
-    const accepted = candidateResult.score > bestResult.score;
+    const candidateExternal = scoreExternally ? await scoreExternally(candidate) : null;
+    const accepted =
+      metricFor(candidateResult.score, candidateExternal) > metricFor(bestResult.score, bestExternal);
+
     passes.push({
       pass,
       score: candidateResult.score,
+      externalScore: candidateExternal,
       accepted,
       rejectedBecause: accepted ? undefined : "no improvement",
     });
@@ -93,10 +132,18 @@ export async function runHumanizePipeline(
     if (accepted) {
       bestText = candidate;
       bestResult = candidateResult;
+      bestExternal = candidateExternal;
     }
   }
 
-  return { text: bestText, before, after: bestResult, passes };
+  return {
+    text: bestText,
+    before,
+    after: bestResult,
+    externalBefore,
+    externalAfter: bestExternal,
+    passes,
+  };
 }
 
 function lengthPreserved(candidate: string, original: string): boolean {

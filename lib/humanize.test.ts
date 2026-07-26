@@ -15,7 +15,13 @@ describe("runHumanizePipeline", () => {
     expect(out.text).toBe(HUMAN);
     expect(out.after.score).toBeGreaterThan(out.before.score);
     expect(out.passes).toEqual([
-      { pass: 1, score: analyzeText(HUMAN).score, accepted: true, rejectedBecause: undefined },
+      {
+        pass: 1,
+        score: analyzeText(HUMAN).score,
+        externalScore: null,
+        accepted: true,
+        rejectedBecause: undefined,
+      },
     ]);
   });
 
@@ -67,5 +73,68 @@ describe("runHumanizePipeline", () => {
     expect(ctx.pass).toBe(1);
     expect(ctx.text).toBe(SLOP);
     expect(ctx.result.flags.some((f: { text: string }) => /delve/i.test(f.text))).toBe(true);
+  });
+
+  describe("scoreExternally (real-detector accept/reject)", () => {
+    it("rejects a candidate the external scorer scores worse, even though our heuristic prefers it", async () => {
+      // HUMAN scores higher than SLOP on our own heuristic, so without an
+      // external scorer this candidate would be accepted. Here the external
+      // scorer says the opposite, and it must win.
+      const rewrite = vi.fn().mockResolvedValue(HUMAN);
+      const scoreExternally = vi.fn(async (text: string) => (text === SLOP ? 90 : 10));
+
+      const out = await runHumanizePipeline(SLOP, rewrite, {
+        targetScore: 99,
+        maxPasses: 1,
+        scoreExternally,
+      });
+
+      expect(scoreExternally).toHaveBeenCalledWith(SLOP); // externalBefore
+      expect(scoreExternally).toHaveBeenCalledWith(HUMAN); // candidate
+      expect(out.passes[0]).toMatchObject({ accepted: false, rejectedBecause: "no improvement" });
+      expect(out.text).toBe(SLOP);
+      expect(out.externalAfter).toBe(90); // externalBefore for SLOP, since nothing was accepted
+    });
+
+    it("stops early once the external score clears target, even if the heuristic score has not", async () => {
+      const rewrite = vi.fn().mockResolvedValue(HUMAN);
+      const scoreExternally = vi.fn().mockResolvedValueOnce(20).mockResolvedValueOnce(95);
+
+      const out = await runHumanizePipeline(SLOP, rewrite, {
+        targetScore: 90,
+        maxPasses: 3,
+        scoreExternally,
+      });
+
+      expect(rewrite).toHaveBeenCalledTimes(1);
+      expect(out.text).toBe(HUMAN);
+      expect(out.externalAfter).toBe(95);
+    });
+
+    it("falls back to the heuristic score when the external scorer returns null", async () => {
+      const rewrite = vi.fn().mockResolvedValue(HUMAN);
+      const scoreExternally = vi.fn().mockResolvedValue(null);
+
+      const out = await runHumanizePipeline(SLOP, rewrite, { targetScore: 70, scoreExternally });
+
+      expect(out.text).toBe(HUMAN);
+      expect(out.passes[0]).toMatchObject({ accepted: true, externalScore: null });
+      expect(out.externalAfter).toBeNull();
+    });
+
+    it("skips scoring a candidate rejected for length drift", async () => {
+      const rewrite = vi.fn().mockResolvedValue("Too short.");
+      const scoreExternally = vi.fn().mockResolvedValue(80);
+
+      const out = await runHumanizePipeline(SLOP, rewrite, {
+        targetScore: 99,
+        maxPasses: 1,
+        scoreExternally,
+      });
+
+      expect(out.passes[0]).toMatchObject({ accepted: false, rejectedBecause: "length drifted" });
+      // called once for externalBefore, never for the rejected candidate
+      expect(scoreExternally).toHaveBeenCalledTimes(1);
+    });
   });
 });

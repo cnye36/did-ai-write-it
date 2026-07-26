@@ -1,22 +1,22 @@
 /*
   Humanizer eval harness. Runs a fixed corpus of known-AI samples through the
-  real pipeline (same model call as /api/humanize) and writes each rewrite to
+  real pipeline (same rewrite call as /api/humanize) and writes each rewrite to
   scripts/eval-output/ so it can be pasted into external detectors (GPTZero,
   Originality, Winston) by hand. Internal before/after scores and the pass log
-  print to stdout.
+  print to stdout, plus a Winston before/after score when WINSTON_API_KEY is set.
 
   Run: pnpm eval:humanize
   Needs OPENAI_API_KEY in .env.local (OPENAI_MODEL/OPENAI_BASE_URL optional).
+  Set HUMANIZE_PROVIDER=anthropic (+ ANTHROPIC_API_KEY) to eval Claude instead.
 */
 
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import OpenAI from "openai";
 import { runHumanizePipeline } from "../lib/humanize";
-import { analyzeText } from "../lib/detector";
-import { createSampledCompletion } from "../lib/openai";
 import { buildHumanizeSystem, buildHumanizeUser } from "../lib/prompts";
+import { generateBestRewrite, getModelLabel, getProvider } from "../lib/rewrite";
+import { winstonScoreOnly } from "../lib/winston";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -24,12 +24,6 @@ for (const line of readFileSync(resolve(root, ".env.local"), "utf8").split("\n")
   const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
 }
-
-const MODEL = process.env.OPENAI_MODEL ?? "gpt-5.5";
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: process.env.OPENAI_BASE_URL,
-});
 
 const SAMPLES: { slug: string; text: string }[] = [
   {
@@ -76,39 +70,31 @@ mkdirSync(outDir, { recursive: true });
 const system = buildHumanizeSystem();
 
 async function main() {
-  for (const sample of SAMPLES) {
-    const outcome = await runHumanizePipeline(sample.text, async ({ text, result, pass }) => {
-      const completion = await createSampledCompletion(client, {
-        model: MODEL,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: buildHumanizeUser(text, result, pass) },
-        ],
-        temperature: 1.2,
-        frequency_penalty: 0.4,
-        presence_penalty: 0.2,
-        n: 2,
-      });
-      const candidates = completion.choices
-        .map((c) => c.message?.content?.trim() ?? "")
-        .filter(Boolean);
-      if (candidates.length === 0) return "";
-      return candidates.reduce((best, c) =>
-        analyzeText(c).score > analyzeText(best).score ? c : best
-      );
-    });
+  console.log(`provider: ${getProvider()} (${getModelLabel()})`);
 
-    const file = resolve(outDir, `${sample.slug}.txt`);
+  for (const sample of SAMPLES) {
+    const outcome = await runHumanizePipeline(
+      sample.text,
+      ({ text, result, pass }) => generateBestRewrite(system, buildHumanizeUser(text, result, pass)),
+      { scoreExternally: winstonScoreOnly }
+    );
+
+    const file = resolve(outDir, `${sample.slug}-${getProvider()}.txt`);
     writeFileSync(file, outcome.text);
 
     console.log(`\n=== ${sample.slug} ===`);
     console.log(`before: ${outcome.before.score} (${outcome.before.verdict})`);
     console.log(`after:  ${outcome.after.score} (${outcome.after.verdict})`);
     for (const p of outcome.passes) {
+      const winston = p.externalScore != null ? ` winston=${p.externalScore}` : "";
       console.log(
-        `  pass ${p.pass}: ${p.score}${p.accepted ? " accepted" : ` rejected (${p.rejectedBecause})`}`
+        `  pass ${p.pass}: ${p.score}${winston}${p.accepted ? " accepted" : ` rejected (${p.rejectedBecause})`}`
       );
     }
+    console.log(
+      `winston before: ${outcome.externalBefore ?? "n/a"}  after: ${outcome.externalAfter ?? "n/a"}`
+    );
+
     console.log(`wrote ${file}`);
   }
 }

@@ -73,7 +73,10 @@ possible v2, not scoped (see `docs/BUILD_PLAN.md`).
 
 **Stack:** Next.js 16 (App Router, Turbopack), TypeScript, Tailwind v4, pnpm, WSL2. Dual light/dark
 themes, cobalt accent (`#2b47e0`, chosen to stand apart from the competitors' purple). **OpenAI**
-powers the humanize engine; no other model provider is in use.
+powers the humanize engine by default; Anthropic is wired in as a second provider (`lib/rewrite.ts`),
+switchable via `HUMANIZE_PROVIDER=anthropic` for A/B testing which model clears real detectors
+better, since the two are genuinely different APIs (sampling knobs, multi-candidate mechanism), not
+just a base URL swap.
 
 ## Commands
 
@@ -92,7 +95,10 @@ Run everything through WSL with nvm sourced (default WSL node is v18; project ne
   `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`STRIPE_PRICE_{LITE,PRO,STUDIO}_{MONTHLY,ANNUAL}`
   (billing, six price IDs total). Optional: `OPENAI_MODEL` (default `gpt-5.5`), `OPENAI_BASE_URL`
   (point at any OpenAI-compatible serverless provider — Together/DeepInfra/Groq — with no code
-  change), `DEV_BYPASS_EMAIL` (one account exempt from all word quotas).
+  change), `HUMANIZE_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` (+ optional `ANTHROPIC_MODEL`, default
+  `claude-sonnet-5`) to run the humanize engine on Claude instead, `WINSTON_API_KEY` (optional
+  real-detector check on humanize output, see `lib/winston.ts`), `DEV_BYPASS_EMAIL` (one account
+  exempt from all word quotas).
 - Browser-pane **screenshots time out in this environment**; verify via page text / JS eval / network
   inspection instead.
 
@@ -107,12 +113,18 @@ handed from the landing page to the humanizer rides in `sessionStorage` under `H
 (`lib/handoff.ts`).
 
 **The humanize engine — `lib/humanize.ts` (the core product).** `runHumanizePipeline(original,
-rewrite, opts)` is **provider-agnostic**: it takes a `rewrite` callback so the loop is unit-testable
-and the model provider is swappable. Each pass rewrites, **re-scores the result with `analyzeText`,
-and keeps it only if the score improved**; it stops at `targetScore` (default 85) or `maxPasses`
-(default 3), so clean text costs zero model calls. Guards reject an empty response or a rewrite that
-drifts outside 0.5x–2x the original word count (meaning-loss guard). Returns `{ text, before, after,
-passes }`. `/api/humanize` wires this to OpenAI Chat Completions.
+rewrite, opts)` is **provider-agnostic** (takes a `rewrite` callback, so the loop is unit-testable
+and the model is swappable via `lib/rewrite.ts`) and **detector-agnostic**: every candidate is always
+scored with `analyzeText` (free, feeds the per-pass prompt), and when `opts.scoreExternally` is
+supplied (Winston, wired in from `/api/humanize`) that score becomes the authority for accept/reject
+and for the `targetScore` stop condition instead, since a good heuristic score does not reliably
+predict a good real-detector score. `scoreExternally` returning null for a given text (unconfigured,
+request failed) falls back to the heuristic for that comparison, so it's never a hard dependency.
+Best-of-n candidate selection (`lib/rewrite.ts`'s `pickBest`) is Winston-aware the same way. Stops at
+`targetScore` (default 85) or `maxPasses` (default 4), so clean text costs zero model calls; note the
+bar gets harder to clear once Winston is driving it. Guards reject an empty response or a rewrite
+that drifts outside 0.5x–2x the original word count. Returns `{ text, before, after, externalBefore,
+externalAfter, passes }`.
 
 **`lib/detector.ts`** — pure, synchronous, unit-tested heuristic scorer (`analyzeText`), no network,
 safe on every keystroke. Scores 0–100 where **higher = more human**, on four weighted metrics
