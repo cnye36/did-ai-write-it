@@ -76,7 +76,7 @@ export function WinstonSentenceList({
             href={ctaHref}
             className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-accent-ink transition-transform active:scale-[0.97]"
           >
-            Sign up free to see the full report
+            Sign up to view the full report
           </Link>
         </div>
       )}

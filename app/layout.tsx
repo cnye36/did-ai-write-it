@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Did AI Write It? | Free AI Detector & Humanizer",
+  title: "Did AI Write It? | Free AI Content Detector",
   description:
-    "Paste any draft and get a free instant AI-detection score, verified against Winston AI. Then humanize it until it reads human. Built for LinkedIn posts, newsletters, and marketing copy, not homework.",
+    "Paste any text and get an instant AI-detection score, sentence by sentence, free and with no account needed. Built for checking LinkedIn posts, newsletters, and marketing copy before they go out.",
 };
 
 export default function RootLayout({

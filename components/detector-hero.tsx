@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   ClipboardTextIcon,
   UploadSimpleIcon,
-  LockSimpleIcon,
   ArrowRightIcon,
 } from "@phosphor-icons/react";
 import { analyzeText, verdictFor } from "@/lib/detector";
@@ -14,7 +13,63 @@ import { ScoreGauge } from "./score-gauge";
 import { WinstonSentenceList, type WinstonSentence } from "./winston-sentence-list";
 import { Modal } from "./modal";
 
-const SAMPLE = `In today's fast-paced digital landscape, leveraging AI has become crucial for success. It is not just about working harder, it is about working smarter. Businesses must delve into these cutting-edge tools to unlock their full potential. Furthermore, this seamless integration fosters innovation, efficiency, and growth. Companies that embrace this robust technology will elevate their content to new heights. Moreover, it is a testament to how far automation has come. The results speak for themselves, and the future looks incredibly bright. Ultimately, this powerful shift will revolutionize the way we work — forever.`;
+type SampleId = "ai" | "mixed" | "human";
+
+/**
+ * Pre-scored against the real Winston API once; reused verbatim so the demo
+ * samples never spend a live API call or a rate-limit slot on a known result.
+ */
+const SAMPLES: Record<
+  SampleId,
+  { label: string; text: string; winston: { score: number; sentences: WinstonSentence[] } }
+> = {
+  ai: {
+    label: "AI",
+    text: `In today's fast-paced digital landscape, leveraging AI has become crucial for success. It is not just about working harder, it is about working smarter. Businesses must delve into these cutting-edge tools to unlock their full potential. Furthermore, this seamless integration fosters innovation, efficiency, and growth. Companies that embrace this robust technology will elevate their content to new heights. Moreover, it is a testament to how far automation has come. The results speak for themselves, and the future looks incredibly bright. Ultimately, this powerful shift will revolutionize the way we work — forever.`,
+    winston: {
+      score: 4,
+      sentences: [
+        { text: "In today's fast-paced digital landscape, leveraging AI has become crucial for success.", score: 2 },
+        { text: "It is not just about working harder, it is about working smarter.", score: 6 },
+        { text: "Businesses must delve into these cutting-edge tools to unlock their full potential.", score: 3 },
+        { text: "Furthermore, this seamless integration fosters innovation, efficiency, and growth.", score: 1 },
+        { text: "Companies that embrace this robust technology will elevate their content to new heights.", score: 5 },
+        { text: "Moreover, it is a testament to how far automation has come.", score: 8 },
+        { text: "The results speak for themselves, and the future looks incredibly bright.", score: 4 },
+        { text: "Ultimately, this powerful shift will revolutionize the way we work — forever.", score: 3 },
+      ],
+    },
+  },
+  mixed: {
+    label: "Mixed",
+    text: `The first step to being ahead of the game in today's rapidly evolving tech world is to integrate AI into your business. Simply putting in more hours and more hard work will not achieve this. If you want your business to grow, you will need to adopt this technology. Companies that invest in new technology will see improvement to their operations because automation has come a long way. We are undoubtedly at the dawn of a new age of work, and the potential is limitless.`,
+    winston: {
+      score: 57,
+      sentences: [
+        { text: "The first step to being ahead of the game in today's rapidly evolving tech world is to integrate AI into your business.", score: 48 },
+        { text: "Simply putting in more hours and more hard work will not achieve this.", score: 82 },
+        { text: "If you want your business to grow, you will need to adopt this technology.", score: 60 },
+        { text: "Companies that invest in new technology will see improvement to their operations because automation has come a long way.", score: 52 },
+        { text: "We are undoubtedly at the dawn of a new age of work, and the potential is limitless.", score: 43 },
+      ],
+    },
+  },
+  human: {
+    label: "Human",
+    text: `With technology developing at an unprecedented pace, it has become imperative to capitalize on the use of AI in this modern-day era. This is not merely hard work; it is smart work. Organizations have to get down to business in using these technologies and harnessing their full strength. Additionally, this smooth transition brings with itself innovation, efficiency, and growth. Those companies who choose to use this technology will take their content to a whole new level. Lastly, it is yet another example of how far automation technology has come.`,
+    winston: {
+      score: 99,
+      sentences: [
+        { text: "With technology developing at an unprecedented pace, it has become imperative to capitalize on the use of AI in this modern-day era.", score: 95 },
+        { text: "This is not merely hard work; it is smart work.", score: 100 },
+        { text: "Organizations have to get down to business in using these technologies and harnessing their full strength.", score: 99 },
+        { text: "Additionally, this smooth transition brings with itself innovation, efficiency, and growth.", score: 100 },
+        { text: "Those companies who choose to use this technology will take their content to a whole new level.", score: 100 },
+        { text: "Lastly, it is yet another example of how far automation technology has come.", score: 100 },
+      ],
+    },
+  },
+};
 
 const FREE_PREVIEW = { revealCount: 1, ctaHref: "/signup" };
 const MAX_SCAN_WORDS = 300;
@@ -30,6 +85,7 @@ export function DetectorHero() {
   const [tab, setTab] = useState<Tab>("paste");
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
+  const [activeSample, setActiveSample] = useState<SampleId | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -48,9 +104,15 @@ export function DetectorHero() {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
+    setActiveSample(null);
     file.text().then((t) => {
       setText(t.slice(0, 12000));
     });
+  }
+
+  function selectSample(id: SampleId) {
+    setText(SAMPLES[id].text);
+    setActiveSample(id);
   }
 
   async function analyze() {
@@ -59,6 +121,19 @@ export function DetectorHero() {
     setPreview(null);
     setBusy(true);
     setModalOpen(true);
+
+    // Demo samples are pre-scored against the real detector, so reuse that
+    // score instead of spending a live API call and a rate-limit slot on a
+    // known result. Still shows the same "checking" delay as a real request.
+    if (activeSample) {
+      const { winston } = SAMPLES[activeSample];
+      setTimeout(() => {
+        setPreview(winston);
+        setBusy(false);
+      }, 700);
+      return;
+    }
+
     try {
       const res = await fetch("/api/preview-detect", {
         method: "POST",
@@ -119,7 +194,10 @@ export function DetectorHero() {
       <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            setActiveSample(null);
+          }}
           rows={9}
           aria-label="Text to check for AI"
           placeholder="Paste AI-generated text here to see how detectable it is..."
@@ -127,17 +205,26 @@ export function DetectorHero() {
         />
         <div className="mt-2 flex items-center justify-between border-t border-line pt-3">
           <div className="flex items-center gap-3 text-xs text-faint">
-            <span className="font-mono tabular-nums">{words} words</span>
-            {words > MAX_SCAN_WORDS && <span>(scoring first {MAX_SCAN_WORDS})</span>}
+            <span
+              className={`font-mono tabular-nums ${words >= MAX_SCAN_WORDS ? "text-accent" : ""}`}
+            >
+              {Math.min(words, MAX_SCAN_WORDS)}/{MAX_SCAN_WORDS} words
+            </span>
             {fileName && <span className="max-w-[140px] truncate">{fileName}</span>}
             {!text && (
-              <button
-                type="button"
-                onClick={() => setText(SAMPLE)}
-                className="text-accent hover:underline"
-              >
-                Try a sample
-              </button>
+              <span className="flex items-center gap-2">
+                Try a sample:
+                {(Object.keys(SAMPLES) as SampleId[]).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => selectSample(id)}
+                    className="text-accent hover:underline"
+                  >
+                    {SAMPLES[id].label}
+                  </button>
+                ))}
+              </span>
             )}
           </div>
           <button
@@ -166,37 +253,17 @@ export function DetectorHero() {
         </div>
       )}
 
-      {/* Locked signup row */}
-      <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-2xl border border-dashed border-line bg-surface px-4 py-3 sm:flex-row">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
-            <LockSimpleIcon size={18} weight="bold" />
-          </span>
-          <p className="text-sm leading-snug text-muted">
-            <span className="font-medium text-ink">Get unlimited Winston checks</span> and the
-            full report. Free account, no card.
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-center gap-1.5 sm:items-end">
-          <Link
-            href="/app/detect"
-            onClick={() => {
-              if (text.trim()) sessionStorage.setItem(HANDOFF_KEY, text);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
-          >
-            Sign up free for unlimited checks <ArrowRightIcon size={15} weight="bold" />
-          </Link>
-          <Link
-            href="/app/humanize"
-            onClick={() => {
-              if (text.trim()) sessionStorage.setItem(HANDOFF_KEY, text);
-            }}
-            className="text-xs font-medium text-muted transition-colors hover:text-ink"
-          >
-            or humanize it instead
-          </Link>
-        </div>
+      {/* Soft signup nudge, kept low-key so the checker itself still reads as free */}
+      <div className="mt-3 flex justify-center sm:justify-end">
+        <Link
+          href="/app/detect"
+          onClick={() => {
+            if (text.trim()) sessionStorage.setItem(HANDOFF_KEY, text);
+          }}
+          className="inline-flex items-center gap-1 text-xs font-medium text-muted transition-colors hover:text-ink"
+        >
+          Sign up for detailed reports <ArrowRightIcon size={12} weight="bold" />
+        </Link>
       </div>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
@@ -213,12 +280,9 @@ export function DetectorHero() {
 
           {/* Score, never scrolls, CTA always visible */}
           <div className="flex flex-col p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-xs font-medium uppercase tracking-wide text-faint">
-                Verified score
-              </p>
-              <span className="text-xs text-faint">Powered by Winston AI</span>
-            </div>
+            <p className="mb-4 text-xs font-medium uppercase tracking-wide text-faint">
+              Your score
+            </p>
             {busy ? (
               <div className="space-y-3">
                 {[0, 1, 2].map((i) => (
@@ -231,8 +295,9 @@ export function DetectorHero() {
               </div>
             ) : preview ? (
               <>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col items-start gap-1">
                   <ScoreGauge score={preview.score} verdict={verdictFor(preview.score)} size={92} />
+                  <span className="text-[11px] text-faint">Powered by Winston AI</span>
                 </div>
                 {preview.sentences.length > 0 && (
                   <div className="mt-4">
@@ -246,7 +311,7 @@ export function DetectorHero() {
               </>
             ) : (
               <p className="text-sm text-muted">
-                Winston check unavailable for this text right now. Try again shortly.
+                Check unavailable for this text right now. Try again shortly.
               </p>
             )}
           </div>

@@ -2,38 +2,16 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   CheckCircleIcon,
-  ClipboardTextIcon,
-  MagnifyingGlassIcon,
-  PenNibIcon,
   WaveformIcon,
   TextAlignLeftIcon,
   QuotesIcon,
+  PenNibIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { DetectorHero } from "@/components/detector-hero";
 import { SiteHeader } from "@/components/site-header";
+import { HowItWorks } from "@/components/how-it-works";
 import { Reveal } from "@/components/reveal";
 import { PLAN_INFO, PLAN_ORDER, formatPlanPrice } from "@/lib/plans";
-
-const STEPS = [
-  {
-    icon: ClipboardTextIcon,
-    title: "Paste or upload",
-    body: "Drop in anything you are unsure about: an email, an essay, a full report. Text or file both work.",
-    highlight: false,
-  },
-  {
-    icon: MagnifyingGlassIcon,
-    title: "See the score",
-    body: "Get an instant AI-detection score and see exactly which sentences got flagged, with the reasoning behind each one.",
-    highlight: false,
-  },
-  {
-    icon: PenNibIcon,
-    title: "Verify or fix it",
-    body: "Sign up free to confirm the score against Winston AI, then humanize the flagged parts until it reads clean.",
-    highlight: true,
-  },
-];
 
 const SIGNALS = [
   {
@@ -64,24 +42,24 @@ const SIGNALS = [
 
 const FAQ = [
   {
-    q: "Is the detection score the same as GPTZero?",
-    a: "The free score is a heuristic proxy built on the same measurable signals real detectors use, so it moves in the same direction. Sign up free and we can verify it against Winston AI, a third-party detector, for an independent score.",
+    q: "How does the AI detector work?",
+    a: "Paste or upload any text and it is scanned sentence by sentence for the patterns AI writing leaves behind: flattened sentence rhythm, stock vocabulary, and predictable structure. You get a 0 to 100 score plus the reasoning behind every flagged line.",
   },
   {
-    q: "Does the humanizer change what my text says?",
-    a: "No. It targets the machine fingerprint (rhythm, stock phrasing, punctuation) while keeping your meaning and structure. You can compare before and after side by side, from the Humanizer section once you are signed in.",
+    q: "How accurate is the AI detection score?",
+    a: "No detector, ours included, is 100 percent certain on every input. Treat the score as a strong signal to investigate further, not a verdict on its own, especially on shorter drafts.",
   },
   {
     q: "What should I use this for?",
-    a: "Checking any draft you are not sure about, and cleaning up your own AI-assisted writing before it goes out: marketing copy, LinkedIn posts, newsletters, reports. Built for professional writing, not homework.",
+    a: "Checking any draft you are not sure about before it goes out: marketing copy, LinkedIn posts, newsletters, reports, and other professional writing. Not built for catching homework.",
   },
   {
     q: "What happens if I go over my word limit?",
-    a: "You will see the option to upgrade before any request fails. Free, Lite, Pro, and Studio each raise your monthly quota, which covers both Winston-verified checks and humanize rewrites.",
+    a: "The free check on this page caps out at 300 words per scan with a limited number of free scans per day. Sign up for a higher monthly word allowance and the full sentence-by-sentence report.",
   },
   {
     q: "Do I need to install anything?",
-    a: "No. Paste or upload text in the browser. The free score runs instantly with no account; Winston-verified checks and humanizing just need a free sign in.",
+    a: "No. Paste or upload text right in the browser and get a score in seconds. No account needed for a quick check.",
   },
 ];
 
@@ -119,16 +97,16 @@ export default function Landing() {
           <Reveal>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs font-medium text-muted">
               <CheckCircleIcon size={14} weight="bold" className="text-accent" />
-              Free to check. No account needed.
+              Free instant check. No account needed.
             </span>
             <h1 className="mt-4 text-4xl font-semibold leading-[1.05] tracking-tighter md:text-6xl">
               Did AI write it?
               <br />
-              Find out for free.
+              Paste it below to find out.
             </h1>
             <p className="mx-auto mt-5 max-w-[46ch] text-lg leading-relaxed text-muted">
-              Paste any draft and get an instant AI-detection score, then
-              verify it against a real detector for free.
+              Get an AI-detection score for any draft in seconds, down to
+              the exact sentence, with the reasoning behind every flag.
             </p>
           </Reveal>
         </div>
@@ -137,37 +115,7 @@ export default function Landing() {
         </Reveal>
       </section>
 
-      {/* How it works */}
-      <section id="how" className="border-t border-line py-20 md:py-28">
-        <Reveal>
-          <h2 className="max-w-[22ch] text-3xl font-semibold tracking-tighter md:text-4xl">
-            From flagged to verified
-          </h2>
-        </Reveal>
-        <div className="mt-10 divide-y divide-line border-y border-line">
-          {STEPS.map((s, i) => (
-            <Reveal key={s.title} delay={i * 0.06}>
-              <div
-                className={`grid gap-4 py-8 sm:grid-cols-[auto_1fr] sm:items-start sm:gap-8 ${
-                  s.highlight ? "-mx-4 rounded-2xl bg-accent-soft px-4 sm:-mx-6 sm:px-6" : ""
-                }`}
-              >
-                <span
-                  className={`inline-flex size-10 shrink-0 items-center justify-center rounded-full ${
-                    s.highlight ? "bg-accent text-accent-ink" : "bg-accent-soft text-accent"
-                  }`}
-                >
-                  <s.icon size={20} weight="bold" />
-                </span>
-                <div>
-                  <h3 className="font-semibold tracking-tight">{s.title}</h3>
-                  <p className="mt-1.5 max-w-[56ch] text-sm leading-relaxed text-muted">{s.body}</p>
-                </div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
+      <HowItWorks />
 
       {/* What we check: transparency differentiator */}
       <section id="analyze" className="border-t border-line py-20 md:py-28">
@@ -234,8 +182,8 @@ export default function Landing() {
                 Try it on the draft you are least sure about.
               </h2>
               <p className="mx-auto mt-4 max-w-[46ch] text-white/80">
-                Paste it, see the score, and if it needs work, clean it up
-                until it reads human. No card required to start.
+                Paste it in and see the score in seconds. No card required
+                to start.
               </p>
               <Link
                 href="/signup"
@@ -254,8 +202,8 @@ export default function Landing() {
             didaiwriteit<span className="text-accent">.com</span>
           </p>
           <p className="mt-1 max-w-[46ch] text-sm text-muted">
-            Detect and humanize AI writing. Built for professional content, not for
-            passing off homework.
+            Real AI-detection scores for any draft. Built for professional
+            writing, not for passing off homework.
           </p>
         </div>
         <Link
