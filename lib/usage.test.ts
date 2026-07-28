@@ -3,22 +3,22 @@ import { isCurrentPeriod, isDevBypass, PLAN_LIMITS, remainingWords } from "./usa
 
 describe("remainingWords", () => {
   it("returns the full limit when nothing has been used", () => {
-    expect(remainingWords("free", 0)).toBe(500);
-    expect(remainingWords("lite", 0)).toBe(10_000);
-    expect(remainingWords("pro", 0)).toBe(30_000);
-    expect(remainingWords("studio", 0)).toBe(100_000);
+    expect(remainingWords("free", 0)).toBe(2_000);
+    expect(remainingWords("lite", 0)).toBe(40_000);
+    expect(remainingWords("pro", 0)).toBe(150_000);
+    expect(remainingWords("studio", 0)).toBe(500_000);
   });
 
   it("subtracts words already used", () => {
-    expect(remainingWords("free", 200)).toBe(300);
+    expect(remainingWords("free", 200)).toBe(1_800);
   });
 
   it("floors at zero instead of going negative", () => {
-    expect(remainingWords("free", 900)).toBe(0);
+    expect(remainingWords("free", 2_500)).toBe(0);
   });
 
   it("matches the plan limits advertised on the landing page", () => {
-    expect(PLAN_LIMITS).toEqual({ free: 500, lite: 10_000, pro: 30_000, studio: 100_000 });
+    expect(PLAN_LIMITS).toEqual({ free: 2_000, lite: 40_000, pro: 150_000, studio: 500_000 });
   });
 });
 

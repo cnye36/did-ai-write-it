@@ -1,12 +1,12 @@
 # Build plan
 
-didaiwriteit.com (renamed from letaiwriteit.com, pivot dated 2026-07-25) is a detector-first AI
+Didaiwriteit.com (renamed from Letaiwriteit.com, pivot dated 2026-07-25) is a detector-first AI
 writing tool: paste any text, get a real Winston-verified AI-detection score, then humanize it
 through a multi-pass engine until it reads human. See `CLAUDE.md` for the full product/architecture
 rundown. This doc tracks the milestone roadmap so the project stays legible as it's built in public.
 
-**2026-07-25 pivot: detector-first, didaiwriteit.com.** Acquired the exact-match domain
-didaiwriteit.com and repositioned the product around it: the AI detector (already strong from M4a)
+**2026-07-25 pivot: detector-first, Didaiwriteit.com.** Acquired the exact-match domain
+Didaiwriteit.com and repositioned the product around it: the AI detector (already strong from M4a)
 is now the headline feature and the primary public-facing tool, with the humanizer kept as a
 secondary "Humanizer" section alongside a new "Detector" section once signed in
 (`app/app/detect/page.tsx`, `/api/detect`). Winston AI checks now run standalone, not just inside the

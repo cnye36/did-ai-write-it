@@ -21,51 +21,43 @@ interface ComparisonGroup {
 
 const GROUPS: ComparisonGroup[] = [
   {
+    title: "AI detection",
+    rows: [
+      { label: "Real, verified detection score", values: [true, true, true, true] },
+      { label: "Full sentence-by-sentence report", values: [true, true, true, true] },
+      { label: "Up to 150,000 characters per check", values: [true, true, true, true] },
+      { label: "Submission and report history, saved to your account", values: [true, true, true, true] },
+      {
+        label: "Multi-provider detection (GPTZero, Turnitin, and more)",
+        values: [false, false, false, true],
+        comingSoon: true,
+      },
+    ],
+  },
+  {
+    title: "Plagiarism & fact checking",
+    rows: [
+      { label: "Web-wide plagiarism scan with matched sources", values: [true, true, true, true] },
+      { label: "Claim-by-claim fact check with cited sources", values: [true, true, true, true] },
+    ],
+  },
+  {
     title: "Usage",
-    rows: [
-      { label: "Humanized words / month", values: ["500", "10,000", "30,000", "100,000"] },
-      { label: "Max words per request", values: ["300", "800", "1,500", "2,500"] },
-      { label: "AI detection scans", values: ["Unlimited", "Unlimited", "Unlimited", "Unlimited"] },
-    ],
-  },
-  {
-    title: "Humanizing engine",
-    rows: [
-      { label: "Rewrites until it reads human", values: [true, true, true, true] },
-      { label: "Priority processing", values: [false, false, true, true] },
-      {
-        label: "Multi-language humanizing (Spanish, French, German, Portuguese, more)",
-        values: [false, true, true, true],
-        comingSoon: true,
-      },
-      {
-        label: "Guaranteed pass on GPTZero, Originality, and Turnitin",
-        values: [false, false, false, true],
-        comingSoon: true,
-      },
-    ],
-  },
-  {
-    title: "Detection and reports",
-    rows: [
-      { label: "Instant AI-detection score", values: [true, true, true, true] },
-      { label: "Full signal breakdown", values: [true, true, true, true] },
-      {
-        label: "Real detector pass reports (GPTZero, Originality)",
-        values: [false, false, false, true],
-        comingSoon: true,
-      },
-    ],
+    rows: [{ label: "Words / month", values: ["2,000", "40,000", "150,000", "500,000"] }],
   },
   {
     title: "Platform",
-    rows: [{ label: "API access", values: [false, false, false, true], comingSoon: true }],
+    rows: [
+      { label: "Priority processing", values: [false, false, true, true] },
+      { label: "API access", values: [false, false, false, true], comingSoon: true },
+    ],
   },
 ];
 
 const ROADMAP = [
+  "AI writing assistant: draft clean copy from scratch (coming soon)",
+  "Humanizer: rewrite flagged text until it reads human (returning soon)",
   ".docx and .pdf upload, not just plain text",
-  "Bulk humanizing: queue up a whole folder of drafts at once",
   "Referral credits for teams that invite others",
 ];
 
@@ -173,6 +165,10 @@ export function PricingComparison() {
           ))}
         </table>
       </div>
+      <p className="text-xs text-faint">
+        Plagiarism and fact checks draw from the same monthly word pool as AI detection, at roughly
+        twice the rate, since each one runs a real web search.
+      </p>
 
       {/* Roadmap teaser */}
       <div className="rounded-2xl border border-dashed border-line p-6 sm:p-8">

@@ -6,7 +6,7 @@ export default function LoginPage() {
     <div className="flex min-h-[100dvh] flex-col">
       <header className="border-b border-line px-4 py-4 sm:px-6">
         <Link href="/" className="text-sm font-semibold tracking-tight">
-          didaiwriteit<span className="text-accent">.com</span>
+          Didaiwriteit<span className="text-accent">.com</span>
         </Link>
       </header>
       <main className="flex flex-1 items-center justify-center px-4 py-12">

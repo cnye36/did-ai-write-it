@@ -1,7 +1,7 @@
 # Subscription pricing strategy
 
 Research pass on direct competitors before locking Stripe prices for M2. Every competitor checked
-caps **words per single output**, in addition to a monthly quota, which didaiwriteit.com does not
+caps **words per single output**, in addition to a monthly quota, which Didaiwriteit.com does not
 do today. Sources fetched 2026-07-21.
 
 ## Competitor pricing
@@ -32,7 +32,7 @@ lower price. Neither plan caps words-per-output, which every competitor treats a
 (it protects against one giant single-shot request draining a whole month's quota in one call, and
 it's also a natural paywall for long-form use cases).
 
-## Plans (locked, implemented in M2)
+## Plans (superseded, see 2026-07-27 pivot below)
 
 | Plan | Price/mo | Words/mo | Max words/output | Notes |
 |---|---|---|---|---|
@@ -45,12 +45,21 @@ Per-1,000-word price at these levels: Lite $0.90, Pro $0.633, Studio $0.39 — s
 word than every metered competitor at every tier, so the value story holds even after tightening,
 while cutting worst-case OpenAI cost exposure per account by roughly 40-50% on Pro/Studio.
 
-Numbers live in `lib/usage.ts` (`PLAN_LIMITS`, `PLAN_MAX_OUTPUT_WORDS`) and `lib/plans.ts`
-(display copy for the landing page and `/app/billing`) — edit both together.
+## 2026-07-27 pivot: detector-only pricing, no per-request word cap
 
-The per-output cap is enforced in `/api/humanize` (`lib/api-errors.ts`'s
-`MaxOutputWordsExceededError`, a 400), checked before the quota check, not inside
-`lib/humanize.ts` — keeps the pipeline itself plan-agnostic and unit-testable.
+With the product now selling detection first and the humanizer paused (see `CLAUDE.md`), the
+per-output word cap stopped making sense: it was originally added because every humanizer
+competitor caps words-per-generation to protect against a single request draining a month's quota,
+but a detection check doesn't generate anything, it just scores text against Winston, so that
+rationale doesn't apply. `PLAN_MAX_OUTPUT_WORDS` and `MaxOutputWordsExceededError` were removed;
+`/api/detect`'s only per-request bound is now a flat `MAX_CHARS = 150_000` in
+`app/api/humanize/route.ts` unchanged at 12,000 chars, `app/api/detect/route.ts`), independent of
+plan. Monthly word quotas (`PLAN_LIMITS` in `lib/usage.ts`) were raised across the board to match a
+detector-first product where the free heuristic scan competitors don't gate nearly as hard on
+per-run length as the humanizer competitors researched above: **Free** 2,000 words/mo, **Lite**
+40,000, **Pro** 150,000, **Studio** 500,000. Prices unchanged. Numbers live in `lib/usage.ts`
+(`PLAN_LIMITS`) and `lib/plans.ts` (display copy for `/pricing` and `/app/billing`) — edit both
+together.
 
 ## Annual billing
 

@@ -2,15 +2,20 @@ import { NextRequest } from "next/server";
 import { errorResponse } from "@/lib/api-errors";
 import { analyzeText } from "@/lib/detector";
 import { insertRun } from "@/lib/runs";
-import { scoreWithWinston } from "@/lib/winston";
+import { checkFacts, FACT_CHECK_MAX_CHARS } from "@/lib/winston";
 import { requireUser } from "@/lib/supabase/auth";
-import { assertWithinQuota, isCurrentPeriod, isDevBypass, PLAN_LIMITS, type Plan } from "@/lib/usage";
+import {
+  assertWithinQuota,
+  isCurrentPeriod,
+  isDevBypass,
+  PLAN_LIMITS,
+  FACT_CHECK_WORD_MULTIPLIER,
+  type Plan,
+} from "@/lib/usage";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
-const MAX_CHARS = 150_000;
-
-interface DetectBody {
+interface FactCheckBody {
   text: string;
 }
 
@@ -18,15 +23,17 @@ export async function POST(req: NextRequest) {
   try {
     const { supabase, userId, email } = await requireUser();
 
-    const body = (await req.json()) as DetectBody;
+    const body = (await req.json()) as FactCheckBody;
     const text = body.text?.trim();
 
     if (!text) {
       return Response.json({ error: "Nothing to check." }, { status: 400 });
     }
-    if (text.length > MAX_CHARS) {
+    if (text.length > FACT_CHECK_MAX_CHARS) {
       return Response.json(
-        { error: `Text is too long. Keep it under ${MAX_CHARS.toLocaleString()} characters.` },
+        {
+          error: `Text is too long. Keep it under ${FACT_CHECK_MAX_CHARS.toLocaleString()} characters.`,
+        },
         { status: 400 }
       );
     }
@@ -37,40 +44,40 @@ export async function POST(req: NextRequest) {
     ]);
     const plan = (profile?.plan as Plan | undefined) ?? "free";
     const wordsUsed = usage && isCurrentPeriod(usage.period_start) ? usage.words_used : 0;
-    const requestedWords = analyzeText(text).wordCount;
+    const wordCount = analyzeText(text).wordCount;
+    const quotaWords = wordCount * FACT_CHECK_WORD_MULTIPLIER;
     const bypass = isDevBypass(email);
-    assertWithinQuota(plan, wordsUsed, requestedWords, bypass);
+    assertWithinQuota(plan, wordsUsed, quotaWords, bypass);
 
-    const winston = await scoreWithWinston(text);
+    const factCheck = await checkFacts(text);
 
     // Nothing billable happened (unconfigured, too short, or the request
     // failed): return the null result without touching the quota.
-    if (!winston) {
+    if (!factCheck) {
       return Response.json({
-        winston: null,
+        factCheck: null,
         usage: { used: wordsUsed, limit: PLAN_LIMITS[plan] },
       });
     }
 
     const { data: updated } = (await supabase
-      .rpc("increment_usage", { p_user_id: userId, p_words: requestedWords })
+      .rpc("increment_usage", { p_user_id: userId, p_words: quotaWords })
       .single()) as { data: { words_used: number; plan: string } | null };
 
-    const winstonPayload = { score: winston.score, sentences: winston.sentences };
     const runId = await insertRun(supabase, {
       userId,
-      kind: "detect",
+      kind: "fact_check",
       inputText: text,
-      wordCount: requestedWords,
-      score: winston.score,
-      result: { winston: winstonPayload },
+      wordCount,
+      score: factCheck.score,
+      result: { factCheck },
     });
 
     return Response.json({
-      winston: winstonPayload,
+      factCheck,
       runId,
       usage: {
-        used: updated?.words_used ?? wordsUsed + requestedWords,
+        used: updated?.words_used ?? wordsUsed + quotaWords,
         limit: PLAN_LIMITS[plan],
       },
     });

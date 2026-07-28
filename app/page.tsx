@@ -199,7 +199,7 @@ export default function Landing() {
       <footer className="flex flex-col items-start justify-between gap-6 border-t border-line py-12 md:flex-row md:items-center">
         <div>
           <p className="text-sm font-semibold tracking-tight">
-            didaiwriteit<span className="text-accent">.com</span>
+            Didaiwriteit<span className="text-accent">.com</span>
           </p>
           <p className="mt-1 max-w-[46ch] text-sm text-muted">
             Real AI-detection scores for any draft. Built for professional

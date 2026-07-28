@@ -1,4 +1,4 @@
-import { PLAN_LIMITS, PLAN_MAX_OUTPUT_WORDS, type Plan } from "@/lib/usage";
+import { PLAN_LIMITS, type Plan } from "@/lib/usage";
 
 export type BillingInterval = "month" | "year";
 
@@ -36,10 +36,9 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     priceMonthly: 0,
     priceAnnualMonthly: 0,
     features: [
-      "Unlimited AI detection",
-      "Full signal breakdown",
-      `${PLAN_LIMITS.free.toLocaleString()} humanized words / month`,
-      `${PLAN_MAX_OUTPUT_WORDS.free.toLocaleString()} words max per request`,
+      `${PLAN_LIMITS.free.toLocaleString()} words / month`,
+      "AI detection, plagiarism & fact checks",
+      "Full sentence-by-sentence report",
     ],
   },
   lite: {
@@ -48,9 +47,9 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     priceMonthly: 9,
     priceAnnualMonthly: 5,
     features: [
-      `${PLAN_LIMITS.lite.toLocaleString()} humanized words / month`,
-      `${PLAN_MAX_OUTPUT_WORDS.lite.toLocaleString()} words max per request`,
-      "Rewrites until it reads human",
+      `${PLAN_LIMITS.lite.toLocaleString()} words / month`,
+      "AI detection, plagiarism & fact checks",
+      "Full sentence-by-sentence report",
     ],
   },
   pro: {
@@ -59,8 +58,8 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     priceMonthly: 24,
     priceAnnualMonthly: 12,
     features: [
-      `${PLAN_LIMITS.pro.toLocaleString()} humanized words / month`,
-      `${PLAN_MAX_OUTPUT_WORDS.pro.toLocaleString()} words max per request`,
+      `${PLAN_LIMITS.pro.toLocaleString()} words / month`,
+      "AI detection, plagiarism & fact checks",
       "Priority processing",
     ],
   },
@@ -70,10 +69,9 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     priceMonthly: 49,
     priceAnnualMonthly: 24,
     features: [
-      `${PLAN_LIMITS.studio.toLocaleString()} humanized words / month`,
-      `${PLAN_MAX_OUTPUT_WORDS.studio.toLocaleString()} words max per request`,
-      "Real detector pass reports",
-      "API access",
+      `${PLAN_LIMITS.studio.toLocaleString()} words / month`,
+      "AI detection, plagiarism & fact checks",
+      "Priority processing",
     ],
   },
 };

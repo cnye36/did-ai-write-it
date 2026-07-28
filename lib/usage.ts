@@ -1,20 +1,12 @@
-import { MaxOutputWordsExceededError, QuotaExceededError } from "./api-errors";
+import { QuotaExceededError } from "./api-errors";
 
 export type Plan = "free" | "lite" | "pro" | "studio";
 
 export const PLAN_LIMITS: Record<Plan, number> = {
-  free: 500,
-  lite: 10_000,
-  pro: 30_000,
-  studio: 100_000,
-};
-
-/** Max words accepted in a single /api/humanize request, independent of the monthly quota. */
-export const PLAN_MAX_OUTPUT_WORDS: Record<Plan, number> = {
-  free: 300,
-  lite: 800,
-  pro: 1_500,
-  studio: 2_500,
+  free: 2_000,
+  lite: 40_000,
+  pro: 150_000,
+  studio: 500_000,
 };
 
 export function remainingWords(plan: Plan, wordsUsed: number): number {
@@ -22,9 +14,20 @@ export function remainingWords(plan: Plan, wordsUsed: number): number {
 }
 
 /**
+ * Plagiarism and fact-check cost Winston 2 credits/word, double AI detection's
+ * 1 credit/word (per docs.gowinston.ai). Charging the same multiplier against
+ * the monthly quota keeps a single shared word pool (no separate plan-gating)
+ * while still reflecting the real cost difference, so heavy add-on usage
+ * draws down a user's quota proportionally to what it actually costs us.
+ */
+export const PLAGIARISM_WORD_MULTIPLIER = 2;
+export const FACT_CHECK_WORD_MULTIPLIER = 2;
+
+/**
  * Shared quota gate for humanize and detect requests, both of which draw from
- * the same monthly words_used pool. Throws MaxOutputWordsExceededError or
- * QuotaExceededError; no-op for the DEV_BYPASS_EMAIL account.
+ * the same monthly words_used pool. Throws QuotaExceededError; no-op for the
+ * DEV_BYPASS_EMAIL account. There is no per-request word cap; requests are
+ * bounded only by each route's own MAX_CHARS.
  */
 export function assertWithinQuota(
   plan: Plan,
@@ -33,9 +36,6 @@ export function assertWithinQuota(
   bypass: boolean
 ): void {
   if (bypass) return;
-  if (requestedWords > PLAN_MAX_OUTPUT_WORDS[plan]) {
-    throw new MaxOutputWordsExceededError(plan, PLAN_MAX_OUTPUT_WORDS[plan]);
-  }
   const remaining = remainingWords(plan, wordsUsed);
   if (requestedWords > remaining) {
     throw new QuotaExceededError(plan, PLAN_LIMITS[plan]);

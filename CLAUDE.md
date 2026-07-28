@@ -58,9 +58,37 @@ For multi-step tasks, state a brief plan:
 ## About this project
 
 **didaiwriteit.com** (renamed from letaiwriteit.com, pivot dated 2026-07-25) is a **detector-first**
-AI writing tool: paste or upload any text, get a real Winston-verified AI-detection score, then
-optionally humanize it until it reads human. The detector is now the primary product; the humanizer
-is a secondary feature reachable from its own section once signed in, not the headline pitch.
+content-integrity tool: paste or upload any text and get a real, Winston-verified read on it across
+three checks, AI detection, plagiarism, and fact-checking, either standalone or bundled from the
+detector as opt-in add-ons. The humanizer (rewrite until it reads human) is **paused, not deleted**
+as of 2026-07-27: unlinked from nav and `/pricing`, its route (`app/app/humanize/page.tsx`) redirects
+to `/app/detect`, but the engine (`lib/humanize.ts`, `/api/humanize`) is untouched and easy to bring
+back, since this was a product-positioning call ("just a detector, for now"), not a technical one.
+
+**2026-07-27: plagiarism + fact-checker wired in, pricing rebuilt around the detector, report
+history shipped.** Three changes landed together:
+- **Winston's plagiarism and fact-checker APIs** (`lib/winston.ts`'s `scoreWithPlagiarism` /
+  `checkFacts`) are now live alongside AI detection: standalone tools at `/app/plagiarism` and
+  `/app/fact-check`, plus opt-in add-on cards inside the detector's report
+  (`components/detector-addons.tsx`) that run on the same text without leaving the page. Both cost
+  Winston 2 credits/word (AI detection is 1), so they draw from the shared monthly quota at
+  `PLAGIARISM_WORD_MULTIPLIER`/`FACT_CHECK_WORD_MULTIPLIER` (`lib/usage.ts`, both currently `2`)
+  rather than 1:1. The Winston brand name is deliberately scoped to a small attribution badge inside
+  each report card, nowhere in marketing copy, headlines, or button text.
+- **Pricing was rebuilt detector-first.** No more per-request word cap (`PLAN_MAX_OUTPUT_WORDS` and
+  `MaxOutputWordsExceededError` are gone); `/api/detect` and `/api/plagiarism` instead bound a
+  single request by a flat character ceiling matching Winston's own documented limits per endpoint
+  (150k detect, 120k plagiarism, 10k fact-check, `/api/humanize` unchanged at 12k chars since that
+  one is genuinely output-token-bound). Monthly quotas (`PLAN_LIMITS`) went up across the board to
+  match: **Free** 2,000, **Lite** 40,000, **Pro** 150,000, **Studio** 500,000 words/month, same
+  price points. See `docs/subscriptions.md` for the full before/after.
+- **Every successful check is now saved** to a `runs` table (`supabase/migrations/0004_runs.sql`,
+  RLS-scoped to the owner) via `lib/runs.ts`'s `insertRun()`, called from `/api/detect`,
+  `/api/plagiarism`, and `/api/fact-check` right after a billable result comes back, never on a
+  null/unavailable one. `RunsSidebar` (`components/runs-sidebar.tsx`, wired into `app/app/layout.tsx`)
+  lists recent runs and reopens one via `?run=<id>` (`lib/load-run.ts`'s `loadOwnedRun`, kind-checked
+  so a plagiarism run can't be opened from the fact-check page); `/api/runs` lists/deletes,
+  `/api/runs/[id]` fetches one.
 
 **The free heuristic (`lib/detector.ts`) is not the customer-facing score anywhere it matters
 (as of 2026-07-26).** It scores most AI text as too human to be credible as *the* score for a
@@ -106,9 +134,10 @@ Run everything through WSL with nvm sourced (default WSL node is v18; project ne
   (billing, six price IDs total). Optional: `OPENAI_MODEL` (default `gpt-5.5`), `OPENAI_BASE_URL`
   (point at any OpenAI-compatible serverless provider — Together/DeepInfra/Groq — with no code
   change), `HUMANIZE_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` (+ optional `ANTHROPIC_MODEL`, default
-  `claude-sonnet-5`) to run the humanize engine on Claude instead, `WINSTON_API_KEY` (optional
-  real-detector check on humanize output, see `lib/winston.ts`), `DEV_BYPASS_EMAIL` (one account
-  exempt from all word quotas).
+  `claude-sonnet-5`) to run the humanize engine on Claude instead, `WINSTON_API_KEY` (powers AI
+  detection, plagiarism, and fact-checking everywhere, plus the optional real-detector check on
+  humanize output, see `lib/winston.ts`), `DEV_BYPASS_EMAIL` (one account exempt from all word
+  quotas).
 - Browser-pane **screenshots time out in this environment**; verify via page text / JS eval / network
   inspection instead.
 
@@ -117,15 +146,17 @@ Run everything through WSL with nvm sourced (default WSL node is v18; project ne
 **Supabase auth + Postgres for accounts/billing.** `/app/**` is gated by `proxy.ts`
 (`lib/supabase/proxy.ts`) and every API route independently calls `requireUser()`
 (`lib/supabase/auth.ts`) — defense in depth, since the proxy alone wouldn't stop a direct API call.
-`profiles` (plan, Stripe IDs) and `usage` (monthly word counter, rolled over by comparing
-`period_start` to the current month, not a cron job) live in Postgres (`supabase/migrations/`). Text
-handed from the landing page to the detector or humanizer rides in `sessionStorage` under
-`HANDOFF_KEY` (`lib/handoff.ts`). Quota enforcement (`PLAN_MAX_OUTPUT_WORDS` per-request cap, then
-the monthly `PLAN_LIMITS` quota) is a single shared `assertWithinQuota()` in `lib/usage.ts`, used by
-both `/api/humanize` and `/api/detect` since Winston-verified detector checks draw from the same
-monthly word pool as humanize rewrites, not a separate quota. `preview_checks` (ip, created_at) is a
-separate, unauthenticated rate-limit table for the anonymous homepage scan, unrelated to per-user
-quota, written only via the service-role client since there's no user session to scope it to.
+`profiles` (plan, Stripe IDs), `usage` (monthly word counter, rolled over by comparing
+`period_start` to the current month, not a cron job), and `runs` (saved report history, see the
+2026-07-27 note above) live in Postgres (`supabase/migrations/`). Text handed from the landing page
+to the detector or humanizer rides in `sessionStorage` under `HANDOFF_KEY` (`lib/handoff.ts`).
+Quota enforcement is a single shared `assertWithinQuota()` in `lib/usage.ts` checking monthly
+`PLAN_LIMITS`, used by `/api/humanize`, `/api/detect`, `/api/plagiarism`, and `/api/fact-check`
+since they all draw from the same monthly word pool, not separate quotas; there is no per-request
+word cap, only each route's own flat `MAX_CHARS` (see the 2026-07-27 note above). `preview_checks`
+(ip, created_at) is a separate, unauthenticated rate-limit table for the anonymous homepage scan,
+unrelated to per-user quota, written only via the service-role client since there's no user session
+to scope it to.
 
 **The humanize engine — `lib/humanize.ts` (the core product).** `runHumanizePipeline(original,
 rewrite, opts)` is **provider-agnostic** (takes a `rewrite` callback, so the loop is unit-testable
@@ -153,6 +184,35 @@ scored/verdicted with its own `reasons`, reusing the same flags via range overla
 line-by-line report). This is a **heuristic proxy**, not a real detector like GPTZero. Real
 perplexity scoring was investigated and ruled out for now (gpt-5.5 can't score arbitrary input text,
 only its own generated tokens); a real third-party detector API is the planned M4b, not yet funded.
+Multi-provider **AI-detection** aggregation specifically (GPTZero, Turnitin, alongside Winston) is
+still on that same roadmap, not built, distinct from plagiarism/fact-check below which are Winston
+products already wired in, not aggregation.
+
+**`lib/winston.ts`** is the client for all three Winston APIs, each with its own min/max character
+bounds and score polarity, so never assume one endpoint's shape or scale applies to another:
+- `scoreWithWinston` (AI detection) — 0-100, **higher = more human**, 300-150,000 chars, 1 credit/word.
+- `scoreWithPlagiarism` — 0-100, **higher = MORE plagiarism found** (opposite polarity, confirmed
+  against Winston's own help docs), 100-120,000 chars, 2 credits/word. Returns matched `sources`
+  (url, title, per-source match score) and a flattened `matches` array of character offsets into the
+  original text for inline highlighting (`components/plagiarism-highlighted-text.tsx`).
+- `checkFacts` — 0-100, **higher = better-supported** (same polarity as AI detection), 300-10,000
+  chars (much shorter cap; the endpoint extracts at most 12 claims regardless of length), 2
+  credits/word. Each claim carries an explicit `verdict` string (`SUPPORTED` /
+  `PARTIALLY_SUPPORTED` / `NOT_ENOUGH_EVIDENCE` / `REFUTED`) plus an explanation and source links,
+  used directly for claim-card coloring (`components/fact-check-claims.tsx`) rather than inferring
+  color from the score. Claims carry sentence text but no character offsets, so
+  `components/fact-check-highlighted-text.tsx` locates each one in the original text the same way
+  `components/winston-highlighted-text.tsx` does for AI-detection sentences: sequential
+  `indexOf`, skipping silently on no match rather than erroring. All three functions share the same
+  "never a hard dependency" contract: unconfigured key, under-length text, or a failed request all
+  return `null`, never throw.
+
+**Score gauges** (`components/gauge.tsx`) take an explicit `color`/`label` rather than a fixed
+verdict enum, since plagiarism's inverted polarity and fact-check's own thresholds don't fit
+AI-detection's human/mixed/ai vocabulary. `components/score-gauge.tsx` (AI detection only) is now a
+thin wrapper around `Gauge`; `lib/score-verdicts.ts` holds `plagiarismVerdict`/`factCheckVerdict`,
+the color/label thresholds for the other two, shared between their standalone pages and the
+detector's add-on cards so the three don't drift.
 
 **API routes (`app/api/*/route.ts`)** are thin. All errors funnel through `errorResponse()` in
 `lib/api-errors.ts`: 503 for a missing key (`MissingKeyError`), 500 otherwise.
@@ -160,12 +220,19 @@ only its own generated tokens); a real third-party detector API is the planned M
   `{ text, targetScore?, maxPasses? }` → `{ text, before, after, passes, model, usage }`. Quota
   checks skipped for the `DEV_BYPASS_EMAIL` account; a passing request calls the `increment_usage`
   Postgres RPC.
-- `/api/detect` — standalone real-detector check for signed-in users, unlimited length (up to
-  `MAX_CHARS`). Requires auth. Body `{ text }` → `{ winston: { score, sentences } | null, usage }`.
-  Quota (`assertWithinQuota`) is checked before calling Winston, but `increment_usage` only fires
-  when Winston actually returns a score: if it's unconfigured, the text is under
-  `WINSTON_MIN_CHARS`, or the request fails, the response still carries `winston: null` but consumes
-  no quota, since nothing billable happened.
+- `/api/detect`, `/api/plagiarism`, `/api/fact-check` — the three standalone, quota-metered checks,
+  identically shaped: requires auth, bounded by that endpoint's own flat `MAX_CHARS`, quota checked
+  via `assertWithinQuota` before calling Winston (plagiarism/fact-check charge `wordCount *
+  PLAGIARISM_WORD_MULTIPLIER`/`FACT_CHECK_WORD_MULTIPLIER`, both `2`, reflecting Winston's real
+  2-credit/word cost there), `increment_usage` and `insertRun` (saves to `runs`, see below) both
+  fire only when Winston actually returns a result, never on a `null`/unconfigured/failed one, since
+  nothing billable happened. Bodies: `{ text }` → `{ winston | plagiarism | factCheck, runId, usage }`.
+- `/api/runs` — `GET` lists the signed-in user's recent runs (id/kind/title/word_count/score/created_at
+  only, not the full text/result, for the sidebar); `DELETE ?id=` removes one, owner-scoped by RLS
+  and an explicit `.eq("user_id", userId)`.
+- `/api/runs/[id]` — `GET` fetches one full run (including `input_text` and `result`), owner-scoped
+  the same way, used by each tool page's server component (`app/app/detect/page.tsx` etc.) to hydrate
+  `?run=<id>` into its client component on load.
 - `/api/preview-detect` — the anonymous homepage scan (2026-07-26). No auth. Body `{ text }` →
   `{ winston: { score, sentences } | null }`. Server-truncates to the first 300 words regardless of
   what the client sends (`MAX_WORDS`), then via `createServiceClient()` checks a per-IP daily
@@ -182,27 +249,38 @@ only its own generated tokens); a real third-party detector API is the planned M
   bypasses RLS.
 
 **Pages under `app/`:**
-- `app/page.tsx` + `app/layout.tsx` — public landing (detector-first). Hero embeds
-  `components/detector-hero.tsx`: paste/upload, an "Analyze" click hits `/api/preview-detect` (free,
-  no account, real Winston score capped at 300 words and rate-limited per IP), the result renders in
-  a modal with a partial reveal (`components/winston-sentence-list.tsx`) behind a "sign up free to
-  see the full report" CTA, plus a locked row offering unlimited checks that hands text to
-  `/app/detect` via `sessionStorage`, and a smaller secondary link to `/app/humanize`. Shares
-  `components/site-header.tsx` with `/pricing`.
+- `app/page.tsx` + `app/layout.tsx` — public landing (detector-first, no humanizer mention). Hero
+  embeds `components/detector-hero.tsx`: paste/upload, an "Analyze" click hits `/api/preview-detect`
+  (free, no account, real Winston score capped at 300 words and rate-limited per IP), the result
+  renders in a modal with a partial reveal (`components/winston-sentence-list.tsx`) behind a
+  "sign up free to see the full report" CTA, plus a locked row offering unlimited checks that hands
+  text to `/app/detect` via `sessionStorage`. Shares `components/site-header.tsx` with `/pricing`.
 - `app/pricing/page.tsx` — full plan comparison (`components/pricing/pricing-comparison.tsx`):
-  monthly/annual toggle, plan cards, a feature-by-feature table (some rows badged "Coming soon" —
-  see `docs/subscriptions.md`), and a non-plan-specific roadmap teaser.
+  monthly/annual toggle, plan cards, a feature-by-feature table across AI detection, plagiarism/fact
+  checking, usage, and platform groups (some rows still badged "Coming soon", e.g. multi-provider
+  AI-detection aggregation and API access — see `docs/subscriptions.md`), and a non-plan-specific
+  roadmap teaser that includes the humanizer ("returning soon").
 - `app/login/page.tsx`, `app/signup/page.tsx`, `app/auth/callback/route.ts` — Supabase email/password
   auth (`components/auth/`), gated off `/app` by `proxy.ts`.
-- `app/app/**` — product shell behind login, under `app/app/layout.tsx`, nav = Detector / Humanizer /
-  Billing:
+- `app/app/**` — product shell behind login, under `app/app/layout.tsx`. Nav (`components/app-nav.tsx`,
+  active-link aware via `usePathname`) = Detector / Plagiarism / Fact Check; Humanizer intentionally
+  absent. A `RunsSidebar` (`components/runs-sidebar.tsx`) runs alongside `{children}` in the layout,
+  fed saved reports fetched server-side in `app/app/layout.tsx` itself.
   - `app/app/page.tsx` — redirects straight to `/app/detect`; there's no separate dashboard.
-  - `app/app/detect/page.tsx` — live free heuristic score-as-you-type (`analyzeText`,
-    `DetectionReport`, labeled "quick estimate") plus a "Check with Winston" button hitting
-    `/api/detect` for a real, quota-metered score and per-sentence breakdown
-    (`components/winston-sentence-list.tsx`).
-  - `app/app/humanize/page.tsx` — paste/upload → `/api/humanize` → before/after gauges, per-metric
-    deltas, and the pass log.
+  - `app/app/detect/page.tsx`, `app/app/plagiarism/page.tsx`, `app/app/fact-check/page.tsx` — each a
+    thin server component that reads a `?run=<id>` search param, loads it via `loadOwnedRun` if
+    present, and hands it as `initialRun` to a client component doing the actual UI
+    (`components/detect-page.tsx`, `components/plagiarism-page.tsx`, `components/fact-check-page.tsx`
+    respectively) — the server/client split exists purely to make `?run=` shareable/refreshable
+    without a client-side fetch waterfall. Each client component: paste text, run the check, then a
+    split-screen report (original text left, inline-highlighted text right, a score `Gauge` up top
+    that stays out of the way of both panes) with a "Full report" deep link back to the sidebar's
+    entry. `DetectPageClient` additionally shows the free heuristic quick-estimate before a check
+    runs, and once verified, an "Add-on checks" row (`components/detector-addons.tsx`) offering the
+    plagiarism and fact checks inline on the same text without navigating away.
+  - `app/app/humanize/page.tsx` — paused (see the 2026-07-27 note above): a one-line redirect to
+    `/app/detect`, not the old paste/upload UI. `/api/humanize` and its page UI are otherwise intact
+    for whenever this comes back.
   - `app/app/billing/page.tsx` — current plan/usage, `components/billing/plan-picker.tsx` (Stripe
     Checkout per plan) and `manage-subscription-button.tsx` (Stripe Billing Portal).
 
@@ -223,21 +301,25 @@ SDK upgrade can't break the engine silently), `lib/usage.test.ts` (plan limits, 
 
 **Done and verified:** landing page, client-side detection (now per-sentence, with a line-by-line
 report — `components/detection-report.tsx`), the full multi-pass humanize engine (confirmed live
-against `gpt-5.5`: e.g. 50→80→100 over two passes), dual themes, Supabase auth + per-plan word
-quotas, Stripe subscriptions (Checkout/webhook/portal, monthly + annual), the `/pricing` comparison
-page.
+against `gpt-5.5`: e.g. 50→80→100 over two passes, currently paused/unlinked, not deleted), dual
+themes, Supabase auth + per-plan word quotas, Stripe subscriptions (Checkout/webhook/portal, monthly
++ annual), the detector-first `/pricing` comparison page, Winston-backed plagiarism and fact-checking
+(standalone tools plus detector add-ons), and per-user report history (`runs` table + sidebar).
 
 **Known debt / gaps (in priority order — see `docs/BUILD_PLAN.md` for the full milestone writeup):**
-1. **Detection is a heuristic proxy, not a real detector (M4b, not yet funded)** — still the top
-   priority. The free heuristic itself was hardened (M4a: per-sentence scoring, explicit AI-lean
-   bias, line-by-line report), but a real detector API (GPTZero/Originality/Copyleaks) is what
-   actually backs "real pass reports" and "guaranteed pass" claims already teased on `/pricing`.
-   Every option researched has a real floor of ~$25-50/mo minimum for API access.
-2. **`pnpm lint` is red — 4 errors, one shared cause.** React 19's `set-state-in-effect` rule fires
-   in `theme-toggle.tsx`, `components/auth/user-nav.tsx`, `app/app/humanize/page.tsx`, and (as of the
-   2026-07-25 detector-first pivot, which added a second page using the same sessionStorage-handoff
-   pattern) `app/app/detect/page.tsx`. Fix with a shared `useLocalStorage`/`useSyncExternalStore`-style
-   pattern.
+1. **AI detection itself is still only single-provider (Winston).** Plagiarism and fact-checking are
+   real, live Winston products now, not proxies, but multi-provider *AI-detection* aggregation
+   (GPTZero, Turnitin, alongside Winston) is still on the roadmap, not built, and the free heuristic
+   (`lib/detector.ts`) remains a proxy, not a real detector, for the cases where Winston is
+   unconfigured or unavailable.
+2. **`pnpm lint` is down to 2 errors**, both pre-existing and unrelated to the 2026-07-27 work:
+   React 19's `set-state-in-effect` rule still fires in `theme-toggle.tsx` and
+   `components/auth/user-nav.tsx` (both a bare `useEffect(() => setMounted(true), [])` mount-detection
+   pattern). The detect/plagiarism/fact-check pages no longer trip this rule now that they're on
+   `useHandoffInput`/plain `useState` instead of a raw effect. Fix the remaining two the same way:
+   a shared `useLocalStorage`/`useSyncExternalStore`-style pattern. There's also a small unused-import
+   warning in `app/page.tsx` (`PLAN_INFO`/`PLAN_ORDER`/`formatPlanPrice`) left over from a landing-page
+   edit, harmless but worth a quick cleanup next time that file is touched.
 3. **`components/live-demo.tsx` and `components/highlighted-text.tsx` are dead code** (the former
    superseded by `detector-hero.tsx`, the latter by `detection-report.tsx`'s per-sentence
    highlighting); safe to delete.
@@ -275,8 +357,13 @@ variants) with light values on `:root` and overrides under `.dark`, toggled by `
 - **Real images, never div-based fake screenshots.** Local assets live in `public/img/`.
 - **Motion** via `motion` (`components/reveal.tsx` for scroll reveals); always honor
   `prefers-reduced-motion`. Keep it subtle and motivated, not decorative.
-- Reuse existing primitives — `ScoreGauge`, `DetectionReport`, `Reveal`, `ThemeToggle` — before
+- Reuse existing primitives — `Gauge` (generic score ring; `ScoreGauge` wraps it for AI-detection's
+  human/mixed/ai vocabulary specifically), `DetectionReport`, `Reveal`, `ThemeToggle` — before
   building new ones. Match the tone and density of the existing pages.
+- **Winston stays out of marketing copy and headlines.** It's the real-detector brand behind every
+  score, but it only appears as a small attribution badge inside an actual report card (see the
+  score panels on `/app/detect`, `/app/plagiarism`, `/app/fact-check`), never in page titles,
+  button labels, or `/pricing` copy. Say "a real third-party detector" / "verified" instead.
 
 ## Working in this repo
 

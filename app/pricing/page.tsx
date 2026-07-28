@@ -7,7 +7,7 @@ import { PricingComparison } from "@/components/pricing/pricing-comparison";
 export const metadata: Metadata = {
   title: "Pricing | Did AI Write It",
   description:
-    "Compare every didaiwriteit.com plan: monthly word limits, Winston-verified detection checks, real detector pass reports, and what's shipping next.",
+    "Compare every didaiwriteit.com plan: real, verified AI detection, monthly word allowances, and what's shipping next.",
 };
 
 export default function PricingPage() {
@@ -28,6 +28,12 @@ export default function PricingPage() {
             >
               The signals
             </Link>
+            <Link
+              href="/pricing"
+              className="hidden text-sm text-muted transition-colors hover:text-ink sm:block"
+            >
+              Pricing
+            </Link>
           </>
         }
       />
@@ -35,12 +41,13 @@ export default function PricingPage() {
       <section className="py-10 text-center md:py-16">
         <Reveal>
           <h1 className="text-4xl font-semibold tracking-tighter md:text-6xl">
-            Simple pricing, real limits
+            Simple pricing for real AI detection
           </h1>
           <p className="mx-auto mt-4 max-w-[52ch] text-lg leading-relaxed text-muted">
-            The free heuristic score is always free, no account needed. Pick a
-            plan for Winston-verified checks, how much you rewrite each month,
-            and how long a single draft can be.
+            A quick scan is free on the homepage, no account needed. Sign up
+            and every plan checks up to 150,000 characters at a time against a
+            real third-party detector, no per-request word cap. Pick a plan
+            for how many words you need each month.
           </p>
         </Reveal>
       </section>
@@ -54,11 +61,11 @@ export default function PricingPage() {
       <footer className="flex flex-col items-start justify-between gap-6 border-t border-line py-12 md:flex-row md:items-center">
         <div>
           <p className="text-sm font-semibold tracking-tight">
-            didaiwriteit<span className="text-accent">.com</span>
+            Didaiwriteit<span className="text-accent">.com</span>
           </p>
           <p className="mt-1 max-w-[46ch] text-sm text-muted">
-            Detect and humanize AI writing. Built for professional content, not for
-            passing off homework.
+            Detect AI writing with real, verified scoring. Built for professional
+            content, not for passing off homework.
           </p>
         </div>
         <Link
