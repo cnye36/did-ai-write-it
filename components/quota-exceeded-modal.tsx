@@ -30,7 +30,7 @@ export function QuotaExceededModal({
         </p>
         <div className="mt-6 flex flex-col items-center gap-3">
           <Link
-            href="/app/billing"
+            href="/app/billing?upgrade=1"
             onClick={onClose}
             className="inline-flex w-full items-center justify-center rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
           >

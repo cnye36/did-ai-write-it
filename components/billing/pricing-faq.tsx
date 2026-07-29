@@ -9,15 +9,15 @@ const FAQ = [
   },
   {
     q: "What happens if I run out of credits?",
-    a: "Checks are blocked until your allowance resets or you upgrade. Upgrading takes effect immediately, so you can pick up right where you left off.",
+    a: "Checks are blocked until your allowance resets or you upgrade. Upgrading starts a fresh credit cycle immediately with the new plan's full allowance.",
   },
   {
     q: "Do unused credits roll over?",
-    a: "No. Your allowance resets to the plan amount at the start of each monthly billing period.",
+    a: "No. Your allowance resets to the plan amount on your billing anniversary each month (the day you signed up or last changed plans), not on the 1st of the calendar month.",
   },
   {
     q: "Can I change plans anytime?",
-    a: "Yes. Upgrade or downgrade whenever you like from this page, or manage your subscription directly from the billing portal.",
+    a: "Yes. Upgrade from the Change plan button on this page. Changing plans resets your credit usage to zero and starts a new monthly cycle. To cancel, use Cancel subscription. Payment methods and invoices live under Manage billing.",
   },
 ];
 

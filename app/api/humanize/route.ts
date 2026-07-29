@@ -6,7 +6,7 @@ import { analyzeText, type DetectorResult } from "@/lib/detector";
 import { generateBestRewrite, getModelLabel } from "@/lib/rewrite";
 import { winstonScoreOnly } from "@/lib/winston";
 import { requireUser } from "@/lib/supabase/auth";
-import { assertWithinQuota, isCurrentPeriod, isDevBypass, PLAN_LIMITS, type Plan } from "@/lib/usage";
+import { assertWithinQuota, isDevBypass, PLAN_LIMITS, wordsUsedInCurrentPeriod, type Plan } from "@/lib/usage";
 
 export const maxDuration = 120;
 
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       supabase.from("usage").select("words_used, period_start").eq("user_id", userId).single(),
     ]);
     const plan = (profile?.plan as Plan | undefined) ?? "free";
-    const wordsUsed = usage && isCurrentPeriod(usage.period_start) ? usage.words_used : 0;
+    const wordsUsed = wordsUsedInCurrentPeriod(usage?.period_start, usage?.words_used);
     const requestedWords = analyzeText(text).wordCount;
     const bypass = isDevBypass(email);
     assertWithinQuota(plan, wordsUsed, requestedWords, bypass);

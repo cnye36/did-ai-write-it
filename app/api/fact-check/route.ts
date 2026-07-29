@@ -6,10 +6,10 @@ import { checkFacts, FACT_CHECK_MAX_CHARS } from "@/lib/winston";
 import { requireUser } from "@/lib/supabase/auth";
 import {
   assertWithinQuota,
-  isCurrentPeriod,
   isDevBypass,
   PLAN_LIMITS,
   FACT_CHECK_WORD_MULTIPLIER,
+  wordsUsedInCurrentPeriod,
   type Plan,
 } from "@/lib/usage";
 
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       supabase.from("usage").select("words_used, period_start").eq("user_id", userId).single(),
     ]);
     const plan = (profile?.plan as Plan | undefined) ?? "free";
-    const wordsUsed = usage && isCurrentPeriod(usage.period_start) ? usage.words_used : 0;
+    const wordsUsed = wordsUsedInCurrentPeriod(usage?.period_start, usage?.words_used);
     const wordCount = analyzeText(text).wordCount;
     const quotaWords = wordCount * FACT_CHECK_WORD_MULTIPLIER;
     const bypass = isDevBypass(email);

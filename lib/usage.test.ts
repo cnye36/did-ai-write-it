@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { isCurrentPeriod, isDevBypass, PLAN_LIMITS, remainingWords } from "./usage";
+import {
+  addUtcMonths,
+  formatPeriodResetLabel,
+  isCurrentPeriod,
+  isDevBypass,
+  periodEndDate,
+  PLAN_LIMITS,
+  remainingWords,
+  wordsUsedInCurrentPeriod,
+} from "./usage";
 
 describe("remainingWords", () => {
   it("returns the full limit when nothing has been used", () => {
@@ -23,14 +32,56 @@ describe("remainingWords", () => {
 });
 
 describe("isCurrentPeriod", () => {
-  it("is true for a period_start in the same UTC month", () => {
-    const now = new Date(Date.UTC(2026, 6, 21));
-    expect(isCurrentPeriod("2026-07-01", now)).toBe(true);
+  it("is true within one month of period_start", () => {
+    const now = new Date(Date.UTC(2026, 6, 29)); // Jul 29
+    expect(isCurrentPeriod("2026-07-15", now)).toBe(true);
   });
 
-  it("is false once the month has rolled over", () => {
-    const now = new Date(Date.UTC(2026, 7, 1));
-    expect(isCurrentPeriod("2026-07-01", now)).toBe(false);
+  it("is false once the anniversary month has elapsed", () => {
+    const now = new Date(Date.UTC(2026, 7, 15)); // Aug 15
+    expect(isCurrentPeriod("2026-07-15", now)).toBe(false);
+  });
+
+  it("is still true the day before the anniversary", () => {
+    const now = new Date(Date.UTC(2026, 7, 14, 23, 59)); // Aug 14
+    expect(isCurrentPeriod("2026-07-15", now)).toBe(true);
+  });
+
+  it("is false once a full month from period_start has elapsed", () => {
+    // June 1 cycle ends July 1; July 29 is past that.
+    const now = new Date(Date.UTC(2026, 6, 29));
+    expect(isCurrentPeriod("2026-06-01", now)).toBe(false);
+  });
+});
+
+describe("periodEndDate / addUtcMonths", () => {
+  it("adds one calendar month", () => {
+    expect(periodEndDate("2026-07-15").toISOString().slice(0, 10)).toBe("2026-08-15");
+  });
+
+  it("clamps short months", () => {
+    expect(addUtcMonths(new Date(Date.UTC(2026, 0, 31)), 1).toISOString().slice(0, 10)).toBe(
+      "2026-02-28"
+    );
+  });
+});
+
+describe("wordsUsedInCurrentPeriod", () => {
+  it("returns the stored count when the period is active", () => {
+    const now = new Date(Date.UTC(2026, 6, 20));
+    expect(wordsUsedInCurrentPeriod("2026-07-15", 280, now)).toBe(280);
+  });
+
+  it("returns 0 when the period has expired", () => {
+    const now = new Date(Date.UTC(2026, 7, 20));
+    expect(wordsUsedInCurrentPeriod("2026-07-15", 280, now)).toBe(0);
+  });
+});
+
+describe("formatPeriodResetLabel", () => {
+  it("labels the exclusive end of the active period", () => {
+    const now = new Date(Date.UTC(2026, 6, 20));
+    expect(formatPeriodResetLabel("2026-07-15", now)).toMatch(/August 15/);
   });
 });
 

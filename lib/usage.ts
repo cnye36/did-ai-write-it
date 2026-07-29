@@ -42,12 +42,64 @@ export function assertWithinQuota(
   }
 }
 
-/** True if a stored `usage.period_start` (a "YYYY-MM-DD" date) falls in the current UTC month. */
+/** Parse a "YYYY-MM-DD" (or ISO) date as UTC midnight. */
+function parseUtcDate(date: string): Date {
+  const day = date.slice(0, 10);
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+/** Add calendar months in UTC, clamping the day for short months (Jan 31 → Feb 28). */
+export function addUtcMonths(date: Date, months: number): Date {
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth() + months;
+  const day = date.getUTCDate();
+  const end = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m, Math.min(day, end)));
+}
+
+/** Exclusive end of the credit period that started on `periodStart` (start + 1 month). */
+export function periodEndDate(periodStart: string): Date {
+  return addUtcMonths(parseUtcDate(periodStart), 1);
+}
+
+/**
+ * True if `periodStart` is still the active credit cycle: now is before
+ * period_start + 1 month. Cycles are anchored to signup / plan-change day,
+ * not the 1st of the calendar month.
+ */
 export function isCurrentPeriod(periodStart: string, now = new Date()): boolean {
-  const start = new Date(periodStart);
-  return (
-    start.getUTCFullYear() === now.getUTCFullYear() && start.getUTCMonth() === now.getUTCMonth()
-  );
+  return now.getTime() < periodEndDate(periodStart).getTime();
+}
+
+/** Words used in the active cycle; 0 if `period_start` has expired. */
+export function wordsUsedInCurrentPeriod(
+  periodStart: string | null | undefined,
+  wordsUsed: number | null | undefined,
+  now = new Date()
+): number {
+  if (!periodStart || wordsUsed == null) return 0;
+  return isCurrentPeriod(periodStart, now) ? wordsUsed : 0;
+}
+
+/** Format the next credit reset day for UI copy. */
+export function formatPeriodResetLabel(periodStart: string, now = new Date()): string {
+  const end = periodEndDate(periodStart);
+  // If the stored period already expired, show the end of the period that
+  // would start "now" after rollover (tomorrow's cycle ends in ~1 month).
+  const labelDate =
+    now.getTime() < end.getTime() ? end : addUtcMonths(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())), 1);
+  return labelDate.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** Today's date as YYYY-MM-DD in UTC. */
+export function utcToday(now = new Date()): string {
+  return now.toISOString().slice(0, 10);
 }
 
 /** True if the signed-in email matches DEV_BYPASS_EMAIL, exempting it from quota checks. */

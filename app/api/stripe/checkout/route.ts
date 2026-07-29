@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         : { customer_email: email }),
       client_reference_id: userId,
       metadata: { supabase_user_id: userId, plan },
-      success_url: `${req.nextUrl.origin}/app/billing?success=1`,
+      success_url: `${req.nextUrl.origin}/app/billing?success=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.nextUrl.origin}/app/billing?canceled=1`,
     });
 

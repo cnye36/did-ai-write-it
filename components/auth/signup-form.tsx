@@ -41,7 +41,7 @@ export function SignupForm() {
       return;
     }
     if (data.session) {
-      router.push("/app");
+      router.push("/app/detect");
       router.refresh();
       return;
     }

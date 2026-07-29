@@ -25,7 +25,7 @@ export function LoginForm() {
       setBusy(false);
       return;
     }
-    const next = new URLSearchParams(window.location.search).get("next") || "/app";
+    const next = new URLSearchParams(window.location.search).get("next") || "/app/detect";
     router.push(next);
     router.refresh();
   }

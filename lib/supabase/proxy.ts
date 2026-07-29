@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PROTECTED_PREFIX = "/app";
 const AUTH_PATHS = ["/login", "/signup"];
+const APP_HOME = "/app/detect";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -40,8 +41,16 @@ export async function updateSession(request: NextRequest) {
 
   if (isAuthed && AUTH_PATHS.includes(request.nextUrl.pathname)) {
     const url = request.nextUrl.clone();
-    url.pathname = "/app";
+    url.pathname = APP_HOME;
     url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  // Avoid rendering the redirect-only AppIndex page — in Next.js 16 + Turbopack
+  // dev, that triggers a React Performance.measure crash ("negative time stamp").
+  if (isAuthed && request.nextUrl.pathname === "/app") {
+    const url = request.nextUrl.clone();
+    url.pathname = APP_HOME;
     return NextResponse.redirect(url);
   }
 

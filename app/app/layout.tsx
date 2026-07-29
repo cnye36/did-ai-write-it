@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { createClient } from "@/lib/supabase/server";
 import type { RunListItem } from "@/lib/runs";
-import { isCurrentPeriod, PLAN_LIMITS, type Plan } from "@/lib/usage";
+import { PLAN_LIMITS, wordsUsedInCurrentPeriod, type Plan } from "@/lib/usage";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -23,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .limit(100),
   ]);
   const plan = (profile?.plan as Plan | undefined) ?? "free";
-  const wordsUsed = usage && isCurrentPeriod(usage.period_start) ? usage.words_used : 0;
+  const wordsUsed = wordsUsedInCurrentPeriod(usage?.period_start, usage?.words_used);
 
   return (
     <div className="flex min-h-[100dvh] flex-col md:flex-row">

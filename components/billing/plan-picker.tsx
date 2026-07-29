@@ -76,7 +76,7 @@ export function PlanPicker({
                 </span>
               ) : plan === "free" ? (
                 <span className="mt-6 rounded-full border border-line px-5 py-2.5 text-center text-sm text-faint">
-                  Downgrade via Manage subscription
+                  Cancel your paid plan to return here
                 </span>
               ) : (
                 <button

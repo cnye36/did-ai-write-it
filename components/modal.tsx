@@ -8,10 +8,13 @@ export function Modal({
   open,
   onClose,
   children,
+  className,
 }: {
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  /** Extra classes on the dialog panel (e.g. a wider max-width). */
+  className?: string;
 }) {
   const reduce = useReducedMotion();
 
@@ -37,7 +40,7 @@ export function Modal({
           transition={{ duration: 0.15 }}
         >
           <motion.div
-            className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-line bg-raised shadow-xl"
+            className={`relative w-full overflow-hidden rounded-3xl border border-line bg-raised shadow-xl ${className ?? "max-w-3xl"}`}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"

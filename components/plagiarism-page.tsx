@@ -72,7 +72,6 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
       setResult(next);
       if (next.runId) {
         router.replace(`/app/plagiarism?run=${next.runId}`);
-        setLoadedRunId(next.runId);
       }
       router.refresh();
     } catch (e) {
@@ -92,7 +91,6 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
     setInput("");
     setResult(null);
     setError(null);
-    setLoadedRunId(null);
     router.replace("/app/plagiarism");
   }
 
