@@ -37,9 +37,8 @@ scratch" voice feature is still on the radar longer-term, but only once the core
 is winning on its own.
 
 Pricing tiers (see `docs/subscriptions.md` for the competitor research behind these numbers, and
-`lib/plans.ts`/`lib/usage.ts` for the source of truth): **Free** ($0, 500 words/mo, 300 words/output),
-**Lite** ($9/mo, 10,000 words/mo, 800 words/output), **Pro** ($19/mo, 30,000 words/mo, 1,500
-words/output, priority processing), **Studio** ($39/mo, 100,000 words/mo, 2,500 words/output, real
+`lib/plans.ts`/`lib/usage.ts` for the source of truth): **Free** ($0, 2000 words/mo),
+**Lite** ($9/mo, 40,000 words/mo), **Pro** ($24/mo, 150,000 words/mo, priority processing), **Studio** ($49/mo, 500,000 words/mo, real
 detector pass reports, API access).
 
 ## Milestones

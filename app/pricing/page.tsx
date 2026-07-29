@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function PricingPage() {
   return (
-    <div className="mx-auto w-full max-w-[1160px] px-4 sm:px-6">
+    <>
       <SiteHeader
         navLinks={
           <>
@@ -38,6 +38,7 @@ export default function PricingPage() {
         }
       />
 
+      <div className="mx-auto w-full max-w-[1160px] px-4 sm:px-6">
       <section className="py-10 text-center md:py-16">
         <Reveal>
           <h1 className="text-4xl font-semibold tracking-tighter md:text-6xl">
@@ -75,6 +76,7 @@ export default function PricingPage() {
           Sign up free
         </Link>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }

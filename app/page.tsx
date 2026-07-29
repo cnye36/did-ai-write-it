@@ -65,7 +65,7 @@ const FAQ = [
 
 export default function Landing() {
   return (
-    <div className="mx-auto w-full max-w-[1160px] px-4 sm:px-6">
+    <>
       <SiteHeader
         navLinks={
           <>
@@ -91,6 +91,7 @@ export default function Landing() {
         }
       />
 
+      <div className="mx-auto w-full max-w-[1160px] px-4 sm:px-6">
       {/* Tool-first hero */}
       <section className="py-10 md:py-16">
         <div className="mx-auto max-w-2xl text-center">
@@ -213,6 +214,7 @@ export default function Landing() {
           Sign up free
         </Link>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }

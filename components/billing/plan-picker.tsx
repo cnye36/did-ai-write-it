@@ -85,7 +85,7 @@ export function PlanPicker({
                   onClick={() => upgrade(plan)}
                   className="mt-6 rounded-full bg-accent px-5 py-2.5 text-center text-sm font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {busyPlan === plan ? "Redirecting..." : `Switch to ${info.name}`}
+                  {busyPlan === plan ? "Redirecting..." : `Upgrade to ${info.name}`}
                 </button>
               )}
             </div>
