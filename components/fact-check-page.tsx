@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MagnifyingGlassIcon, PencilSimpleIcon } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 import { FACT_CHECK_MIN_CHARS, FACT_CHECK_MAX_CHARS, type FactCheckResult } from "@/lib/winston";
 import type { FactCheckRunResult, RunRow } from "@/lib/runs";
 import { Gauge } from "@/components/gauge";
 import { FactCheckHighlightedText } from "@/components/fact-check-highlighted-text";
 import { FactCheckClaims } from "@/components/fact-check-claims";
+import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
 
 interface FactCheckResponse {
   factCheck: FactCheckResult | null;
@@ -35,6 +36,7 @@ export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null 
   const [input, setInput] = useState(initialRun?.input_text ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quota, setQuota] = useState<{ plan: string; limit: number } | null>(null);
   const [result, setResult] = useState<FactCheckResponse | null>(
     initialRun ? resultFromRun(initialRun) : null
   );
@@ -66,6 +68,10 @@ export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null 
         body: JSON.stringify({ text: input }),
       });
       const data = await res.json();
+      if (res.status === 402) {
+        setQuota({ plan: data.plan, limit: data.limit });
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Check failed.");
       const next = data as FactCheckResponse;
       setResult(next);
@@ -87,14 +93,33 @@ export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null 
     router.replace("/app/fact-check");
   }
 
+  function newCheck() {
+    setInput("");
+    setResult(null);
+    setError(null);
+    setLoadedRunId(null);
+    router.replace("/app/fact-check");
+  }
+
   if (!showReport) {
     return (
+      <>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Fact Checker</h1>
-          <p className="mt-1 max-w-[60ch] text-sm leading-relaxed text-muted">
-            Paste any text to verify its factual claims against real sources.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Fact Checker</h1>
+            <p className="mt-1 max-w-[60ch] text-sm leading-relaxed text-muted">
+              Paste any text to verify its factual claims against real sources.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={newCheck}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint"
+          >
+            <PlusIcon size={16} weight="bold" />
+            New
+          </button>
         </div>
 
         <div className="flex flex-col rounded-2xl border border-line bg-raised">
@@ -127,6 +152,13 @@ export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null 
 
         {error && <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{error}</p>}
       </div>
+      <QuotaExceededModal
+        open={quota !== null}
+        onClose={() => setQuota(null)}
+        plan={quota?.plan ?? "free"}
+        limit={quota?.limit ?? 0}
+      />
+      </>
     );
   }
 
@@ -140,6 +172,7 @@ export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null 
       : "Fact check unavailable for this text.";
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-line bg-raised px-5 py-4 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
@@ -149,15 +182,26 @@ export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null 
             <p className="mt-0.5 text-xs text-faint">{statusCaption}</p>
           </div>
         </div>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={editText}
-          className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <PencilSimpleIcon size={16} weight="bold" />
-          Edit text
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={newCheck}
+            className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <PlusIcon size={16} weight="bold" />
+            New
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={editText}
+            className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <PencilSimpleIcon size={16} weight="bold" />
+            Edit text
+          </button>
+        </div>
       </div>
 
       {error && <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{error}</p>}
@@ -210,5 +254,12 @@ export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null 
         </div>
       )}
     </div>
+    <QuotaExceededModal
+      open={quota !== null}
+      onClose={() => setQuota(null)}
+      plan={quota?.plan ?? "free"}
+      limit={quota?.limit ?? 0}
+    />
+    </>
   );
 }

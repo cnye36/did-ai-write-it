@@ -14,7 +14,7 @@ export default function SignupPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
             <p className="mt-1 text-sm leading-relaxed text-muted">
-              Free, 2,000 words a month of real, verified AI detection. No card required.
+              Free, 2,000 credits a month of real, verified AI detection. No card required.
             </p>
           </div>
           <SignupForm />

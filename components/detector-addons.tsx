@@ -10,6 +10,7 @@ import {
 import { Gauge } from "@/components/gauge";
 import { PlagiarismSources } from "@/components/plagiarism-sources";
 import { FactCheckClaims } from "@/components/fact-check-claims";
+import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
 import { plagiarismVerdict, factCheckVerdict } from "@/lib/score-verdicts";
 import {
   PLAGIARISM_MIN_CHARS,
@@ -35,6 +36,7 @@ export function DetectorAddons({ text }: { text: string }) {
 function PlagiarismAddon({ text }: { text: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quota, setQuota] = useState<{ plan: string; limit: number } | null>(null);
   const [result, setResult] = useState<PlagiarismResult | null | undefined>(undefined);
   const [runId, setRunId] = useState<string | null>(null);
 
@@ -51,6 +53,10 @@ function PlagiarismAddon({ text }: { text: string }) {
         body: JSON.stringify({ text }),
       });
       const data = await res.json();
+      if (res.status === 402) {
+        setQuota({ plan: data.plan, limit: data.limit });
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Check failed.");
       setResult(data.plagiarism as PlagiarismResult | null);
       setRunId((data.runId as string | null | undefined) ?? null);
@@ -61,17 +67,29 @@ function PlagiarismAddon({ text }: { text: string }) {
     }
   }
 
+  const quotaModal = (
+    <QuotaExceededModal
+      open={quota !== null}
+      onClose={() => setQuota(null)}
+      plan={quota?.plan ?? "free"}
+      limit={quota?.limit ?? 0}
+    />
+  );
+
   if (result === undefined) {
     return (
-      <AddonCard
-        icon={<FileMagnifyingGlassIcon size={18} weight="bold" />}
-        title="Plagiarism check"
-        description="Scan this text against the web for matching content."
-        busy={busy}
-        error={error}
-        disabled={!eligible}
-        onRun={run}
-      />
+      <>
+        <AddonCard
+          icon={<FileMagnifyingGlassIcon size={18} weight="bold" />}
+          title="Plagiarism check"
+          description="Scan this text against the web for matching content."
+          busy={busy}
+          error={error}
+          disabled={!eligible}
+          onRun={run}
+        />
+        {quotaModal}
+      </>
     );
   }
 
@@ -102,6 +120,7 @@ function PlagiarismAddon({ text }: { text: string }) {
 function FactCheckAddon({ text }: { text: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quota, setQuota] = useState<{ plan: string; limit: number } | null>(null);
   const [result, setResult] = useState<FactCheckResult | null | undefined>(undefined);
   const [runId, setRunId] = useState<string | null>(null);
 
@@ -118,6 +137,10 @@ function FactCheckAddon({ text }: { text: string }) {
         body: JSON.stringify({ text }),
       });
       const data = await res.json();
+      if (res.status === 402) {
+        setQuota({ plan: data.plan, limit: data.limit });
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Check failed.");
       setResult(data.factCheck as FactCheckResult | null);
       setRunId((data.runId as string | null | undefined) ?? null);
@@ -128,21 +151,33 @@ function FactCheckAddon({ text }: { text: string }) {
     }
   }
 
+  const quotaModal = (
+    <QuotaExceededModal
+      open={quota !== null}
+      onClose={() => setQuota(null)}
+      plan={quota?.plan ?? "free"}
+      limit={quota?.limit ?? 0}
+    />
+  );
+
   if (result === undefined) {
     return (
-      <AddonCard
-        icon={<ClipboardTextIcon size={18} weight="bold" />}
-        title="Fact check"
-        description={
-          eligible
-            ? "Verify factual claims in this text against real sources."
-            : `Needs ${FACT_CHECK_MIN_CHARS.toLocaleString()}-${FACT_CHECK_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`
-        }
-        busy={busy}
-        error={error}
-        disabled={!eligible}
-        onRun={run}
-      />
+      <>
+        <AddonCard
+          icon={<ClipboardTextIcon size={18} weight="bold" />}
+          title="Fact check"
+          description={
+            eligible
+              ? "Verify factual claims in this text against real sources."
+              : `Needs ${FACT_CHECK_MIN_CHARS.toLocaleString()}-${FACT_CHECK_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`
+          }
+          busy={busy}
+          error={error}
+          disabled={!eligible}
+          onRun={run}
+        />
+        {quotaModal}
+      </>
     );
   }
 

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { CreditCardIcon, SignOutIcon, SunIcon, MoonIcon } from "@phosphor-icons/react";
+import { CaretUpDownIcon, CreditCardIcon, SignOutIcon, SunIcon, MoonIcon } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
 import type { Plan } from "@/lib/usage";
 
@@ -60,15 +60,19 @@ export function UserNav({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex size-9 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent transition-transform active:scale-[0.96]"
+        className="flex w-full items-center gap-2.5 rounded-[10px] px-2 py-1.5 text-left transition-colors hover:bg-surface active:scale-[0.99]"
       >
-        {initial}
+        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
+          {initial}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{email}</span>
+        <CaretUpDownIcon size={14} weight="bold" className="shrink-0 text-faint" />
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-11 z-50 w-72 overflow-hidden rounded-2xl border border-line bg-raised shadow-xl"
+          className="absolute bottom-11 left-0 z-50 w-72 overflow-hidden rounded-2xl border border-line bg-raised shadow-xl"
         >
           <div className="flex items-center gap-3 px-4 py-4">
             <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-base font-semibold text-accent">
@@ -77,7 +81,7 @@ export function UserNav({
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-ink">{email}</p>
               <p className="text-xs text-muted">
-                {wordsUsed.toLocaleString()} / {wordLimit.toLocaleString()} words this month,{" "}
+                {wordsUsed.toLocaleString()} / {wordLimit.toLocaleString()} credits this month,{" "}
                 <span className="capitalize">{plan}</span> plan
               </p>
             </div>

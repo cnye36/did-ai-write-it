@@ -7,7 +7,7 @@ import { PricingComparison } from "@/components/pricing/pricing-comparison";
 export const metadata: Metadata = {
   title: "Pricing | Did AI Write It",
   description:
-    "Compare every didaiwriteit.com plan: real, verified AI detection, monthly word allowances, and what's shipping next.",
+    "Compare every didaiwriteit.com plan: real, verified AI detection, monthly credit allowances, and what's shipping next.",
 };
 
 export default function PricingPage() {
@@ -47,8 +47,8 @@ export default function PricingPage() {
           <p className="mx-auto mt-4 max-w-[52ch] text-lg leading-relaxed text-muted">
             A quick scan is free on the homepage, no account needed. Sign up
             and every plan checks up to 150,000 characters at a time against a
-            real third-party detector, no per-request word cap. Pick a plan
-            for how many words you need each month.
+            real third-party detector, no per-request cap. Pick a plan for
+            how many credits you need each month.
           </p>
         </Reveal>
       </section>

@@ -20,7 +20,7 @@ export class QuotaExceededError extends Error {
 
   constructor(plan: string, limit: number) {
     super(
-      `You've used your ${limit.toLocaleString()} words for this month on the ${plan} plan. Upgrade for more.`
+      `You've used your ${limit.toLocaleString()} credits for this month on the ${plan} plan. Upgrade for more.`
     );
     this.name = "QuotaExceededError";
     this.plan = plan;

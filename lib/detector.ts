@@ -83,6 +83,17 @@ function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number): b
   return aStart < bEnd && aEnd > bStart;
 }
 
+/**
+ * Reasons from a flag list whose range overlaps [start, end). Lets an
+ * external sentence split (e.g. Winston's own, which carries no offsets and
+ * doesn't line up with ours) still borrow our pattern-match explanations by
+ * matching on character range instead of on the sentence object itself.
+ */
+export function reasonsForRange(flags: Flag[], start: number, end: number, limit = 3): string[] {
+  const hits = flags.filter((f) => overlaps(start, end, f.start, f.end));
+  return Array.from(new Set(hits.map((f) => f.reason))).slice(0, limit);
+}
+
 const SENTENCE_PENALTY: Record<FlagCategory, number> = {
   lexicon: 22,
   punctuation: 35,

@@ -36,7 +36,7 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     priceMonthly: 0,
     priceAnnualMonthly: 0,
     features: [
-      `${PLAN_LIMITS.free.toLocaleString()} words / month`,
+      `${PLAN_LIMITS.free.toLocaleString()} credits / month`,
       "AI detection, plagiarism & fact checks",
       "Full sentence-by-sentence report",
     ],
@@ -47,7 +47,7 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     priceMonthly: 9,
     priceAnnualMonthly: 5,
     features: [
-      `${PLAN_LIMITS.lite.toLocaleString()} words / month`,
+      `${PLAN_LIMITS.lite.toLocaleString()} credits / month`,
       "AI detection, plagiarism & fact checks",
       "Full sentence-by-sentence report",
     ],
@@ -58,7 +58,7 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     priceMonthly: 24,
     priceAnnualMonthly: 12,
     features: [
-      `${PLAN_LIMITS.pro.toLocaleString()} words / month`,
+      `${PLAN_LIMITS.pro.toLocaleString()} credits / month`,
       "AI detection, plagiarism & fact checks",
       "Priority processing",
     ],
@@ -69,7 +69,7 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     priceMonthly: 49,
     priceAnnualMonthly: 24,
     features: [
-      `${PLAN_LIMITS.studio.toLocaleString()} words / month`,
+      `${PLAN_LIMITS.studio.toLocaleString()} credits / month`,
       "AI detection, plagiarism & fact checks",
       "Priority processing",
     ],

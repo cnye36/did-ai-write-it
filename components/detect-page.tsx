@@ -2,14 +2,16 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MagnifyingGlassIcon, PencilSimpleIcon } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 import { analyzeText, verdictFor } from "@/lib/detector";
 import { useHandoffInput } from "@/lib/handoff";
 import type { DetectRunResult, RunRow } from "@/lib/runs";
 import { ScoreGauge } from "@/components/score-gauge";
 import { DetectionReportBody } from "@/components/detection-report";
 import { WinstonHighlightedText } from "@/components/winston-highlighted-text";
+import { DetectionSignals } from "@/components/detection-signals";
 import { DetectorAddons } from "@/components/detector-addons";
+import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
 import type { WinstonSentence } from "@/components/winston-sentence-list";
 
 interface DetectResponse {
@@ -32,6 +34,7 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
   const [input, setInput] = useHandoffInput(initialRun?.input_text ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quota, setQuota] = useState<{ plan: string; limit: number } | null>(null);
   const [result, setResult] = useState<DetectResponse | null>(
     initialRun ? resultFromRun(initialRun) : null
   );
@@ -64,6 +67,10 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
         body: JSON.stringify({ text: input }),
       });
       const data = await res.json();
+      if (res.status === 402) {
+        setQuota({ plan: data.plan, limit: data.limit });
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Check failed.");
       const next = data as DetectResponse;
       setResult(next);
@@ -85,15 +92,34 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
     router.replace("/app/detect");
   }
 
+  function newCheck() {
+    setInput("");
+    setResult(null);
+    setError(null);
+    setLoadedRunId(null);
+    router.replace("/app/detect");
+  }
+
   if (!showReport) {
     return (
+      <>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">AI Detector</h1>
-          <p className="mt-1 max-w-[60ch] text-sm leading-relaxed text-muted">
-            Paste any text to get an instant free AI score, then verify it
-            against a real third-party detector.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">AI Detector</h1>
+            <p className="mt-1 max-w-[60ch] text-sm leading-relaxed text-muted">
+              Paste any text to get an instant free AI score, then verify it
+              against a real third-party detector.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={newCheck}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint"
+          >
+            <PlusIcon size={16} weight="bold" />
+            New
+          </button>
         </div>
 
         <div className="flex flex-col rounded-2xl border border-line bg-raised">
@@ -120,7 +146,7 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
               className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <MagnifyingGlassIcon size={16} weight="bold" />
-              Run verified check
+              Analyze
             </button>
           </div>
         </div>
@@ -136,6 +162,13 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
           </div>
         )}
       </div>
+      <QuotaExceededModal
+        open={quota !== null}
+        onClose={() => setQuota(null)}
+        plan={quota?.plan ?? "free"}
+        limit={quota?.limit ?? 0}
+      />
+      </>
     );
   }
 
@@ -150,6 +183,7 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
       : `${live.wordCount} words · real-detector check unavailable, showing quick estimate`;
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-line bg-raised px-5 py-4 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
@@ -159,15 +193,26 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
             <p className="mt-0.5 text-xs text-faint">{statusCaption}</p>
           </div>
         </div>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={editText}
-          className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <PencilSimpleIcon size={16} weight="bold" />
-          Edit text
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={newCheck}
+            className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <PlusIcon size={16} weight="bold" />
+            New
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={editText}
+            className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <PencilSimpleIcon size={16} weight="bold" />
+            Edit text
+          </button>
+        </div>
       </div>
 
       {error && <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{error}</p>}
@@ -198,12 +243,16 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
           </div>
           <div className="max-h-[65vh] min-h-[300px] flex-1 overflow-y-auto p-4">
             {verified ? (
-              <WinstonHighlightedText text={input} sentences={verified.sentences} />
+              <WinstonHighlightedText text={input} sentences={verified.sentences} flags={live.flags} />
             ) : (
               <DetectionReportBody text={input} result={live} />
             )}
           </div>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-line bg-surface p-4">
+        <DetectionSignals text={input} live={live} verified={verified} />
       </div>
 
       {verified && (
@@ -213,5 +262,12 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
         </div>
       )}
     </div>
+    <QuotaExceededModal
+      open={quota !== null}
+      onClose={() => setQuota(null)}
+      plan={quota?.plan ?? "free"}
+      limit={quota?.limit ?? 0}
+    />
+    </>
   );
 }

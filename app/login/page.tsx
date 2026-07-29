@@ -15,7 +15,7 @@ export default function LoginPage() {
             <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
             <p className="mt-1 text-sm leading-relaxed text-muted">
               Detection is free without an account. Sign in to rewrite text and track
-              your monthly word usage.
+              your monthly credit usage.
             </p>
           </div>
           <LoginForm />

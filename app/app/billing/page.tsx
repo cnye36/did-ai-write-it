@@ -4,6 +4,8 @@ import { isCurrentPeriod, PLAN_LIMITS, type Plan } from "@/lib/usage";
 import type { BillingInterval } from "@/lib/plans";
 import { PlanPicker } from "@/components/billing/plan-picker";
 import { ManageSubscriptionButton } from "@/components/billing/manage-subscription-button";
+import { PlanComparisonTable } from "@/components/pricing/plan-comparison-table";
+import { PricingFaq } from "@/components/billing/pricing-faq";
 
 export default async function BillingPage({
   searchParams,
@@ -34,7 +36,7 @@ export default async function BillingPage({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
         <p className="mt-1 text-sm text-muted">
-          {wordsUsed.toLocaleString()} / {PLAN_LIMITS[plan].toLocaleString()} words used this
+          {wordsUsed.toLocaleString()} / {PLAN_LIMITS[plan].toLocaleString()} credits used this
           month on the {plan} plan.
         </p>
       </div>
@@ -57,6 +59,17 @@ export default async function BillingPage({
         highlightPlan={highlightPlan as Plan | undefined}
         initialInterval={initialInterval}
       />
+
+      <div className="border-t border-line pt-8">
+        <h2 className="text-lg font-semibold tracking-tight">Compare plans</h2>
+        <div className="mt-4">
+          <PlanComparisonTable />
+        </div>
+      </div>
+
+      <div className="border-t border-line pt-8">
+        <PricingFaq />
+      </div>
     </div>
   );
 }
