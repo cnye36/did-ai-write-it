@@ -36,13 +36,28 @@ export default function Image() {
           >
             D
           </div>
-          <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em" }}>
+          <span
+            style={{
+              display: "flex",
+              fontSize: 26,
+              fontWeight: 600,
+              letterSpacing: "-0.02em",
+            }}
+          >
             Did <span style={{ color: "#8496ff" }}>AI </span> Write It?
           </span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div style={{ fontSize: 76, fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1.05 }}>
-            Did <span style={{ color: "#8496ff" }}> AI </span> Write It?
+          <div
+            style={{
+              display: "flex",
+              fontSize: 76,
+              fontWeight: 600,
+              letterSpacing: "-0.03em",
+              lineHeight: 1.05,
+            }}
+          >
+            Did <span style={{ color: "#8496ff" }}>AI </span> Write It?
           </div>
           <div style={{ fontSize: 30, color: "#a3a3af", maxWidth: 820 }}>
             Real, verified AI-detection, plagiarism, and fact-check scores for any draft.
