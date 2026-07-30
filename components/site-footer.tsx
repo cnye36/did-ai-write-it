@@ -1,0 +1,42 @@
+import Link from "next/link";
+
+const COMPARE_LINKS = [
+  { href: "/vs/gptzero", label: "vs GPTZero" },
+  { href: "/vs/originality-ai", label: "vs Originality.ai" },
+];
+
+export function SiteFooter() {
+  return (
+    <footer className="flex flex-col gap-8 border-t border-line py-12 md:flex-row md:items-start md:justify-between">
+      <div>
+        <p className="text-sm font-semibold tracking-tight">
+          Didaiwriteit<span className="text-accent">.com</span>
+        </p>
+        <p className="mt-1 max-w-[46ch] text-sm text-muted">
+          Real AI-detection scores for any draft. Built for professional
+          writing, not for passing off homework.
+        </p>
+      </div>
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-16">
+        <div>
+          <p className="text-xs font-medium text-faint">Compare</p>
+          <ul className="mt-2 space-y-1.5">
+            {COMPARE_LINKS.map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="text-sm text-muted transition-colors hover:text-ink">
+                  {l.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <Link
+          href="/signup"
+          className="h-fit rounded-full bg-accent px-6 py-3 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
+        >
+          Sign up free
+        </Link>
+      </div>
+    </footer>
+  );
+}

@@ -135,10 +135,10 @@ Auth is defense-in-depth: `proxy.ts` gates `/app/**`, and every API route also c
 
 | Plan | Monthly | Annual (billed yearly) | Words / month | Max words / request |
 | --- | --- | --- | --- | --- |
-| Free | $0 | $0 | 500 | 300 |
-| Lite | $9/mo | $5/mo | 10,000 | 800 |
-| Pro | $24/mo | $12/mo | 30,000 | 1,500 |
-| Studio | $49/mo | $24/mo | 100,000 | 2,500 |
+| Free | $0 | $0 | 2,000
+| Lite | $9/mo | $5/mo | 40,000
+| Plus | $24/mo | $12/mo | 150,000
+| Pro | $49/mo | $24/mo | 500,000 
 
 Annual is 50% off, shown as a discounted monthly rate (not a yearly lump sum). Numbers live in `lib/plans.ts`. Details and competitor context: [`docs/subscriptions.md`](docs/subscriptions.md).
 

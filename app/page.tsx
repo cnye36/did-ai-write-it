@@ -1,17 +1,19 @@
 import Link from "next/link";
-import Image from "next/image";
 import {
   CheckCircleIcon,
   WaveformIcon,
   TextAlignLeftIcon,
   QuotesIcon,
   PenNibIcon,
+  ArrowRightIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { DetectorHero } from "@/components/detector-hero";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { HowItWorks } from "@/components/how-it-works";
 import { Reveal } from "@/components/reveal";
-import { PLAN_INFO, PLAN_ORDER, formatPlanPrice } from "@/lib/plans";
+import { CtaPanel } from "@/components/cta-panel";
+import { SITE_URL, jsonLdScriptProps } from "@/lib/seo";
 
 const SIGNALS = [
   {
@@ -40,6 +42,17 @@ const SIGNALS = [
   },
 ];
 
+const CHECKS = [
+  { title: "AI detection", body: "A real, Winston-verified score for every sentence." },
+  { title: "Plagiarism", body: "Matched sources and highlighted overlap, inline." },
+  { title: "Fact-check", body: "Claim-by-claim verdicts with sources, not just a score." },
+];
+
+const COMPARE_LINKS = [
+  { href: "/vs/gptzero", label: "Did AI Write It vs GPTZero" },
+  { href: "/vs/originality-ai", label: "Did AI Write It vs Originality.ai" },
+];
+
 const FAQ = [
   {
     q: "How does the AI detector work?",
@@ -63,9 +76,38 @@ const FAQ = [
   },
 ];
 
+const SOFTWARE_APPLICATION_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Did AI Write It",
+  url: SITE_URL,
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  description:
+    "Real, Winston-verified AI-detection scoring, plus plagiarism and fact-checking, for any draft.",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+    description: "Free plan, no credit card required",
+  },
+};
+
+const FAQ_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 export default function Landing() {
   return (
     <>
+      <script {...jsonLdScriptProps(SOFTWARE_APPLICATION_JSON_LD)} />
+      <script {...jsonLdScriptProps(FAQ_JSON_LD)} />
       <SiteHeader
         navLinks={
           <>
@@ -148,6 +190,67 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* One paste, three checks: bundle differentiator vs single-purpose detectors */}
+      <section className="border-t border-line py-20 md:py-28">
+        <Reveal>
+          <div className="mx-auto max-w-xl text-center">
+            <h2 className="text-3xl font-semibold tracking-tighter md:text-4xl">
+              One paste, three checks.
+            </h2>
+            <p className="mx-auto mt-4 max-w-[44ch] leading-relaxed text-muted">
+              Most detectors stop at a single score. Every report here also
+              checks the same text for plagiarism and unsupported claims,
+              without opening a second tool.
+            </p>
+          </div>
+        </Reveal>
+        <div className="mt-10 grid gap-4 md:grid-cols-[1.3fr_1fr]">
+          <Reveal delay={0.05}>
+            <div className="h-full rounded-2xl bg-accent-soft p-6 sm:p-8">
+              <ul className="space-y-4">
+                {CHECKS.map((c) => (
+                  <li key={c.title} className="flex items-start gap-3">
+                    <CheckCircleIcon size={20} weight="bold" className="mt-0.5 shrink-0 text-accent" />
+                    <div>
+                      <p className="text-sm font-semibold tracking-tight">{c.title}</p>
+                      <p className="mt-0.5 text-sm leading-relaxed text-muted">{c.body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+          <Reveal delay={0.12}>
+            <div className="flex h-full flex-col justify-between rounded-2xl border border-line p-6 sm:p-8">
+              <div>
+                <h3 className="font-semibold tracking-tight">See how we compare</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted">
+                  GPTZero and Originality.ai each do one thing well. Here is
+                  how they stack up against a detector that checks all three.
+                </p>
+              </div>
+              <ul className="mt-6 space-y-3">
+                {COMPARE_LINKS.map((l) => (
+                  <li key={l.href}>
+                    <Link
+                      href={l.href}
+                      className="group flex items-center justify-between text-sm font-medium text-ink transition-colors hover:text-accent"
+                    >
+                      {l.label}
+                      <ArrowRightIcon
+                        size={16}
+                        weight="bold"
+                        className="shrink-0 transition-transform group-hover:translate-x-0.5"
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       {/* FAQ */}
       <section className="border-t border-line py-20 md:py-28">
         <Reveal>
@@ -169,51 +272,14 @@ export default function Landing() {
       {/* Closing CTA */}
       <section className="border-t border-line py-20 md:py-28">
         <Reveal>
-          <div className="relative flex min-h-[380px] items-end overflow-hidden rounded-3xl">
-            <Image
-              src="/img/writer-desk.jpg"
-              alt="An unmarked grass trail cutting through a wide meadow"
-              fill
-              sizes="1160px"
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/20" />
-            <div className="relative w-full px-6 py-12 text-center text-white sm:px-12 sm:py-16">
-              <h2 className="text-3xl font-semibold tracking-tighter md:text-5xl">
-                Try it on the draft you are least sure about.
-              </h2>
-              <p className="mx-auto mt-4 max-w-[46ch] text-white/80">
-                Paste it in and see the score in seconds. No card required
-                to start.
-              </p>
-              <Link
-                href="/signup"
-                className="mt-8 inline-flex rounded-full bg-accent px-6 py-3 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
-              >
-                Sign up free
-              </Link>
-            </div>
-          </div>
+          <CtaPanel
+            heading="Try it on the draft you are least sure about."
+            body="Paste it in and see the score in seconds. No card required to start."
+          />
         </Reveal>
       </section>
 
-      <footer className="flex flex-col items-start justify-between gap-6 border-t border-line py-12 md:flex-row md:items-center">
-        <div>
-          <p className="text-sm font-semibold tracking-tight">
-            Didaiwriteit<span className="text-accent">.com</span>
-          </p>
-          <p className="mt-1 max-w-[46ch] text-sm text-muted">
-            Real AI-detection scores for any draft. Built for professional
-            writing, not for passing off homework.
-          </p>
-        </div>
-        <Link
-          href="/signup"
-          className="rounded-full bg-accent px-6 py-3 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
-        >
-          Sign up free
-        </Link>
-      </footer>
+      <SiteFooter />
       </div>
     </>
   );
