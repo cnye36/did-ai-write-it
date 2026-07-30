@@ -3,6 +3,8 @@ import Link from "next/link";
 const COMPARE_LINKS = [
   { href: "/vs/gptzero", label: "vs GPTZero" },
   { href: "/vs/originality-ai", label: "vs Originality.ai" },
+  { href: "/vs/copyleaks", label: "vs Copyleaks" },
+  { href: "/vs/turnitin", label: "vs Turnitin" },
 ];
 
 export function SiteFooter() {
@@ -10,7 +12,7 @@ export function SiteFooter() {
     <footer className="flex flex-col gap-8 border-t border-line py-12 md:flex-row md:items-start md:justify-between">
       <div>
         <p className="text-sm font-semibold tracking-tight">
-          Didaiwriteit<span className="text-accent">.com</span>
+          Did <span className="text-accent">AI </span> Write It?
         </p>
         <p className="mt-1 max-w-[46ch] text-sm text-muted">
           Real AI-detection scores for any draft. Built for professional

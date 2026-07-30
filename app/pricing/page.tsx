@@ -7,7 +7,7 @@ import { PricingComparison } from "@/components/pricing/pricing-comparison";
 export const metadata: Metadata = {
   title: "Pricing | Did AI Write It",
   description:
-    "Compare every didaiwriteit.com plan: real, verified AI detection, monthly credit allowances, and what's shipping next.",
+    "Compare every Did AI Write It? plan: real, verified AI detection, monthly credit allowances, and what's shipping next.",
 };
 
 export default function PricingPage() {
@@ -62,7 +62,7 @@ export default function PricingPage() {
       <footer className="flex flex-col items-start justify-between gap-6 border-t border-line py-12 md:flex-row md:items-center">
         <div>
           <p className="text-sm font-semibold tracking-tight">
-            Didaiwriteit<span className="text-accent">.com</span>
+            Did <span className="text-accent">AI </span> Write It?
           </p>
           <p className="mt-1 max-w-[46ch] text-sm text-muted">
             Detect AI writing with real, verified scoring. Built for professional

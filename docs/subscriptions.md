@@ -1,7 +1,7 @@
 # Subscription pricing strategy
 
 Research pass on direct competitors before locking Stripe prices for M2. Every competitor checked
-caps **words per single output**, in addition to a monthly quota, which Didaiwriteit.com does not
+caps **words per single output**, in addition to a monthly quota, which Did AI Write It? does not
 do today. Sources fetched 2026-07-21.
 
 ## Competitor pricing

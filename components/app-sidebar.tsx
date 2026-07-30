@@ -209,7 +209,7 @@ export function AppSidebar({
           onClick={() => setMobileOpen(false)}
           className="text-sm font-semibold tracking-tight"
         >
-          Didaiwriteit<span className="text-accent">.com</span>
+          Did <span className="text-accent">AI </span> Write It?
         </Link>
       </div>
       <div className="border-b border-line" />
@@ -347,7 +347,7 @@ export function AppSidebar({
     <>
       <div className="flex items-center justify-between border-b border-line bg-raised px-4 py-2.5 md:hidden">
         <Link href="/" className="text-sm font-semibold tracking-tight">
-          Didaiwriteit<span className="text-accent">.com</span>
+          Did <span className="text-accent">AI </span> Write It?
         </Link>
         <button
           type="button"

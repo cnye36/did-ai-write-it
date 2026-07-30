@@ -49,8 +49,10 @@ const CHECKS = [
 ];
 
 const COMPARE_LINKS = [
-  { href: "/vs/gptzero", label: "Did AI Write It vs GPTZero" },
-  { href: "/vs/originality-ai", label: "Did AI Write It vs Originality.ai" },
+  { href: "/vs/gptzero", vs: "GPTZero" },
+  { href: "/vs/originality-ai", vs: "Originality.ai" },
+  { href: "/vs/copyleaks", vs: "Copyleaks" },
+  { href: "/vs/turnitin", vs: "Turnitin" },
 ];
 
 const FAQ = [
@@ -79,7 +81,7 @@ const FAQ = [
 const SOFTWARE_APPLICATION_JSON_LD = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "Did AI Write It",
+  name: "Did <span className='text-accent'>AI </span> Write It?",
   url: SITE_URL,
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
@@ -143,7 +145,7 @@ export default function Landing() {
               Free instant check. No account needed.
             </span>
             <h1 className="mt-4 text-4xl font-semibold leading-[1.05] tracking-tighter md:text-6xl">
-              Did AI write it?
+              Did <span className="text-accent">AI </span> Write It?
               <br />
               Paste it below to find out.
             </h1>
@@ -236,7 +238,9 @@ export default function Landing() {
                       href={l.href}
                       className="group flex items-center justify-between text-sm font-medium text-ink transition-colors hover:text-accent"
                     >
-                      {l.label}
+                      <span>
+                        Did <span className="text-accent">AI </span> Write It? vs {l.vs}
+                      </span>
                       <ArrowRightIcon
                         size={16}
                         weight="bold"

@@ -54,14 +54,9 @@ export default function VsOriginalityAiPage() {
       <script {...jsonLdScriptProps(FAQ_JSON_LD)} />
       <SiteHeader
         navLinks={
-          <>
-            <Link href="/pricing" className="hidden text-sm text-muted transition-colors hover:text-ink sm:block">
-              Pricing
-            </Link>
-            <Link href="/vs/gptzero" className="hidden text-sm text-muted transition-colors hover:text-ink sm:block">
-              vs GPTZero
-            </Link>
-          </>
+          <Link href="/pricing" className="hidden text-sm text-muted transition-colors hover:text-ink sm:block">
+            Pricing
+          </Link>
         }
       />
 
