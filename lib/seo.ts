@@ -1,4 +1,4 @@
-export const SITE_URL = "https://didaiwriteit.com";
+export const SITE_URL = "https://www.didaiwriteit.com";
 export const SITE_NAME = "Did AI Write It";
 
 /** JSON-LD payloads render as a raw <script> tag; escape `<` so embedded
