@@ -113,18 +113,24 @@ export default function Landing() {
       <SiteHeader
         navLinks={
           <>
-            <a
-              href="#how"
+            <Link
+              href="/ai-detector"
               className="hidden text-sm text-muted transition-colors hover:text-ink sm:block"
             >
-              How it works
-            </a>
-            <a
-              href="#analyze"
+              AI detector
+            </Link>
+            <Link
+              href="/plagiarism-checker"
               className="hidden text-sm text-muted transition-colors hover:text-ink sm:block"
             >
-              The signals
-            </a>
+              Plagiarism
+            </Link>
+            <Link
+              href="/fact-checker"
+              className="hidden text-sm text-muted transition-colors hover:text-ink md:block"
+            >
+              Fact check
+            </Link>
             <Link
               href="/pricing"
               className="hidden text-sm text-muted transition-colors hover:text-ink sm:block"
@@ -214,7 +220,18 @@ export default function Landing() {
                   <li key={c.title} className="flex items-start gap-3">
                     <CheckCircleIcon size={20} weight="bold" className="mt-0.5 shrink-0 text-accent" />
                     <div>
-                      <p className="text-sm font-semibold tracking-tight">{c.title}</p>
+                      <Link
+                        href={
+                          c.title === "AI detection"
+                            ? "/ai-detector"
+                            : c.title === "Plagiarism"
+                              ? "/plagiarism-checker"
+                              : "/fact-checker"
+                        }
+                        className="text-sm font-semibold tracking-tight hover:text-accent"
+                      >
+                        {c.title}
+                      </Link>
                       <p className="mt-0.5 text-sm leading-relaxed text-muted">{c.body}</p>
                     </div>
                   </li>

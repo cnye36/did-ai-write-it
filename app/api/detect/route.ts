@@ -15,6 +15,9 @@ interface DetectBody {
   /** Present when rescanning from the AI editor: appends a new version to
    *  this existing run instead of creating a brand new sidebar entry. */
   runId?: string;
+  /** ProseMirror JSON from the rich editor, stored so formatting survives.
+   *  `text` stays the canonical plain text that Winston actually scores. */
+  doc?: object | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -24,6 +27,7 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as DetectBody;
     const text = body.text?.trim();
     const runId = body.runId;
+    const doc = body.doc ?? null;
 
     if (!text) {
       return Response.json({ error: "Nothing to check." }, { status: 400 });
@@ -84,6 +88,7 @@ export async function POST(req: NextRequest) {
         wordCount: requestedWords,
         score: winston.score,
         result: runResult,
+        doc,
       });
       resultRunId = runId;
     } else {
@@ -102,6 +107,7 @@ export async function POST(req: NextRequest) {
           wordCount: requestedWords,
           score: winston.score,
           result: runResult,
+          doc,
         });
       }
     }

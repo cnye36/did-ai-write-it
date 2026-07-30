@@ -2,13 +2,34 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 
-/** sessionStorage key used to carry text from the landing page into the detector or humanizer. */
+/** Session-only continuation payload for a public tool page. */
+export type CheckKind = "detect" | "plagiarism" | "fact_check";
+
+export type CheckHandoff = {
+  text: string;
+  kind: CheckKind;
+};
+
+/** sessionStorage key used to carry text from public pages into the app. */
 export const HANDOFF_KEY = "lawi.humanizeText";
 
 const subscribe = () => () => {};
 
 function getHandoff(): string {
-  return sessionStorage.getItem(HANDOFF_KEY) ?? "";
+  const raw = sessionStorage.getItem(HANDOFF_KEY);
+  if (!raw) return "";
+
+  try {
+    const handoff = JSON.parse(raw) as Partial<CheckHandoff>;
+    return typeof handoff.text === "string" ? handoff.text : raw;
+  } catch {
+    // Preserve the old text-only value so existing handoffs still work.
+    return raw;
+  }
+}
+
+export function saveCheckHandoff(handoff: CheckHandoff): void {
+  sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(handoff));
 }
 
 /**

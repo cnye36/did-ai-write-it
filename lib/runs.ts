@@ -30,6 +30,9 @@ export interface RunListItem {
 export interface RunRow extends RunListItem {
   input_text: string;
   result: RunResult;
+  /** ProseMirror JSON from the rich editor. Null for anything saved before it
+   *  shipped, in which case the editor rebuilds a document from input_text. */
+  doc: object | null;
 }
 
 /** One detect scan within a run's history. Version 1 is created alongside the
@@ -41,6 +44,7 @@ export interface RunVersion {
   word_count: number;
   score: number | null;
   result: RunResult;
+  doc: object | null;
   created_at: string;
 }
 
@@ -103,13 +107,15 @@ interface RunVersionInput {
   wordCount: number;
   score: number | null;
   result: RunResult;
+  /** ProseMirror JSON, when the scan came from the rich editor. */
+  doc?: object | null;
 }
 
 /** First version for a freshly created run, so version history always has a
  *  complete baseline from birth. Call right after insertRun succeeds. */
 export async function insertRunVersion(
   supabase: SupabaseClient,
-  { runId, inputText, wordCount, score, result }: RunVersionInput
+  { runId, inputText, wordCount, score, result, doc = null }: RunVersionInput
 ): Promise<void> {
   const { error } = await supabase.from("run_versions").insert({
     run_id: runId,
@@ -117,6 +123,7 @@ export async function insertRunVersion(
     word_count: wordCount,
     score,
     result,
+    doc,
   });
   if (error) console.error("Failed to save run version:", error.message);
 }
@@ -127,9 +134,9 @@ export async function insertRunVersion(
  *  moves so the sidebar's relative time doesn't look permanently stale. */
 export async function appendRunVersion(
   supabase: SupabaseClient,
-  { runId, inputText, wordCount, score, result }: RunVersionInput
+  { runId, inputText, wordCount, score, result, doc = null }: RunVersionInput
 ): Promise<void> {
-  await insertRunVersion(supabase, { runId, inputText, wordCount, score, result });
+  await insertRunVersion(supabase, { runId, inputText, wordCount, score, result, doc });
 
   const { error } = await supabase
     .from("runs")
@@ -138,6 +145,7 @@ export async function appendRunVersion(
       word_count: wordCount,
       score,
       result,
+      doc,
       updated_at: new Date().toISOString(),
     })
     .eq("id", runId);
@@ -151,7 +159,7 @@ export async function listRunVersions(
 ): Promise<RunVersion[]> {
   const { data, error } = await supabase
     .from("run_versions")
-    .select("id, input_text, word_count, score, result, created_at")
+    .select("id, input_text, word_count, score, result, doc, created_at")
     .eq("run_id", runId)
     .order("created_at", { ascending: true });
 

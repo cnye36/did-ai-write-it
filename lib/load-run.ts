@@ -11,14 +11,24 @@ export async function loadOwnedRun(id: string, kind: RunKind): Promise<RunRow | 
 
   const { data, error } = await supabase
     .from("runs")
-    .select("id, kind, title, input_text, word_count, score, result, created_at, updated_at")
+    .select("id, kind, title, input_text, word_count, score, result, doc, created_at, updated_at")
     .eq("id", id)
     .eq("user_id", userId)
     .eq("kind", kind)
     .maybeSingle();
 
-  if (error || !data) return null;
-  return data as RunRow;
+  /*
+    A query error and a genuinely missing row both end up as null for the
+    caller, but they are not the same thing and must not look the same in the
+    logs. Collapsing them silently turned a pending migration (the `doc` column
+    not existing yet) into a blank page with a run id in the URL and no clue
+    why, which is exactly the kind of failure that costs an afternoon.
+  */
+  if (error) {
+    console.error(`loadOwnedRun failed for ${kind} run ${id}: ${error.message}`);
+    return null;
+  }
+  return (data as RunRow | null) ?? null;
 }
 
 /** Version history for a run. Only call after loadOwnedRun succeeds; RLS on

@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { SignupForm } from "@/components/auth/signup-form";
+import { safeAuthNext } from "@/lib/auth-next";
 
-export default function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  const destination = safeAuthNext(next);
+  const loginHref = `/login?next=${encodeURIComponent(destination)}`;
+
   return (
     <div className="flex min-h-[100dvh] flex-col">
       <header className="border-b border-line px-4 py-4 sm:px-6">
@@ -17,10 +26,10 @@ export default function SignupPage() {
               Free, 2,000 credits a month of real, verified AI detection. No card required.
             </p>
           </div>
-          <SignupForm />
+          <SignupForm next={destination} />
           <p className="text-sm text-muted">
             Already have an account?{" "}
-            <Link href="/login" className="font-medium text-accent hover:underline">
+            <Link href={loginHref} className="font-medium text-accent hover:underline">
               Sign in
             </Link>
           </p>

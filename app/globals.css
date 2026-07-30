@@ -137,6 +137,105 @@ mark[data-confidence="estimated"] {
   border-bottom-style: dashed;
 }
 
+/*
+  Score highlighting inside the rich editor, applied as ProseMirror
+  decorations. These MUST NOT change layout: no padding, no margin, no border
+  width that affects inline flow. The previous overlay editor broke precisely
+  because highlight styling shifted glyph positions, so background and
+  border-bottom only. border-bottom is safe here because it adds no horizontal
+  advance and the line-height already reserves the space.
+*/
+.score-mark {
+  border-bottom: 1.5px solid transparent;
+  border-radius: 2px;
+}
+
+.score-ai {
+  background: var(--bad-soft);
+  border-bottom-color: var(--bad);
+}
+
+.score-mixed {
+  background: var(--warn-soft);
+  border-bottom-color: var(--warn);
+}
+
+.score-human {
+  background: transparent;
+  border-bottom-color: var(--good);
+}
+
+.score-estimated {
+  border-bottom-style: dashed;
+}
+
+/* Editor content. The block spacing here is what the user sees; the plain-text
+   projection in lib/editor-text.ts is what the detector sees, and the two are
+   deliberately independent. */
+.prose-editor {
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.prose-editor p {
+  margin: 0 0 0.85em;
+}
+
+.prose-editor p:last-child {
+  margin-bottom: 0;
+}
+
+.prose-editor h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 1.2em 0 0.5em;
+}
+
+.prose-editor h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 1.1em 0 0.45em;
+}
+
+.prose-editor ul,
+.prose-editor ol {
+  margin: 0 0 0.85em;
+  padding-left: 1.4em;
+}
+
+.prose-editor ul {
+  list-style: disc;
+}
+
+.prose-editor ol {
+  list-style: decimal;
+}
+
+.prose-editor li {
+  margin: 0.2em 0;
+}
+
+.prose-editor li p {
+  margin: 0;
+}
+
+.prose-editor blockquote {
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  margin: 0 0 0.85em;
+  padding-left: 0.9em;
+}
+
+.prose-editor strong {
+  font-weight: 650;
+}
+
+.prose-editor:focus {
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

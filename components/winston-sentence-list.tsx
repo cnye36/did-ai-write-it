@@ -28,10 +28,12 @@ export function WinstonSentenceList({
   sentences,
   revealCount,
   ctaHref,
+  onSignup,
 }: {
   sentences: WinstonSentence[];
   revealCount?: number;
   ctaHref?: string;
+  onSignup?: () => void;
 }) {
   if (sentences.length === 0) return null;
 
@@ -74,6 +76,7 @@ export function WinstonSentenceList({
           </p>
           <Link
             href={ctaHref}
+            onClick={onSignup}
             className="rounded-full bg-accent px-4 py-2 text-xs font-medium text-accent-ink transition-transform active:scale-[0.97]"
           >
             Sign up to view the full report

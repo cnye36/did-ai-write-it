@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { LoginForm } from "@/components/auth/login-form";
+import { safeAuthNext } from "@/lib/auth-next";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  const signupHref = `/signup?next=${encodeURIComponent(safeAuthNext(next))}`;
+
   return (
     <div className="flex min-h-[100dvh] flex-col">
       <header className="border-b border-line px-4 py-4 sm:px-6">
@@ -21,7 +29,7 @@ export default function LoginPage() {
           <LoginForm />
           <p className="text-sm text-muted">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="font-medium text-accent hover:underline">
+            <Link href={signupHref} className="font-medium text-accent hover:underline">
               Create one
             </Link>
           </p>

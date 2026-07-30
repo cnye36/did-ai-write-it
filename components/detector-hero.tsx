@@ -8,7 +8,7 @@ import {
   ArrowRightIcon,
 } from "@phosphor-icons/react";
 import { analyzeText, verdictFor } from "@/lib/detector";
-import { HANDOFF_KEY } from "@/lib/handoff";
+import { saveCheckHandoff } from "@/lib/handoff";
 import { ScoreGauge } from "./score-gauge";
 import { WinstonSentenceList, type WinstonSentence } from "./winston-sentence-list";
 import { Modal } from "./modal";
@@ -71,7 +71,7 @@ const SAMPLES: Record<
   },
 };
 
-const FREE_PREVIEW = { revealCount: 1, ctaHref: "/signup" };
+const FREE_PREVIEW = { revealCount: 1 };
 const MAX_SCAN_WORDS = 300;
 
 type Tab = "paste" | "upload";
@@ -116,6 +116,12 @@ export function DetectorHero() {
   }
 
   async function analyze() {
+    if (words > MAX_SCAN_WORDS) {
+      saveCheckHandoff({ text, kind: "detect" });
+      window.location.assign(`/signup?next=${encodeURIComponent("/app/detect?autorun=1")}`);
+      return;
+    }
+
     setPreviewError(null);
     setRateLimited(false);
     setPreview(null);
@@ -208,7 +214,7 @@ export function DetectorHero() {
             <span
               className={`font-mono tabular-nums ${words >= MAX_SCAN_WORDS ? "text-accent" : ""}`}
             >
-              {Math.min(words, MAX_SCAN_WORDS)}/{MAX_SCAN_WORDS} words
+              {words.toLocaleString()} words{words > MAX_SCAN_WORDS ? " · Sign up free for this full check" : ` · Free up to ${MAX_SCAN_WORDS}`}
             </span>
             {fileName && <span className="max-w-[140px] truncate">{fileName}</span>}
             {!text && (
@@ -233,7 +239,7 @@ export function DetectorHero() {
             onClick={analyze}
             className="rounded-full bg-accent px-5 py-2 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? "Checking..." : "Analyze"}
+            {busy ? "Checking..." : words > MAX_SCAN_WORDS ? "Sign up to check" : "Analyze"}
           </button>
         </div>
       </div>
@@ -256,9 +262,9 @@ export function DetectorHero() {
       {/* Soft signup nudge, kept low-key so the checker itself still reads as free */}
       <div className="mt-3 flex justify-center sm:justify-end">
         <Link
-          href="/app/detect"
+          href={`/signup?next=${encodeURIComponent("/app/detect?autorun=1")}`}
           onClick={() => {
-            if (text.trim()) sessionStorage.setItem(HANDOFF_KEY, text);
+            if (text.trim()) saveCheckHandoff({ text, kind: "detect" });
           }}
           className="inline-flex items-center gap-1 text-xs font-medium text-muted transition-colors hover:text-ink"
         >
@@ -304,7 +310,8 @@ export function DetectorHero() {
                     <WinstonSentenceList
                       sentences={preview.sentences}
                       revealCount={FREE_PREVIEW.revealCount}
-                      ctaHref={FREE_PREVIEW.ctaHref}
+                      ctaHref={`/signup?next=${encodeURIComponent("/app/detect?autorun=1")}`}
+                      onSignup={() => saveCheckHandoff({ text, kind: "detect" })}
                     />
                   </div>
                 )}

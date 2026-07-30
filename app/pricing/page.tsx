@@ -17,16 +17,16 @@ export default function PricingPage() {
         navLinks={
           <>
             <Link
-              href="/#how"
+              href="/ai-detector"
               className="hidden text-sm text-muted transition-colors hover:text-ink sm:block"
             >
-              How it works
+              AI detector
             </Link>
             <Link
-              href="/#analyze"
+              href="/plagiarism-checker"
               className="hidden text-sm text-muted transition-colors hover:text-ink sm:block"
             >
-              The signals
+              Plagiarism
             </Link>
             <Link
               href="/pricing"

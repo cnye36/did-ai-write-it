@@ -15,7 +15,7 @@ import { resolveSentenceScores, verifiedCoverage } from "@/lib/winston-sentences
 import { ScoreGauge } from "@/components/score-gauge";
 import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
 import { ConfirmRewriteAllModal } from "@/components/confirm-rewrite-all-modal";
-import { HighlightedTextarea } from "@/components/highlighted-textarea";
+import { RichEditor, type RichEditorHandle } from "@/components/rich-editor";
 import { WinstonHighlightedText } from "@/components/winston-highlighted-text";
 import type { DetectRunResult, RunRow, RunVersion } from "@/lib/runs";
 
@@ -46,7 +46,7 @@ export function DetectEditorClient({
   versions: RunVersion[];
 }) {
   const router = useRouter();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<RichEditorHandle>(null);
 
   const [versions, setVersions] = useState<RunVersion[]>(
     initialVersions.length > 0
@@ -58,6 +58,7 @@ export function DetectEditorClient({
             word_count: run.word_count,
             score: run.score,
             result: run.result,
+            doc: run.doc,
             created_at: run.created_at,
           },
         ]
@@ -66,6 +67,9 @@ export function DetectEditorClient({
   const selectedVersion = versions[selectedIndex];
 
   const [draft, setDraft] = useState(versions[versions.length - 1].input_text);
+  const [docJson, setDocJson] = useState<object | null>(
+    (versions[versions.length - 1].doc as object | null) ?? null
+  );
   const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
 
@@ -96,13 +100,7 @@ export function DetectEditorClient({
   const delta = live.score - verifiedScore;
 
   function updateSelection() {
-    const el = textareaRef.current;
-    if (!el) return;
-    if (el.selectionStart === el.selectionEnd) {
-      setSelection(null);
-    } else {
-      setSelection({ start: el.selectionStart, end: el.selectionEnd });
-    }
+    setSelection(editorRef.current?.getSelectionTextRange() ?? null);
   }
 
   async function requestSuggestion(start: number, end: number, source: Suggestion["source"]) {
@@ -132,13 +130,14 @@ export function DetectEditorClient({
   function acceptSuggestion() {
     if (!suggestion?.text) return;
     const { start, end, spanText, text } = suggestion;
-    // Re-derive the target range in case the draft shifted since the request
-    // went out: if the original span no longer matches, relocate it by
-    // content instead of trusting the stale offsets.
+    // The span may have moved while the request was in flight, so re-locate it
+    // by content before splicing. (ProseMirror re-maps its own positions, but
+    // these offsets were captured in plain-text space before the round trip.)
+    const current = editorRef.current?.getText() ?? draft;
     let targetStart = start;
     let targetEnd = end;
-    if (draft.slice(start, end) !== spanText) {
-      const found = draft.indexOf(spanText);
+    if (current.slice(start, end) !== spanText) {
+      const found = current.indexOf(spanText);
       if (found === -1) {
         setSuggestion((s) => (s ? { ...s, error: "The text changed, could not apply this. Try again." } : s));
         return;
@@ -146,7 +145,7 @@ export function DetectEditorClient({
       targetStart = found;
       targetEnd = found + spanText.length;
     }
-    setDraft(draft.slice(0, targetStart) + text + draft.slice(targetEnd));
+    editorRef.current?.replaceTextRange(targetStart, targetEnd, text);
     setSuggestion(null);
     setSelection(null);
   }
@@ -171,7 +170,7 @@ export function DetectEditorClient({
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Rewrite failed.");
-      setDraft(data.text);
+      editorRef.current?.replaceAll(data.text);
       setRewriteAllOpen(false);
     } catch (e) {
       setRewriteAllError(e instanceof Error ? e.message : "Rewrite failed.");
@@ -187,7 +186,7 @@ export function DetectEditorClient({
       const res = await fetch("/api/detect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: draft, runId: run.id }),
+        body: JSON.stringify({ text: draft, runId: run.id, doc: docJson }),
       });
       const data = await res.json();
       if (res.status === 402) {
@@ -202,6 +201,7 @@ export function DetectEditorClient({
           word_count: analyzeText(draft).wordCount,
           score: data.winston.score,
           result: { winston: data.winston },
+          doc: docJson,
           created_at: new Date().toISOString(),
         };
         setVersions((v) => {
@@ -304,14 +304,16 @@ export function DetectEditorClient({
                 </span>
               </div>
             </div>
-            <HighlightedTextarea
-              value={draft}
-              onChange={setDraft}
-              sentences={resolved}
-              textareaRef={textareaRef}
+            <RichEditor
+              handleRef={editorRef}
+              initialDoc={docJson}
+              initialText={draft}
+              winstonSentences={latestWinston?.sentences ?? null}
+              onChange={({ text, doc }) => {
+                setDraft(text);
+                setDocJson(doc);
+              }}
               onSelectionChange={updateSelection}
-              ariaLabel="Your edit"
-              className="max-h-[55vh] min-h-[280px] flex-1"
             />
             {selection && !suggestion && (
               <div className="border-t border-line px-4 py-2.5">

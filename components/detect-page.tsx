@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon, WrenchIcon } from "@phosphor-icons/react";
 import { analyzeText, verdictFor } from "@/lib/detector";
@@ -43,6 +43,9 @@ function resultFromRun(run: RunRow): DetectResponse {
 
 export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const autoRun = searchParams.get("autorun") === "1";
+  const autoRunStarted = useRef(false);
   const [input, setInput] = useHandoffInput(initialRun?.input_text ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +170,13 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
     if (wantPlagiarism && plagiarismEligible) void runPlagiarism();
     if (wantFactCheck && factCheckEligible) void runFactCheck();
   }
+
+  useEffect(() => {
+    if (!autoRun || autoRunStarted.current || !canRun) return;
+    autoRunStarted.current = true;
+    router.replace("/app/detect");
+    void runDetect();
+  }, [autoRun, canRun, input, router, runDetect]);
 
   function editText() {
     setResult(null);

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 import {
   PLAGIARISM_MIN_CHARS,
@@ -21,6 +21,7 @@ import { PlagiarismSources } from "@/components/plagiarism-sources";
 import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
 import { DetectAddonCard, FactCheckAddonCard, type AddonState, type DetectAddonResult } from "@/components/check-addons";
 import { UploadTextButton } from "@/components/upload-text-button";
+import { useHandoffInput } from "@/lib/handoff";
 
 interface PlagiarismResponse {
   plagiarism: PlagiarismResult | null;
@@ -41,7 +42,10 @@ function resultFromRun(run: RunRow): PlagiarismResponse {
 
 export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null }) {
   const router = useRouter();
-  const [input, setInput] = useState(initialRun?.input_text ?? "");
+  const searchParams = useSearchParams();
+  const autoRun = searchParams.get("autorun") === "1";
+  const autoRunStarted = useRef(false);
+  const [input, setInput] = useHandoffInput(initialRun?.input_text ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quota, setQuota] = useState<{ plan: string; limit: number } | null>(null);
@@ -163,6 +167,13 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
     if (wantDetect && detectEligible) void runDetectAddon();
     if (wantFactCheck && factCheckEligible) void runFactCheck();
   }
+
+  useEffect(() => {
+    if (!autoRun || autoRunStarted.current || !canRun) return;
+    autoRunStarted.current = true;
+    router.replace("/app/plagiarism");
+    void check();
+  }, [autoRun, canRun, input, router, check]);
 
   function editText() {
     setResult(null);

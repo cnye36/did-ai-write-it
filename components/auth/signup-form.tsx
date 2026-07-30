@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { safeAuthNext } from "@/lib/auth-next";
 
 const MIN_PASSWORD_LENGTH = 6;
 
-export function SignupForm() {
+export function SignupForm({ next }: { next?: string }) {
   const router = useRouter();
+  const destination = safeAuthNext(next);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -34,7 +36,9 @@ export function SignupForm() {
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`,
+      },
     });
     if (signUpError) {
       setError(signUpError.message);
@@ -42,7 +46,7 @@ export function SignupForm() {
       return;
     }
     if (data.session) {
-      router.push("/app/detect");
+      router.push(destination);
       router.refresh();
       return;
     }

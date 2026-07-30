@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { safeAuthNext } from "@/lib/auth-next";
 
 export function LoginForm() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export function LoginForm() {
       setBusy(false);
       return;
     }
-    const next = new URLSearchParams(window.location.search).get("next") || "/app/detect";
+    const next = safeAuthNext(new URLSearchParams(window.location.search).get("next"));
     router.push(next);
     router.refresh();
   }

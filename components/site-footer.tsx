@@ -8,6 +8,9 @@ const COMPARE_LINKS = [
 ];
 
 const CHECK_LINKS = [
+  { href: "/ai-detector", label: "AI detector" },
+  { href: "/plagiarism-checker", label: "Plagiarism checker" },
+  { href: "/fact-checker", label: "Fact checker" },
   { href: "/chatgpt-detector", label: "ChatGPT detector" },
   { href: "/claude-detector", label: "Claude detector" },
   { href: "/gemini-detector", label: "Gemini detector" },
@@ -54,7 +57,7 @@ export function SiteFooter() {
           </ul>
         </div>
         <div>
-          <p className="text-xs font-medium text-faint">Popular checks</p>
+          <p className="text-xs font-medium text-faint">Checks</p>
           <ul className="mt-2 space-y-1.5">
             {CHECK_LINKS.map((l) => (
               <li key={l.href}>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeAuthNext } from "@/lib/auth-next";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -9,5 +10,5 @@ export async function GET(req: NextRequest) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  return NextResponse.redirect(new URL("/app/detect", req.url));
+  return NextResponse.redirect(new URL(safeAuthNext(req.nextUrl.searchParams.get("next")), req.url));
 }

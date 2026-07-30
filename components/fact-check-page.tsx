@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 import {
   FACT_CHECK_MIN_CHARS,
@@ -20,6 +20,7 @@ import { FactCheckClaims } from "@/components/fact-check-claims";
 import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
 import { DetectAddonCard, PlagiarismAddonCard, type AddonState, type DetectAddonResult } from "@/components/check-addons";
 import { UploadTextButton } from "@/components/upload-text-button";
+import { useHandoffInput } from "@/lib/handoff";
 
 interface FactCheckResponse {
   factCheck: FactCheckResult | null;
@@ -46,7 +47,10 @@ function resultFromRun(run: RunRow): FactCheckResponse {
 
 export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null }) {
   const router = useRouter();
-  const [input, setInput] = useState(initialRun?.input_text ?? "");
+  const searchParams = useSearchParams();
+  const autoRun = searchParams.get("autorun") === "1";
+  const autoRunStarted = useRef(false);
+  const [input, setInput] = useHandoffInput(initialRun?.input_text ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quota, setQuota] = useState<{ plan: string; limit: number } | null>(null);
@@ -168,6 +172,13 @@ export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null 
     if (wantDetect && detectEligible) void runDetectAddon();
     if (wantPlagiarism && plagiarismEligible) void runPlagiarism();
   }
+
+  useEffect(() => {
+    if (!autoRun || autoRunStarted.current || !canRun) return;
+    autoRunStarted.current = true;
+    router.replace("/app/fact-check");
+    void check();
+  }, [autoRun, canRun, input, router, check]);
 
   function editText() {
     setResult(null);
