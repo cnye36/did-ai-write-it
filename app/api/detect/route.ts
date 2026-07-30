@@ -2,13 +2,13 @@ import { NextRequest } from "next/server";
 import { errorResponse } from "@/lib/api-errors";
 import { analyzeText } from "@/lib/detector";
 import { insertRun } from "@/lib/runs";
-import { scoreWithWinston } from "@/lib/winston";
+import { scoreWithWinston, DETECT_MAX_CHARS } from "@/lib/winston";
 import { requireUser } from "@/lib/supabase/auth";
 import { assertWithinQuota, isDevBypass, PLAN_LIMITS, wordsUsedInCurrentPeriod, type Plan } from "@/lib/usage";
 
 export const maxDuration = 30;
 
-const MAX_CHARS = 150_000;
+const MAX_CHARS = DETECT_MAX_CHARS;
 
 interface DetectBody {
   text: string;

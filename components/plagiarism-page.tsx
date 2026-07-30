@@ -3,19 +3,32 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
-import { PLAGIARISM_MIN_CHARS, PLAGIARISM_MAX_CHARS, type PlagiarismResult } from "@/lib/winston";
+import {
+  PLAGIARISM_MIN_CHARS,
+  PLAGIARISM_MAX_CHARS,
+  WINSTON_MIN_CHARS,
+  DETECT_MAX_CHARS,
+  FACT_CHECK_MIN_CHARS,
+  FACT_CHECK_MAX_CHARS,
+  type PlagiarismResult,
+  type FactCheckResult,
+} from "@/lib/winston";
 import { plagiarismVerdict } from "@/lib/score-verdicts";
 import type { PlagiarismRunResult, RunRow } from "@/lib/runs";
 import { Gauge } from "@/components/gauge";
 import { PlagiarismHighlightedText } from "@/components/plagiarism-highlighted-text";
 import { PlagiarismSources } from "@/components/plagiarism-sources";
 import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
+import { DetectAddonCard, FactCheckAddonCard, type AddonState, type DetectAddonResult } from "@/components/check-addons";
+import { UploadTextButton } from "@/components/upload-text-button";
 
 interface PlagiarismResponse {
   plagiarism: PlagiarismResult | null;
   runId?: string | null;
   usage: { used: number; limit: number };
 }
+
+const EMPTY_ADDON: AddonState<never> = { busy: false, error: null, result: undefined, runId: null };
 
 function resultFromRun(run: RunRow): PlagiarismResponse {
   const payload = run.result as PlagiarismRunResult;
@@ -37,8 +50,15 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
   );
   const [loadedRunId, setLoadedRunId] = useState<string | null>(initialRun?.id ?? null);
 
+  const [wantDetect, setWantDetect] = useState(false);
+  const [wantFactCheck, setWantFactCheck] = useState(false);
+  const [detectAddon, setDetectAddon] = useState<AddonState<DetectAddonResult>>(EMPTY_ADDON);
+  const [factCheck, setFactCheck] = useState<AddonState<FactCheckResult>>(EMPTY_ADDON);
+
   if ((initialRun?.id ?? null) !== loadedRunId) {
     setLoadedRunId(initialRun?.id ?? null);
+    setDetectAddon(EMPTY_ADDON);
+    setFactCheck(EMPTY_ADDON);
     if (initialRun) {
       setInput(initialRun.input_text);
       setResult(resultFromRun(initialRun));
@@ -51,6 +71,63 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
   const charCount = input.trim().length;
   const canRun = charCount >= PLAGIARISM_MIN_CHARS && charCount <= PLAGIARISM_MAX_CHARS && !busy;
   const showReport = busy || result !== null;
+
+  const detectEligible = charCount >= WINSTON_MIN_CHARS && charCount <= DETECT_MAX_CHARS;
+  const factCheckEligible = charCount >= FACT_CHECK_MIN_CHARS && charCount <= FACT_CHECK_MAX_CHARS;
+  const detectIneligibleReason = `Needs ${WINSTON_MIN_CHARS.toLocaleString()}-${DETECT_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
+  const factCheckIneligibleReason = `Needs ${FACT_CHECK_MIN_CHARS.toLocaleString()}-${FACT_CHECK_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
+
+  async function runDetectAddon() {
+    setDetectAddon((s) => ({ ...s, busy: true, error: null }));
+    try {
+      const res = await fetch("/api/detect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: input }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        setQuota({ plan: data.plan, limit: data.limit });
+        setDetectAddon((s) => ({ ...s, busy: false }));
+        return;
+      }
+      if (!res.ok) throw new Error(data.error ?? "Check failed.");
+      setDetectAddon({
+        busy: false,
+        error: null,
+        result: data.winston as DetectAddonResult | null,
+        runId: (data.runId as string | null | undefined) ?? null,
+      });
+    } catch (e) {
+      setDetectAddon((s) => ({ ...s, busy: false, error: e instanceof Error ? e.message : "Check failed." }));
+    }
+  }
+
+  async function runFactCheck() {
+    setFactCheck((s) => ({ ...s, busy: true, error: null }));
+    try {
+      const res = await fetch("/api/fact-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: input }),
+      });
+      const data = await res.json();
+      if (res.status === 402) {
+        setQuota({ plan: data.plan, limit: data.limit });
+        setFactCheck((s) => ({ ...s, busy: false }));
+        return;
+      }
+      if (!res.ok) throw new Error(data.error ?? "Check failed.");
+      setFactCheck({
+        busy: false,
+        error: null,
+        result: data.factCheck as FactCheckResult | null,
+        runId: (data.runId as string | null | undefined) ?? null,
+      });
+    } catch (e) {
+      setFactCheck((s) => ({ ...s, busy: false, error: e instanceof Error ? e.message : "Check failed." }));
+    }
+  }
 
   async function check() {
     setBusy(true);
@@ -81,9 +158,17 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
     }
   }
 
+  function analyze() {
+    void check();
+    if (wantDetect && detectEligible) void runDetectAddon();
+    if (wantFactCheck && factCheckEligible) void runFactCheck();
+  }
+
   function editText() {
     setResult(null);
     setError(null);
+    setDetectAddon(EMPTY_ADDON);
+    setFactCheck(EMPTY_ADDON);
     router.replace("/app/plagiarism");
   }
 
@@ -91,6 +176,10 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
     setInput("");
     setResult(null);
     setError(null);
+    setWantDetect(false);
+    setWantFactCheck(false);
+    setDetectAddon(EMPTY_ADDON);
+    setFactCheck(EMPTY_ADDON);
     router.replace("/app/plagiarism");
   }
 
@@ -118,9 +207,12 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
         <div className="flex flex-col rounded-2xl border border-line bg-raised">
           <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
             <span className="text-sm font-medium">Your text</span>
-            <span className="font-mono text-xs tabular-nums text-faint">
-              {charCount.toLocaleString()} / {PLAGIARISM_MAX_CHARS.toLocaleString()} characters
-            </span>
+            <div className="flex items-center gap-3">
+              <UploadTextButton onText={setInput} onError={setError} />
+              <span className="font-mono text-xs tabular-nums text-faint">
+                {charCount.toLocaleString()} / {PLAGIARISM_MAX_CHARS.toLocaleString()} characters
+              </span>
+            </div>
           </div>
           <textarea
             value={input}
@@ -130,11 +222,37 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
             placeholder="Paste the text you want to scan..."
             className="min-h-[260px] flex-1 resize-y bg-transparent p-4 text-sm leading-relaxed outline-none placeholder:text-faint"
           />
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3">
+            <div className="flex flex-wrap items-center gap-4">
+              <label
+                className={`inline-flex items-center gap-2 text-sm ${detectEligible ? "text-muted" : "text-faint"}`}
+              >
+                <input
+                  type="checkbox"
+                  className="accent-accent"
+                  checked={wantDetect}
+                  disabled={!detectEligible}
+                  onChange={(e) => setWantDetect(e.target.checked)}
+                />
+                Also check for AI
+              </label>
+              <label
+                className={`inline-flex items-center gap-2 text-sm ${factCheckEligible ? "text-muted" : "text-faint"}`}
+              >
+                <input
+                  type="checkbox"
+                  className="accent-accent"
+                  checked={wantFactCheck}
+                  disabled={!factCheckEligible}
+                  onChange={(e) => setWantFactCheck(e.target.checked)}
+                />
+                Also check facts
+              </label>
+            </div>
             <button
               type="button"
               disabled={!canRun}
-              onClick={check}
+              onClick={analyze}
               className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <MagnifyingGlassIcon size={16} weight="bold" />
@@ -163,6 +281,15 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
     : busy
       ? "Scanning the web for matches..."
       : "Plagiarism check unavailable for this text.";
+
+  const addonsActive =
+    detectAddon.result !== undefined ||
+    detectAddon.busy ||
+    detectAddon.error !== null ||
+    factCheck.result !== undefined ||
+    factCheck.busy ||
+    factCheck.error !== null;
+  const showAddons = plagiarism !== null || addonsActive;
 
   return (
     <>
@@ -198,6 +325,26 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
       </div>
 
       {error && <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{error}</p>}
+
+      {showAddons && (
+        <div>
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-faint">Add-on checks</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <DetectAddonCard
+              {...detectAddon}
+              eligible={detectEligible}
+              ineligibleReason={detectIneligibleReason}
+              onRun={runDetectAddon}
+            />
+            <FactCheckAddonCard
+              {...factCheck}
+              eligible={factCheckEligible}
+              ineligibleReason={factCheckIneligibleReason}
+              onRun={runFactCheck}
+            />
+          </div>
+        </div>
+      )}
 
       {plagiarism && (
         <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">

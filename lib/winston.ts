@@ -30,6 +30,8 @@ const FACT_CHECK_API_URL = "https://api.gowinston.ai/v2/fact-checker";
 
 /** Winston rejects requests under this length; shorter text is skipped rather than erroring. */
 export const WINSTON_MIN_CHARS = 300;
+/** Matches /api/detect's own flat per-request character ceiling. */
+export const DETECT_MAX_CHARS = 150_000;
 
 /** Winston's own documented bounds for the plagiarism endpoint's `text` field. */
 export const PLAGIARISM_MIN_CHARS = 100;
