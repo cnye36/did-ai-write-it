@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { CookieNotice } from "@/components/cookie-notice";
 import { ORGANIZATION_JSON_LD, SITE_NAME, SITE_URL, WEBSITE_JSON_LD, jsonLdScriptProps } from "@/lib/seo";
 
 const geistSans = Geist({
@@ -50,7 +51,10 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col">
         <script {...jsonLdScriptProps(ORGANIZATION_JSON_LD)} />
         <script {...jsonLdScriptProps(WEBSITE_JSON_LD)} />
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {children}
+          <CookieNotice />
+        </ThemeProvider>
       </body>
     </html>
   );

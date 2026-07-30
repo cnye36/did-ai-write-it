@@ -20,7 +20,8 @@ export type FlagCategory =
   | "rhythm"
   | "structure"
   | "opener"
-  | "hedging";
+  | "hedging"
+  | "cadence";
 
 export interface Flag {
   start: number;
@@ -31,7 +32,7 @@ export interface Flag {
 }
 
 export interface MetricScore {
-  id: "burstiness" | "rhythm" | "lexicon" | "punctuation" | "structure" | "voice";
+  id: "burstiness" | "rhythm" | "lexicon" | "punctuation" | "structure" | "cadence";
   label: string;
   score: number;
   detail: string;
@@ -61,16 +62,43 @@ export interface DetectorResult {
 }
 
 /*
-  Product decision, not an accuracy tweak: score skeptically. A flat penalty
-  plus raised verdict thresholds mean borderline text reads "ai" or "mixed"
-  more often than "human". A false "reads human" costs us a user who thinks
-  they're safe when they're not; a false "reads ai" just costs a re-check.
-  Tune these two constants to adjust the skew without touching the scoring
-  logic itself.
+  Scoring is PENALTY-ONLY and penalties SUM. Both are deliberate, and both are
+  corrections to a scorer that badly under-called modern AI text.
+
+  Penalty-only: no signal may ever add points. The old scorer gave credit for
+  contractions, first person, and concrete numbers, which is exactly what
+  "write it so it sounds human" prompting produces, so those signals had gone
+  from weak to actively inverted: they rewarded well-prompted AI. A signal can
+  now only be silent (0) or incriminating.
+
+  Summed rather than averaged: a weighted mean let clean-but-blind signals vote
+  a document up. Real observed case, Winston 0 vs our 76: punctuation and rhythm
+  both caught it and were outvoted by three metrics that modern LLM output
+  trivially satisfies. Summing means a clean signal contributes nothing instead
+  of pulling the score up, and multiple tells compound the way they should.
+
+  Weights are the tuning surface, and they are guesses until there is enough
+  stored Winston data to fit them: run `scripts/calibrate-detector.ts` to
+  measure agreement before changing any of them.
 */
-const AI_LEAN_PENALTY = 10;
-const HUMAN_THRESHOLD = 75;
-const AI_THRESHOLD = 55;
+const PENALTY_WEIGHTS: Record<MetricScore["id"], number> = {
+  lexicon: 0.55,
+  cadence: 0.5,
+  punctuation: 0.45,
+  structure: 0.4,
+  rhythm: 0.35,
+  burstiness: 0.25,
+};
+
+/*
+  Residual skepticism knob, kept small now that penalty-only scoring builds the
+  skew into the design rather than bolting it on afterward. A false "reads
+  human" costs a user who ships thinking they're safe; a false "reads ai" costs
+  a re-check.
+*/
+const AI_LEAN_PENALTY = 4;
+const HUMAN_THRESHOLD = 70;
+const AI_THRESHOLD = 45;
 
 /** Same 0-100/higher-is-human scale as an external detector score, so callers
  *  scoring against a real API (Winston, etc.) can reuse these thresholds
@@ -94,13 +122,22 @@ export function reasonsForRange(flags: Flag[], start: number, end: number, limit
   return Array.from(new Set(hits.map((f) => f.reason))).slice(0, limit);
 }
 
+/*
+  Per-sentence penalties, calibrated against the thresholds above: one stock AI
+  phrase in a sentence must be enough to pull it out of "human" (100 - 32 - 4 =
+  64, i.e. "mixed"), and two tells must reach "ai". These are deliberately
+  harsher than the document-level weights because a single sentence has far
+  less evidence in it, and an unflagged sentence in the editor reads to the
+  user as "this one is fine, move on".
+*/
 const SENTENCE_PENALTY: Record<FlagCategory, number> = {
-  lexicon: 22,
-  punctuation: 35,
-  structure: 25,
-  rhythm: 20,
-  opener: 16,
-  hedging: 8,
+  lexicon: 32,
+  punctuation: 40,
+  structure: 32,
+  rhythm: 24,
+  opener: 20,
+  hedging: 10,
+  cadence: 28,
 };
 
 interface LexiconRule {
@@ -268,11 +305,6 @@ const HEDGES: RegExp[] = [
   /\b(?:many|most|some) (?:people|of us|experts|companies|businesses|workers|employees)\b/gi,
 ];
 
-const CONTRACTION_RE =
-  /\b(?:\w+n['’]t|(?:I|you|we|they|it|that|there|here|he|she|who|what|let)['’](?:s|re|ve|ll|d|m))\b/gi;
-
-const FIRST_PERSON_RE = /\b(?:I|I['’]m|I['’]ve|I['’]d|I['’]ll|me|my|mine)\b/g;
-
 const clamp = (n: number, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
 
 interface Sentence {
@@ -282,20 +314,51 @@ interface Sentence {
   words: number;
 }
 
+/*
+  A chunk ending in one of these was split at a period that isn't a sentence
+  boundary, so it gets merged with the next chunk. Single letter + period
+  covers initials and, by repeated merging, "e.g." / "i.e." / "U.S.".
+*/
+const MERGE_WITH_NEXT: RegExp[] = [
+  /\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc|approx|Inc|Ltd|Co|Corp|Dept|Univ|Fig|Vol|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.$/i,
+  /(?:^|\s)[A-Za-z]\.$/,
+];
+
 function splitSentences(text: string): Sentence[] {
-  const out: Sentence[] = [];
-  const re = /[^.!?\n]+[.!?]*/g;
+  // Terminal punctuation may be followed by closing quotes or brackets: without
+  // that, `He said "go." Then left.` splits mid-quote into `He said "go.` and
+  // `" Then left.`, which corrupts sentence-length variance and the per-sentence
+  // report alike.
+  const re = /[^.!?\n]+[.!?]*['"“”‘’)\]]*/g;
+  const chunks: { start: number; end: number }[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    const raw = m[0];
+    if (!m[0].trim()) continue;
+    const prev = chunks[chunks.length - 1];
+    if (prev) {
+      const prevText = text.slice(prev.start, prev.end).trimEnd();
+      const abbreviation = MERGE_WITH_NEXT.some((r) => r.test(prevText));
+      // "3.5" splits into "3." and "5 ..." without this.
+      const decimal = /\d\.$/.test(prevText) && /^\s*\d/.test(m[0]);
+      if (abbreviation || decimal) {
+        prev.end = m.index + m[0].length;
+        continue;
+      }
+    }
+    chunks.push({ start: m.index, end: m.index + m[0].length });
+  }
+
+  const out: Sentence[] = [];
+  for (const c of chunks) {
+    const raw = text.slice(c.start, c.end);
     const trimmed = raw.trim();
     const words = trimmed.split(/\s+/).filter(Boolean).length;
     if (words === 0) continue;
     const leading = raw.length - raw.trimStart().length;
     out.push({
       text: trimmed,
-      start: m.index + leading,
-      end: m.index + leading + trimmed.length,
+      start: c.start + leading,
+      end: c.start + leading + trimmed.length,
       words,
     });
   }
@@ -340,6 +403,77 @@ function collectMatches(text: string, rules: LexiconRule[], category: FlagCatego
   return { flags, weighted };
 }
 
+/*
+  Modern rhetorical tells: what's left once a model has been told to avoid the
+  stock vocabulary. These are cadence and framing rather than word choice, and
+  they are LOWER PRECISION than the lexicon rules by nature, since skilled human
+  copywriters genuinely write this way.
+
+  Two guards keep that in check. Each pattern must fire at least twice before it
+  counts at all (the same density gating tricolons and contrast pivots already
+  use), and the penalty scales with how many DIFFERENT patterns co-occur:
+  leaning on one device is a style, stacking three or four is a template.
+*/
+const VERBS_OR_AUX =
+  /\b(?:is|are|was|were|be|been|being|am|has|have|had|do|does|did|can|could|will|would|should|may|might|must|get|got|make|made|take|took|go|went|come|came|see|saw|know|knew|think|thought|want|need|keep|kept|run|ran|feel|felt|say|said|tell|told|and|or|but)\b/i;
+
+interface CadencePattern {
+  id: string;
+  reason: string;
+  hits: { start: number; end: number; text: string }[];
+}
+
+function detectCadence(text: string, sentences: Sentence[]): CadencePattern[] {
+  const triad: CadencePattern["hits"] = [];
+  const fragmentPunch: CadencePattern["hits"] = [];
+  const reversal: CadencePattern["hits"] = [];
+  const concessive: CadencePattern["hits"] = [];
+  const colonSetup: CadencePattern["hits"] = [];
+
+  for (let i = 0; i < sentences.length; i++) {
+    const s = sentences[i];
+    const hit = { start: s.start, end: s.end, text: s.text.slice(0, 60) };
+
+    // "Great work, loyal clients, steady orders." Three stacked noun phrases,
+    // no verb, no conjunction. A real tricolon uses "and"; this drops it.
+    const commas = (s.text.match(/,/g) ?? []).length;
+    if (commas === 2 && s.words <= 12 && !VERBS_OR_AUX.test(s.text)) triad.push(hit);
+
+    // A long sentence chased by a very short one, over and over: the punchy
+    // cadence models reach for when told to vary sentence length.
+    if (i > 0 && sentences[i - 1].words >= 18 && s.words <= 5) fragmentPunch.push(hit);
+
+    // "Not X, Y" / "wasn't X - it was Y".
+    if (
+      /^Not\s+[^.!?\n]{3,60}[—–,-]/i.test(s.text) ||
+      /\b(?:isn['’]t|wasn['’]t|aren['’]t|weren['’]t|is not|was not)\b[^.!?\n]{3,60}[—–,-]\s*(?:it|they|that)\s+(?:is|was|are|were)\b/i.test(
+        s.text
+      )
+    ) {
+      reversal.push(hit);
+    }
+
+    // "She had the money coming. She just didn't have it yet."
+    if (i > 0 && /^(?:She|He|It|They|We|I)\s+just\b/.test(s.text)) concessive.push(hit);
+
+    // "Here's the thing that trips people up: ..." Setup, colon, payoff.
+    const colon = s.text.indexOf(": ");
+    if (colon > 0) {
+      const before = s.text.slice(0, colon).split(/\s+/).filter(Boolean).length;
+      const after = s.text.slice(colon + 1).split(/\s+/).filter(Boolean).length;
+      if (before >= 4 && after >= 3) colonSetup.push(hit);
+    }
+  }
+
+  return [
+    { id: "triad", reason: "Stacked noun-phrase fragments with no verb: a signature AI cadence", hits: triad },
+    { id: "fragmentPunch", reason: "Long sentence chased by a very short one, repeatedly: manufactured rhythm", hits: fragmentPunch },
+    { id: "reversal", reason: "The “not X, it's Y” reversal used as a framing device", hits: reversal },
+    { id: "concessive", reason: "Concessive reversal pairs (“... had it coming. She just didn't ...”)", hits: concessive },
+    { id: "colonSetup", reason: "Setup-colon-payoff sentences stacked through the piece", hits: colonSetup },
+  ].filter((p) => p.hits.length >= 2);
+}
+
 export function analyzeText(text: string): DetectorResult {
   const wordCount = countWords(text);
   const sentences = splitSentences(text);
@@ -363,8 +497,31 @@ export function analyzeText(text: string): DetectorResult {
   const freqLeaning = !thin && freqPer100 >= 1.8;
   if (freqLeaning) flags.push(...freq.flags);
 
-  const lexiconScore = clamp(
-    100 - lexHitsPer100 * 26 - (thin ? 0 : Math.min(freqExcess * 20, 45))
+  // Hedged generality used to sit in the (now deleted) voice metric. It's the
+  // one part of that signal still worth anything, so it folds in here.
+  const hedgeFlags: Flag[] = [];
+  for (const h of HEDGES) {
+    h.lastIndex = 0;
+    let hm: RegExpExecArray | null;
+    while ((hm = h.exec(text)) !== null) {
+      hedgeFlags.push({
+        start: hm.index,
+        end: hm.index + hm[0].length,
+        text: hm[0],
+        reason: "Hedged generality (can help, research suggests, many people) with no concrete detail",
+        category: "hedging",
+      });
+    }
+  }
+  const hedgesPer100 = wordCount > 0 ? (hedgeFlags.length / wordCount) * 100 : 0;
+  // sparse hedging is normal writing; only a lean on it counts
+  const hedgeLeaning = !thin && hedgesPer100 >= 1.5;
+  if (hedgeLeaning) flags.push(...hedgeFlags);
+
+  const lexiconPenalty = clamp(
+    lexHitsPer100 * 26 +
+      (thin ? 0 : Math.min(freqExcess * 20, 45)) +
+      (hedgeLeaning ? Math.min(hedgesPer100 * 6, 20) : 0)
   );
 
   // --- Punctuation: em dashes + tricolons ---
@@ -403,15 +560,15 @@ export function analyzeText(text: string): DetectorResult {
   flags.push(...punctFlags);
 
   const triPerSentence = sentences.length > 0 ? triMatches.length / sentences.length : 0;
-  const punctuationScore = clamp(
-    100 - dashPer100 * 55 - (triStacked ? triPerSentence * 160 : 0)
-  );
+  const punctuationPenalty = clamp(dashPer100 * 55 + (triStacked ? triPerSentence * 160 : 0));
 
   // --- Burstiness ---
+  // Penalty-only: FLAT sentence length is evidence of a model, but varied
+  // length is not evidence of a human. Models vary sentence length on request
+  // now, so the old "reward high variance" direction was actively backwards.
   const lens = sentences.map((s) => s.words);
   const cv = coefficientOfVariation(lens);
-  // human prose usually lands around cv 0.5-0.8; model prose 0.2-0.45
-  const burstinessScore = thin ? 60 : clamp(((cv - 0.15) / 0.35) * 100);
+  const burstinessPenalty = thin ? 0 : clamp(((0.45 - cv) / 0.35) * 100);
 
   // --- Rhythm: runs of near-identical sentence lengths + uniform paragraphs ---
   let uniformRuns = 0;
@@ -465,9 +622,9 @@ export function analyzeText(text: string): DetectorResult {
     });
   }
 
-  const rhythmScore = thin
-    ? 60
-    : clamp(100 - uniformRuns * 30 - (cv < 0.25 ? 25 : 0) - (uniformParagraphs ? 30 : 0));
+  const rhythmPenalty = thin
+    ? 0
+    : clamp(uniformRuns * 30 + (cv < 0.25 ? 25 : 0) + (uniformParagraphs ? 30 : 0));
 
   // --- Structure: transition openers, anaphora, contrast pivots, markdown ---
   const openerFlags: Flag[] = [];
@@ -550,67 +707,38 @@ export function analyzeText(text: string): DetectorResult {
   }
   flags.push(...mdFlags);
 
-  const structureScore = thin
-    ? 60
+  const structurePenalty = thin
+    ? 0
     : clamp(
-        100 -
-          openerRatio * 300 -
-          (demoStarts.length >= 3 ? demoExcess * 250 : 0) -
-          anaphoraRuns * 25 -
-          contrastCount * 15 -
+        openerRatio * 300 +
+          (demoStarts.length >= 3 ? demoExcess * 250 : 0) +
+          anaphoraRuns * 25 +
+          contrastCount * 15 +
           Math.min(mdFlags.length * 18, 45)
       );
 
-  // --- Voice: contractions, first person, concrete numbers vs. hedging ---
-  const contractions = (text.match(CONTRACTION_RE) ?? []).length;
-  const contractionRate = wordCount > 0 ? (contractions / wordCount) * 100 : 0;
-  const firstPerson = (text.match(FIRST_PERSON_RE) ?? []).length;
-  const digitTokens = (text.match(/(?:^|\s)[$€£]?\d[\d,.:%]*/g) ?? []).length;
-
-  const hedgeFlags: Flag[] = [];
-  for (const h of HEDGES) {
-    h.lastIndex = 0;
-    let hm: RegExpExecArray | null;
-    while ((hm = h.exec(text)) !== null) {
-      hedgeFlags.push({
-        start: hm.index,
-        end: hm.index + hm[0].length,
-        text: hm[0],
-        reason: "Hedged generality (can help, research suggests, many people) with no concrete detail",
-        category: "hedging",
-      });
+  // --- Cadence: modern rhetorical scaffolding (see detectCadence) ---
+  const cadencePatterns = thin ? [] : detectCadence(text, sentences);
+  for (const p of cadencePatterns) {
+    for (const h of p.hits) {
+      flags.push({ start: h.start, end: h.end, text: h.text, reason: p.reason, category: "cadence" });
     }
   }
-  const hedgesPer100 = wordCount > 0 ? (hedgeFlags.length / wordCount) * 100 : 0;
-  // sparse hedging is normal writing; flag it only when the text leans on it
-  if (hedgesPer100 >= 1.5) flags.push(...hedgeFlags);
+  const cadenceHits = cadencePatterns.reduce((n, p) => n + p.hits.length, 0);
+  // Stacking different devices is the tell, so the count of distinct patterns
+  // dominates; extra repetitions past the 2-hit gate add a little on top.
+  const cadencePenalty = clamp(
+    cadencePatterns.length * 20 + Math.max(0, cadenceHits - cadencePatterns.length * 2) * 6
+  );
 
-  const voiceScore = thin
-    ? 60
-    : clamp(
-        28 +
-          Math.min(contractionRate * 14, 42) +
-          (firstPerson > 0 ? 12 : 0) +
-          (digitTokens > 0 ? 12 : 0) -
-          hedgesPer100 * 9
-      );
-
-  const voiceDetail = thin
-    ? "Not enough text to measure"
-    : [
-        contractionRate < 0.5 ? "no contractions" : null,
-        firstPerson === 0 ? "no first person" : null,
-        digitTokens === 0 ? "no concrete numbers" : null,
-        hedgesPer100 >= 1.5 ? "heavy hedging" : null,
-      ]
-        .filter(Boolean)
-        .join(", ") || "Contractions, specifics, and a real point of view";
-
+  // Metrics stay 0-100 where higher = cleaner, so the existing progress-bar UI
+  // (components/detection-signals.tsx) still reads correctly. Only the
+  // aggregation below changed: penalties sum instead of scores averaging.
   const metrics: MetricScore[] = [
     {
       id: "lexicon",
       label: "Vocabulary",
-      score: Math.round(lexiconScore),
+      score: Math.round(100 - lexiconPenalty),
       detail:
         lex.flags.length > 0 || freqLeaning
           ? [
@@ -628,7 +756,7 @@ export function analyzeText(text: string): DetectorResult {
     {
       id: "structure",
       label: "Structure",
-      score: Math.round(structureScore),
+      score: Math.round(100 - structurePenalty),
       detail: thin
         ? "Not enough text to measure"
         : openerFlags.length >= 2 || demoStarts.length >= 3 || anaphoraRuns > 0 || contrastCount > 0 || mdFlags.length > 0
@@ -644,15 +772,19 @@ export function analyzeText(text: string): DetectorResult {
           : "No templated structure",
     },
     {
-      id: "voice",
-      label: "Voice",
-      score: Math.round(voiceScore),
-      detail: voiceDetail,
+      id: "cadence",
+      label: "Cadence",
+      score: Math.round(100 - cadencePenalty),
+      detail: thin
+        ? "Not enough text to measure"
+        : cadencePatterns.length > 0
+          ? `${cadencePatterns.length} stacked rhetorical pattern${cadencePatterns.length > 1 ? "s" : ""} (${cadenceHits} instances)`
+          : "No manufactured rhythm",
     },
     {
       id: "burstiness",
       label: "Burstiness",
-      score: Math.round(burstinessScore),
+      score: Math.round(100 - burstinessPenalty),
       detail: thin
         ? "Not enough text to measure"
         : `Sentence length varies ${cv >= 0.5 ? "like human prose" : cv >= 0.3 ? "somewhat" : "very little"} (cv ${cv.toFixed(2)})`,
@@ -660,7 +792,7 @@ export function analyzeText(text: string): DetectorResult {
     {
       id: "rhythm",
       label: "Rhythm",
-      score: Math.round(rhythmScore),
+      score: Math.round(100 - rhythmPenalty),
       detail:
         uniformRuns > 0 || uniformParagraphs
           ? [
@@ -676,7 +808,7 @@ export function analyzeText(text: string): DetectorResult {
     {
       id: "punctuation",
       label: "Punctuation",
-      score: Math.round(punctuationScore),
+      score: Math.round(100 - punctuationPenalty),
       detail:
         punctFlags.length > 0
           ? `${punctFlags.length} em dash${punctFlags.length > 1 ? "es" : ""}${triStacked ? `, ${triMatches.length} stacked lists` : ""}`
@@ -686,14 +818,14 @@ export function analyzeText(text: string): DetectorResult {
     },
   ];
 
-  const rawScore =
-    lexiconScore * 0.25 +
-    structureScore * 0.2 +
-    voiceScore * 0.2 +
-    burstinessScore * 0.15 +
-    rhythmScore * 0.1 +
-    punctuationScore * 0.1;
-  const score = clamp(Math.round(rawScore) - AI_LEAN_PENALTY);
+  const totalPenalty =
+    lexiconPenalty * PENALTY_WEIGHTS.lexicon +
+    cadencePenalty * PENALTY_WEIGHTS.cadence +
+    punctuationPenalty * PENALTY_WEIGHTS.punctuation +
+    structurePenalty * PENALTY_WEIGHTS.structure +
+    rhythmPenalty * PENALTY_WEIGHTS.rhythm +
+    burstinessPenalty * PENALTY_WEIGHTS.burstiness;
+  const score = clamp(Math.round(100 - totalPenalty - (thin ? 0 : AI_LEAN_PENALTY)));
   const verdict = verdictFor(score);
 
   flags.sort((a, b) => a.start - b.start);

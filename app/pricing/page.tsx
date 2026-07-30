@@ -68,6 +68,14 @@ export default function PricingPage() {
             Detect AI writing with real, verified scoring. Built for professional
             content, not for passing off homework.
           </p>
+          <p className="mt-3 flex gap-4 text-xs text-faint">
+            <Link href="/privacy" className="transition-colors hover:text-ink">
+              Privacy
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-ink">
+              Terms
+            </Link>
+          </p>
         </div>
         <Link
           href="/signup"

@@ -120,6 +120,23 @@ mark[data-severity="mixed"] {
   cursor: help;
 }
 
+/* Passing sentences: underline only, no fill. A clean draft would otherwise
+   render as a solid block of highlighter. */
+mark[data-severity="human"] {
+  background: transparent;
+  color: inherit;
+  border-bottom: 1.5px solid var(--good);
+  border-radius: 2px;
+  padding: 0 1px;
+  cursor: help;
+}
+
+/* A heuristic guess on text edited since the last real scan, as opposed to a
+   score the detector actually returned. Dashed so the two are never confused. */
+mark[data-confidence="estimated"] {
+  border-bottom-style: dashed;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "eval:humanize": "tsx scripts/eval-humanize.ts"
+    "eval:humanize": "tsx scripts/eval-humanize.ts",
+    "calibrate": "tsx scripts/calibrate-detector.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -104,6 +105,17 @@ export function SignupForm() {
       {error && (
         <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{error}</p>
       )}
+      <p className="text-xs leading-relaxed text-faint">
+        By creating an account you agree to our{" "}
+        <Link href="/terms" className="text-muted underline-offset-2 hover:text-ink hover:underline">
+          Terms of Use
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="text-muted underline-offset-2 hover:text-ink hover:underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
       <button
         type="submit"
         disabled={busy}

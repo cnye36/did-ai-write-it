@@ -1,5 +1,11 @@
 export const SITE_URL = "https://www.didaiwriteit.com";
-export const SITE_NAME = "Did AI Write It";
+export const SITE_NAME = "Did AI Write It?";
+/** Public support inbox for account and product questions. */
+export const SUPPORT_EMAIL = "support@didaiwriteit.com";
+/** Privacy requests (access, deletion, cookie questions). */
+export const PRIVACY_EMAIL = "privacy@didaiwriteit.com";
+/** Effective date shown on Privacy and Terms pages. */
+export const LEGAL_EFFECTIVE_DATE = "July 30, 2026";
 
 /** JSON-LD payloads render as a raw <script> tag; escape `<` so embedded
  * strings can't break out into HTML (see Next.js JSON-LD guide). */

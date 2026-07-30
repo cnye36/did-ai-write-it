@@ -17,6 +17,7 @@ import {
   type RunKind,
   type RunListItem,
 } from "@/lib/runs";
+import { BrandLink } from "@/components/brand-link";
 import { UserNav } from "@/components/auth/user-nav";
 import type { Plan } from "@/lib/usage";
 import { verdictFor } from "@/lib/detector";
@@ -204,13 +205,7 @@ export function AppSidebar({
   const panel = (
     <div className="flex h-full flex-col">
       <div className="px-4 py-4">
-        <Link
-          href="/"
-          onClick={() => setMobileOpen(false)}
-          className="text-sm font-semibold tracking-tight"
-        >
-          Did <span className="text-accent">AI </span> Write It?
-        </Link>
+        <BrandLink onClick={() => setMobileOpen(false)} />
       </div>
       <div className="border-b border-line" />
 
@@ -287,7 +282,7 @@ export function AppSidebar({
                         {RUN_KIND_LABEL[run.kind]}
                       </span>
                       <span className="text-[11px] text-faint">·</span>
-                      <span className="text-[11px] text-faint">{relativeTime(run.created_at)}</span>
+                      <span className="text-[11px] text-faint">{relativeTime(run.updated_at ?? run.created_at)}</span>
                       {badge && (
                         <span
                           className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${TONE_CLASSES[badge.tone]}`}
@@ -346,9 +341,7 @@ export function AppSidebar({
   return (
     <>
       <div className="flex items-center justify-between border-b border-line bg-raised px-4 py-2.5 md:hidden">
-        <Link href="/" className="text-sm font-semibold tracking-tight">
-          Did <span className="text-accent">AI </span> Write It?
-        </Link>
+        <BrandLink />
         <button
           type="button"
           onClick={() => setMobileOpen(true)}

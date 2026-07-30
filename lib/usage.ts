@@ -24,6 +24,24 @@ export const PLAGIARISM_WORD_MULTIPLIER = 2;
 export const FACT_CHECK_WORD_MULTIPLIER = 2;
 
 /**
+ * Rewrite-assist (lib/rewrite-assist.ts) has no Winston cost to peg a
+ * multiplier to, unlike the two above, but it's a generative OpenAI call with
+ * real per-word processing cost on both sides (input context + generated
+ * output), at least as heavy as plagiarism/fact-check. Reusing that same 2x
+ * keeps the shared pool's mental model simple: 1x = scored only, 2x = deeper
+ * work. Draws from the same monthly words_used pool as everything else.
+ */
+export const REWRITE_ASSIST_WORD_MULTIPLIER = 2;
+
+/** Floor so a trivial selection (a couple of words) still costs something on
+ *  quota, since it still triggers a real OpenAI call with bounded context. */
+export const REWRITE_ASSIST_MIN_WORDS = 20;
+
+export function rewriteAssistQuotaWords(wordCount: number): number {
+  return Math.max(wordCount, REWRITE_ASSIST_MIN_WORDS) * REWRITE_ASSIST_WORD_MULTIPLIER;
+}
+
+/**
  * Shared quota gate for humanize and detect requests, both of which draw from
  * the same monthly words_used pool. Throws QuotaExceededError; no-op for the
  * DEV_BYPASS_EMAIL account. There is no per-request word cap; requests are

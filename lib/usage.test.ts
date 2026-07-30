@@ -7,6 +7,8 @@ import {
   periodEndDate,
   PLAN_LIMITS,
   remainingWords,
+  REWRITE_ASSIST_WORD_MULTIPLIER,
+  rewriteAssistQuotaWords,
   wordsUsedInCurrentPeriod,
 } from "./usage";
 
@@ -28,6 +30,20 @@ describe("remainingWords", () => {
 
   it("matches the plan limits advertised on the landing page", () => {
     expect(PLAN_LIMITS).toEqual({ free: 2_000, lite: 40_000, pro: 150_000, studio: 500_000 });
+  });
+});
+
+describe("rewriteAssistQuotaWords", () => {
+  it("matches plagiarism/fact-check's existing 2x multiplier", () => {
+    expect(REWRITE_ASSIST_WORD_MULTIPLIER).toBe(2);
+  });
+
+  it("floors tiny selections to the minimum before applying the multiplier", () => {
+    expect(rewriteAssistQuotaWords(5)).toBe(40); // max(5, 20) * 2
+  });
+
+  it("scales normally once past the floor", () => {
+    expect(rewriteAssistQuotaWords(100)).toBe(200);
   });
 });
 

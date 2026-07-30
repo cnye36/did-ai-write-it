@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     supabase.from("usage").select("words_used, period_start").eq("user_id", userId).single(),
     supabase
       .from("runs")
-      .select("id, kind, title, word_count, score, created_at")
+      .select("id, kind, title, word_count, score, created_at, updated_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(100),

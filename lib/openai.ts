@@ -7,6 +7,13 @@ import { MissingKeyError } from "./api-errors";
 */
 export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-5.5";
 
+/*
+  Separate from OPENAI_MODEL on purpose: rewrite-assist (lib/rewrite-assist.ts)
+  is new logic, independent of the humanize engine, so its model can be tuned
+  without touching the (paused but intact) humanizer's config.
+*/
+export const REWRITE_ASSIST_MODEL = process.env.REWRITE_ASSIST_MODEL ?? "gpt-5.6-terra";
+
 export function getOpenAI(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {

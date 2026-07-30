@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeText } from "./detector";
+import { analyzeText, reasonsForRange, type Flag } from "./detector";
 
 const SLOP = `In today's fast-paced digital landscape, content creation is more crucial than ever. Businesses must delve into innovative strategies to stay ahead. AI writing tools offer a seamless way to elevate your content game. Moreover, these robust solutions unlock the power of scalable content production. It's not just about writing faster, it's about writing smarter. Whether you're a founder, a marketer, or a consultant, these tools are a game-changer. Furthermore, they provide actionable insights that underscore the importance of quality. In conclusion, embracing AI is a testament to forward thinking. The results speak for themselves, and the future looks bright for everyone. Harness the potential of these cutting-edge platforms today and revolutionize the way you work.`;
 
@@ -53,6 +53,20 @@ The second mistake was mine. I scheduled the cutover for a Friday. Never do this
 
 Would I do the migration again? Yes, the new system saves us real money, about $2,300 a month at current volume. But I'd budget three times as long for the tail of weird edge cases, and I'd cut over on a Tuesday like a sane person.`;
 
+// Real draft a user ran through the product: Winston scored it 0 ("reads AI")
+// while the pre-rework heuristic scored it 76 ("reads human").
+const MODERN_AI_LINKEDIN = `Cash Flow Will Kill Your Business Before Bad Sales Ever Do
+
+I've watched three friends close profitable businesses. Not "struggling" businesses — profitable ones, on paper. The common thread wasn't bad products or weak demand. It was cash flow, and almost nobody talks about it until they're already underwater.
+
+Here's the thing that trips people up: profit and cash are not the same animal. You can land a huge contract, invoice for $40,000, and still not make payroll next Friday because that client pays net-60. Meanwhile your rent, your supplier, and your part-time bookkeeper all want money now. The business is "profitable." It's also broke.
+
+My friend Dana ran a small print shop. Great work, loyal clients, steady orders. What killed her wasn't a slow month — it was one big client who paid 90 days late, right as she'd bought new equipment on a payment plan. She had the money coming. She just didn't have it yet, and yet is when the lease is due.
+
+A few things actually help here, and none of them are exciting:
+
+Get a real forecast going — not a vague sense of things, an actual week-by-week look at what's coming in and going out for the next two or three months. Most owners are shocked by what this reveals.`;
+
 describe("analyzeText", () => {
   it("scores obvious AI slop low", () => {
     const r = analyzeText(SLOP);
@@ -92,18 +106,40 @@ describe("analyzeText", () => {
     expect(lists.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("scores voiceless prose (no contractions, no specifics, hedged) low on voice", () => {
-    const r = analyzeText(MODERN_AI_ESSAY);
-    const voice = r.metrics.find((m) => m.id === "voice");
-    expect(voice).toBeDefined();
-    expect(voice!.score).toBeLessThan(50);
-  });
-
   it("keeps polished professional human writing above the human threshold", () => {
     const r = analyzeText(HUMAN_POLISHED);
     expect(r.verdict).toBe("human");
-    const voice = r.metrics.find((m) => m.id === "voice");
-    expect(voice!.score).toBeGreaterThan(60);
+  });
+
+  /*
+    The regression this rework exists for. Winston scored this draft 0 while
+    the old scorer said 76 "reads human": its Voice metric rewarded the
+    contractions, first person, and concrete numbers that modern prompting
+    produces on demand, and weighted averaging let that outvote the em dashes
+    and flat paragraph rhythm that had correctly caught it.
+  */
+  it("does not pass well-prompted modern AI marketing copy as human", () => {
+    const r = analyzeText(MODERN_AI_LINKEDIN);
+    expect(r.verdict).toBe("ai");
+    expect(r.score).toBeLessThan(45);
+  });
+
+  it("gives no credit for contractions and specifics on their own", () => {
+    // Same surface "voice" features the old scorer rewarded (contractions,
+    // first person, a concrete number), wrapped around stock AI phrasing.
+    // Those features must not be able to lift the score on their own.
+    const r = analyzeText(
+      "I've found that in today's fast-paced digital landscape, we must delve into robust solutions. It's crucial to leverage these cutting-edge tools. I think we've seen a 40% lift. Furthermore, it's a testament to how far we've come. Moreover, these seamless platforms unlock the power of scale."
+    );
+    expect(r.verdict).toBe("ai");
+  });
+
+  it("does not flip to human when only the em dashes are removed", () => {
+    // The editor tells users to fix flagged patterns. If stripping the single
+    // loudest tell were enough to read "human" while a real detector still
+    // failed the text, the tool would be walking them into a trap.
+    const r = analyzeText(MODERN_AI_LINKEDIN.replace(/ — /g, ", "));
+    expect(r.verdict).not.toBe("human");
   });
 
   it("penalizes density of AI-skewed ordinary words without flagging normal use", () => {
@@ -180,5 +216,103 @@ describe("analyzeText", () => {
     expect(delveSentence).toBeDefined();
     expect(delveSentence!.verdict).not.toBe("human");
     expect(delveSentence!.reasons.length).toBeGreaterThan(0);
+  });
+});
+
+describe("sentence splitting", () => {
+  const texts = (t: string) => analyzeText(t).sentences.map((s) => s.text);
+
+  it("keeps a closing quote with its own sentence", () => {
+    // Previously split into `He said "go.` and `" Then he left.`, which
+    // inflated sentence-length variance and broke the per-sentence report.
+    expect(texts(`He said "go." Then he left. That was it.`)).toEqual([
+      `He said "go."`,
+      "Then he left.",
+      "That was it.",
+    ]);
+  });
+
+  it("does not split on a decimal point", () => {
+    expect(texts("We raised 3.5 million last year. Not bad. It took ages.")).toEqual([
+      "We raised 3.5 million last year.",
+      "Not bad.",
+      "It took ages.",
+    ]);
+  });
+
+  it("does not split on abbreviations or initials", () => {
+    expect(texts("Meet Dr. Chen at 5 p.m. She runs the lab. Bring notes.")).toEqual([
+      "Meet Dr. Chen at 5 p.m.",
+      "She runs the lab.",
+      "Bring notes.",
+    ]);
+  });
+
+  it("reports offsets that still index back into the original text", () => {
+    const t = `He said "go." Then he left.`;
+    for (const s of analyzeText(t).sentences) {
+      expect(t.slice(s.start, s.end)).toBe(s.text);
+    }
+  });
+});
+
+describe("cadence signals", () => {
+  const cadenceReasons = (t: string) =>
+    new Set(analyzeText(t).flags.filter((f) => f.category === "cadence").map((f) => f.reason));
+
+  // All fixtures here run past 40 words on purpose: below that `thin` short
+  // circuits cadence entirely, so a shorter sample would pass without ever
+  // exercising the rule under test.
+  it("ignores a single instance of a pattern", () => {
+    // One verbless triad is a stylistic choice, not a tell.
+    const r = cadenceReasons(
+      "The shop opened in March of that year. Great work, loyal clients, steady orders. It ran for six years before the lease came up and the landlord decided to triple the rent on us with almost no notice at all. We closed in the spring and I still think about it."
+    );
+    expect(r.size).toBe(0);
+  });
+
+  it("fires once a pattern repeats", () => {
+    const r = cadenceReasons(
+      "Great work, loyal clients, steady orders. The shop ran for six years before the landlord tripled the rent without any warning whatsoever. Good margins, happy staff, steady growth. None of it mattered in the end, because the lease was the only thing that ever really mattered."
+    );
+    expect([...r].some((x) => /noun-phrase fragments/.test(x))).toBe(true);
+  });
+
+  it("does not fire on a serial list that uses a conjunction", () => {
+    // "bread, cheese, and wine" is ordinary writing, not a stacked fragment.
+    const r = cadenceReasons(
+      "We packed bread, cheese, and wine. The drive took all morning because I refused to use the highway and my sister kept changing the music. We brought books, blankets, and coffee. She slept through the best views anyway, which felt criminal at the time."
+    );
+    expect([...r].some((x) => /noun-phrase fragments/.test(x))).toBe(false);
+  });
+});
+
+describe("reasonsForRange", () => {
+  const flag = (start: number, end: number, reason: string): Flag => ({
+    start,
+    end,
+    text: "x",
+    reason,
+    category: "lexicon",
+  });
+
+  it("includes a flag whose range overlaps the query range", () => {
+    const flags = [flag(5, 10, "overlaps")];
+    expect(reasonsForRange(flags, 8, 15)).toEqual(["overlaps"]);
+  });
+
+  it("excludes a flag whose range does not overlap", () => {
+    const flags = [flag(0, 5, "before"), flag(20, 25, "after")];
+    expect(reasonsForRange(flags, 10, 15)).toEqual([]);
+  });
+
+  it("dedupes repeated reasons", () => {
+    const flags = [flag(0, 3, "same"), flag(3, 6, "same")];
+    expect(reasonsForRange(flags, 0, 6)).toEqual(["same"]);
+  });
+
+  it("caps results at the given limit", () => {
+    const flags = [flag(0, 1, "a"), flag(1, 2, "b"), flag(2, 3, "c"), flag(3, 4, "d")];
+    expect(reasonsForRange(flags, 0, 4, 2)).toHaveLength(2);
   });
 });

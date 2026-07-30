@@ -1,40 +1,14 @@
 "use client";
 
 import { reasonsForRange, verdictFor, type Flag } from "@/lib/detector";
+import { locateWinstonSentences } from "@/lib/winston-sentences";
 import type { WinstonSentence } from "./winston-sentence-list";
 
-export interface LocatedWinstonSentence {
-  text: string;
-  start: number;
-  end: number;
-  score: number;
-}
-
-/**
- * Winston's sentences carry no character offsets into the original text
- * (unlike lib/detector.ts's own sentence splitter), so this locates each one
- * by sequential substring search instead, letting callers line Winston's
- * sentences up against a range (e.g. our own heuristic's flags) or reuse the
- * same inline-highlight treatment as the free heuristic's report. Sentences
- * that can't be found (rare split mismatches) are skipped silently rather
- * than erroring.
- */
-export function locateWinstonSentences(
-  text: string,
-  sentences: WinstonSentence[]
-): LocatedWinstonSentence[] {
-  const located: LocatedWinstonSentence[] = [];
-  let cursor = 0;
-  for (const s of sentences) {
-    const needle = s.text.trim();
-    if (!needle) continue;
-    const idx = text.indexOf(needle, cursor);
-    if (idx === -1) continue;
-    located.push({ text: needle, start: idx, end: idx + needle.length, score: s.score });
-    cursor = idx + needle.length;
-  }
-  return located;
-}
+// Re-exported for the components that already import it from here. The
+// implementation moved to lib/winston-sentences.ts so non-client code can use
+// it too (it is pure logic, and this file is a "use client" module).
+export { locateWinstonSentences };
+export type { LocatedWinstonSentence } from "@/lib/winston-sentences";
 
 interface Segment {
   text: string;
@@ -57,19 +31,25 @@ function buildSegments(text: string, sentences: WinstonSentence[]): Segment[] {
 }
 
 /**
- * Original text with each Winston-flagged sentence marked. `flags`, when
- * given, are our own heuristic's pattern matches (lib/detector.ts) laid over
- * Winston's sentence ranges so the hover tooltip can name a likely reason,
- * since Winston itself returns a score only, never an explanation.
+ * Original text with each Winston-scored sentence marked. `flags`, when given,
+ * are our own heuristic's pattern matches (lib/detector.ts) laid over Winston's
+ * sentence ranges so the hover tooltip can name a likely reason, since Winston
+ * itself returns a score only, never an explanation.
+ *
+ * With `showHuman`, passing sentences get a green underline too, so a reader
+ * fixing a draft can tell "already fine" apart from "not scored". Off by
+ * default: on a clean document it would mark essentially every sentence.
  */
 export function WinstonHighlightedText({
   text,
   sentences,
   flags,
+  showHuman = false,
 }: {
   text: string;
   sentences: WinstonSentence[];
   flags?: Flag[];
+  showHuman?: boolean;
 }) {
   const segments = buildSegments(text, sentences);
 
@@ -78,7 +58,7 @@ export function WinstonHighlightedText({
       {segments.map((seg, i) => {
         if (seg.score === undefined) return <span key={i}>{seg.text}</span>;
         const verdict = verdictFor(seg.score);
-        if (verdict === "human") return <span key={i}>{seg.text}</span>;
+        if (verdict === "human" && !showHuman) return <span key={i}>{seg.text}</span>;
         const reasons = flags ? reasonsForRange(flags, seg.start, seg.end) : [];
         const title =
           reasons.length > 0

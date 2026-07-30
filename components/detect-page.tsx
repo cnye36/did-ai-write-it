@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
+import Link from "next/link";
+import { MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon, WrenchIcon } from "@phosphor-icons/react";
 import { analyzeText, verdictFor } from "@/lib/detector";
 import { useHandoffInput } from "@/lib/handoff";
 import type { DetectRunResult, RunRow } from "@/lib/runs";
@@ -336,6 +337,15 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
             <PencilSimpleIcon size={16} weight="bold" />
             Edit text
           </button>
+          {result?.runId && (
+            <Link
+              href={`/app/detect/editor?run=${result.runId}`}
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
+            >
+              <WrenchIcon size={16} weight="bold" />
+              Fix
+            </Link>
+          )}
         </div>
       </div>
 

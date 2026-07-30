@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { errorResponse } from "@/lib/api-errors";
 import { analyzeText } from "@/lib/detector";
-import { insertRun } from "@/lib/runs";
+import { appendRunVersion, insertRun, insertRunVersion } from "@/lib/runs";
 import { scoreWithWinston, DETECT_MAX_CHARS } from "@/lib/winston";
 import { requireUser } from "@/lib/supabase/auth";
 import { assertWithinQuota, isDevBypass, PLAN_LIMITS, wordsUsedInCurrentPeriod, type Plan } from "@/lib/usage";
@@ -12,6 +12,9 @@ const MAX_CHARS = DETECT_MAX_CHARS;
 
 interface DetectBody {
   text: string;
+  /** Present when rescanning from the AI editor: appends a new version to
+   *  this existing run instead of creating a brand new sidebar entry. */
+  runId?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -20,6 +23,7 @@ export async function POST(req: NextRequest) {
 
     const body = (await req.json()) as DetectBody;
     const text = body.text?.trim();
+    const runId = body.runId;
 
     if (!text) {
       return Response.json({ error: "Nothing to check." }, { status: 400 });
@@ -29,6 +33,19 @@ export async function POST(req: NextRequest) {
         { error: `Text is too long. Keep it under ${MAX_CHARS.toLocaleString()} characters.` },
         { status: 400 }
       );
+    }
+
+    if (runId) {
+      const { data: existing } = await supabase
+        .from("runs")
+        .select("id")
+        .eq("id", runId)
+        .eq("user_id", userId)
+        .eq("kind", "detect")
+        .maybeSingle();
+      if (!existing) {
+        return Response.json({ error: "Report not found." }, { status: 400 });
+      }
     }
 
     const [{ data: profile }, { data: usage }] = await Promise.all([
@@ -57,18 +74,41 @@ export async function POST(req: NextRequest) {
       .single()) as { data: { words_used: number; plan: string } | null };
 
     const winstonPayload = { score: winston.score, sentences: winston.sentences };
-    const runId = await insertRun(supabase, {
-      userId,
-      kind: "detect",
-      inputText: text,
-      wordCount: requestedWords,
-      score: winston.score,
-      result: { winston: winstonPayload },
-    });
+    const runResult = { winston: winstonPayload };
+    let resultRunId: string | null;
+
+    if (runId) {
+      await appendRunVersion(supabase, {
+        runId,
+        inputText: text,
+        wordCount: requestedWords,
+        score: winston.score,
+        result: runResult,
+      });
+      resultRunId = runId;
+    } else {
+      resultRunId = await insertRun(supabase, {
+        userId,
+        kind: "detect",
+        inputText: text,
+        wordCount: requestedWords,
+        score: winston.score,
+        result: runResult,
+      });
+      if (resultRunId) {
+        await insertRunVersion(supabase, {
+          runId: resultRunId,
+          inputText: text,
+          wordCount: requestedWords,
+          score: winston.score,
+          result: runResult,
+        });
+      }
+    }
 
     return Response.json({
       winston: winstonPayload,
-      runId,
+      runId: resultRunId,
       usage: {
         used: updated?.words_used ?? wordsUsed + requestedWords,
         limit: PLAN_LIMITS[plan],

@@ -24,11 +24,24 @@ export interface RunListItem {
   word_count: number;
   score: number | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface RunRow extends RunListItem {
   input_text: string;
   result: RunResult;
+}
+
+/** One detect scan within a run's history. Version 1 is created alongside the
+ *  run itself; a manual rescan from the AI editor appends another one instead
+ *  of creating a whole new run. */
+export interface RunVersion {
+  id: string;
+  input_text: string;
+  word_count: number;
+  score: number | null;
+  result: RunResult;
+  created_at: string;
 }
 
 export const RUN_KIND_LABEL: Record<RunKind, string> = {
@@ -82,4 +95,69 @@ export async function insertRun(
     return null;
   }
   return data.id as string;
+}
+
+interface RunVersionInput {
+  runId: string;
+  inputText: string;
+  wordCount: number;
+  score: number | null;
+  result: RunResult;
+}
+
+/** First version for a freshly created run, so version history always has a
+ *  complete baseline from birth. Call right after insertRun succeeds. */
+export async function insertRunVersion(
+  supabase: SupabaseClient,
+  { runId, inputText, wordCount, score, result }: RunVersionInput
+): Promise<void> {
+  const { error } = await supabase.from("run_versions").insert({
+    run_id: runId,
+    input_text: inputText,
+    word_count: wordCount,
+    score,
+    result,
+  });
+  if (error) console.error("Failed to save run version:", error.message);
+}
+
+/** A manual rescan of an existing run: appends a new version and mirrors it
+ *  onto the parent run so every other read path (sidebar, loadOwnedRun) just
+ *  keeps working unchanged. Title and created_at stay frozen; updated_at
+ *  moves so the sidebar's relative time doesn't look permanently stale. */
+export async function appendRunVersion(
+  supabase: SupabaseClient,
+  { runId, inputText, wordCount, score, result }: RunVersionInput
+): Promise<void> {
+  await insertRunVersion(supabase, { runId, inputText, wordCount, score, result });
+
+  const { error } = await supabase
+    .from("runs")
+    .update({
+      input_text: inputText,
+      word_count: wordCount,
+      score,
+      result,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", runId);
+
+  if (error) console.error("Failed to update run:", error.message);
+}
+
+export async function listRunVersions(
+  supabase: SupabaseClient,
+  runId: string
+): Promise<RunVersion[]> {
+  const { data, error } = await supabase
+    .from("run_versions")
+    .select("id, input_text, word_count, score, result, created_at")
+    .eq("run_id", runId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("Failed to load run versions:", error.message);
+    return [];
+  }
+  return (data ?? []) as RunVersion[];
 }
