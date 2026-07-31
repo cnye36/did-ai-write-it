@@ -7,7 +7,9 @@ import {
   CheckIcon,
   ClockCounterClockwiseIcon,
   FunnelIcon,
+  GearIcon,
   ListIcon,
+  PlusIcon,
   TrashIcon,
   XIcon,
 } from "@phosphor-icons/react";
@@ -154,12 +156,14 @@ export function AppSidebar({
   plan,
   wordsUsed,
   wordLimit,
+  isAdmin,
 }: {
   runs: RunListItem[];
   email: string;
   plan: Plan;
   wordsUsed: number;
   wordLimit: number;
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -170,6 +174,9 @@ export function AppSidebar({
   const [pending, startTransition] = useTransition();
 
   const activeId = searchParams.get("run");
+  // "New" always starts a fresh check on whichever tool is currently open,
+  // falling back to the detector when the sidebar shows on a non-tool page.
+  const newReportHref = NAV_LINKS.find((l) => pathname?.startsWith(l.href))?.href ?? "/app/detect";
   const visibleRuns = filters.size === 0 ? runs : runs.filter((r) => filters.has(r.kind));
   const usagePct = wordLimit > 0 ? Math.min(100, (wordsUsed / wordLimit) * 100) : 0;
 
@@ -225,6 +232,20 @@ export function AppSidebar({
             </Link>
           );
         })}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-2 rounded-[10px] px-3 py-2 text-sm transition-colors ${
+              pathname?.startsWith("/admin")
+                ? "bg-accent-soft font-medium text-accent"
+                : "text-muted hover:bg-surface hover:text-ink"
+            }`}
+          >
+            <GearIcon size={14} weight="bold" />
+            Admin
+          </Link>
+        )}
       </nav>
 
       <div className="flex items-center justify-between border-t border-line px-4 py-3">
@@ -238,6 +259,15 @@ export function AppSidebar({
           )}
         </div>
         <div className="flex items-center gap-1">
+          <Link
+            href={newReportHref}
+            onClick={() => setMobileOpen(false)}
+            aria-label="New report"
+            title="New report"
+            className="rounded-full p-1.5 text-faint transition-colors hover:text-ink"
+          >
+            <PlusIcon size={15} weight="bold" />
+          </Link>
           <FilterMenu active={filters} onToggle={toggleFilter} onClear={() => setFilters(new Set())} />
           <button
             type="button"

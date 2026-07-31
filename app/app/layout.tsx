@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { createClient } from "@/lib/supabase/server";
 import type { RunListItem } from "@/lib/runs";
 import { PLAN_LIMITS, wordsUsedInCurrentPeriod, type Plan } from "@/lib/usage";
+import { isAdmin } from "@/lib/admin";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -34,6 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           plan={plan}
           wordsUsed={wordsUsed}
           wordLimit={PLAN_LIMITS[plan]}
+          isAdmin={isAdmin(email)}
         />
       </Suspense>
       <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10">

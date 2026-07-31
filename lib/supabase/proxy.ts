@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIX = "/app";
+const PROTECTED_PREFIXES = ["/app", "/admin"];
 const AUTH_PATHS = ["/login", "/signup"];
 const APP_HOME = "/app/detect";
 
@@ -30,7 +30,7 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const isAuthed = Boolean(data?.claims);
 
-  if (!isAuthed && request.nextUrl.pathname.startsWith(PROTECTED_PREFIX)) {
+  if (!isAuthed && PROTECTED_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
     const next = request.nextUrl.pathname + request.nextUrl.search;
     const url = request.nextUrl.clone();
     url.pathname = "/login";

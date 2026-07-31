@@ -5,9 +5,9 @@ import { safeAuthNext } from "@/lib/auth-next";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
   const signupHref = `/signup?next=${encodeURIComponent(safeAuthNext(next))}`;
 
   return (
@@ -26,6 +26,11 @@ export default async function LoginPage({
               your monthly credit usage.
             </p>
           </div>
+          {error === "auth_failed" && (
+            <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">
+              Sign-in failed. Try again, or use email and password.
+            </p>
+          )}
           <LoginForm />
           <p className="text-sm text-muted">
             Don&apos;t have an account?{" "}
