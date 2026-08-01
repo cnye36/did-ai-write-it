@@ -16,8 +16,8 @@ describe("remainingWords", () => {
   it("returns the full limit when nothing has been used", () => {
     expect(remainingWords("free", 0)).toBe(2_000);
     expect(remainingWords("lite", 0)).toBe(40_000);
-    expect(remainingWords("pro", 0)).toBe(150_000);
-    expect(remainingWords("studio", 0)).toBe(500_000);
+    expect(remainingWords("plus", 0)).toBe(150_000);
+    expect(remainingWords("pro", 0)).toBe(500_000);
   });
 
   it("subtracts words already used", () => {
@@ -29,7 +29,7 @@ describe("remainingWords", () => {
   });
 
   it("matches the plan limits advertised on the landing page", () => {
-    expect(PLAN_LIMITS).toEqual({ free: 2_000, lite: 40_000, pro: 150_000, studio: 500_000 });
+    expect(PLAN_LIMITS).toEqual({ free: 2_000, lite: 40_000, plus: 150_000, pro: 500_000 });
   });
 });
 

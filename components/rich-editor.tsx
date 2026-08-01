@@ -8,7 +8,8 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { docToPlainText, pmRangeToTextRange, textRangeToPmRange } from "@/lib/editor-text";
-import { resolveSentenceScores, type WinstonSentenceScore } from "@/lib/winston-sentences";
+import { normalize, resolveSentenceScores, type WinstonSentenceScore } from "@/lib/winston-sentences";
+import type { ProvenanceMap, ProvenanceSource } from "@/lib/provenance";
 import { EditorRibbon } from "@/components/editor-ribbon";
 
 /*
@@ -23,10 +24,23 @@ const highlightKey = new PluginKey<HighlightState>("scoreHighlight");
 
 interface HighlightState {
   sentences: WinstonSentenceScore[] | null;
+  provenance: ProvenanceMap | null;
   decorations: DecorationSet;
 }
 
-function buildDecorations(doc: PMNode, winston: WinstonSentenceScore[] | null): DecorationSet {
+/*
+  An "estimated" sentence (no matching Winston score yet, see
+  resolveSentenceScores) is never colored by the heuristic's guessed verdict:
+  that heuristic is known to be unreliable, so a fresh AI rewrite or hand edit
+  showing up green ("looks good") before it's ever been verified is actively
+  misleading. Unverified text is colored by WHO WROTE IT instead: an accepted
+  AI suggestion (or "rewrite entire draft") vs. the user's own typing.
+*/
+function buildDecorations(
+  doc: PMNode,
+  winston: WinstonSentenceScore[] | null,
+  provenance: ProvenanceMap | null
+): DecorationSet {
   const { text, segments } = docToPlainText(doc);
   if (!text.trim()) return DecorationSet.empty;
 
@@ -35,39 +49,54 @@ function buildDecorations(doc: PMNode, winston: WinstonSentenceScore[] | null): 
     const { from, to } = textRangeToPmRange(segments, s.start, s.end);
     // An empty or inverted range is not a valid decoration.
     if (to <= from || to > doc.content.size + 1) continue;
+
+    if (s.source === "estimated") {
+      const origin = provenance?.get(normalize(s.text)) ?? "user";
+      decorations.push(
+        Decoration.inline(from, to, {
+          class: `score-mark score-estimated score-provenance-${origin}`,
+          title: origin === "ai" ? "AI rewrite, not yet scanned" : "Your edit, not yet scanned",
+        })
+      );
+      continue;
+    }
+
     decorations.push(
       Decoration.inline(from, to, {
-        class: `score-mark score-${s.verdict}${s.source === "estimated" ? " score-estimated" : ""}`,
-        title:
-          s.source === "verified"
-            ? `${s.score}/100 human, verified${s.reasons.length ? ` · ${s.reasons.join("; ")}` : ""}`
-            : `${s.score}/100 human, estimate${s.reasons.length ? ` · ${s.reasons.join("; ")}` : ""}`,
+        class: `score-mark score-${s.verdict}`,
+        title: `${s.score}/100 human, verified${s.reasons.length ? ` · ${s.reasons.join("; ")}` : ""}`,
       })
     );
   }
   return DecorationSet.create(doc, decorations);
 }
 
-const ScoreHighlight = Extension.create<{ sentences: WinstonSentenceScore[] | null }>({
+const ScoreHighlight = Extension.create<{
+  sentences: WinstonSentenceScore[] | null;
+  provenance: ProvenanceMap | null;
+}>({
   name: "scoreHighlight",
-  addOptions: () => ({ sentences: null }),
+  addOptions: () => ({ sentences: null, provenance: null }),
   addProseMirrorPlugins() {
-    const initial = this.options.sentences;
+    const initialSentences = this.options.sentences;
+    const initialProvenance = this.options.provenance;
     return [
       new Plugin<HighlightState>({
         key: highlightKey,
         state: {
           init: (_config, state) => ({
-            sentences: initial,
-            decorations: buildDecorations(state.doc, initial),
+            sentences: initialSentences,
+            provenance: initialProvenance,
+            decorations: buildDecorations(state.doc, initialSentences, initialProvenance),
           }),
           apply(tr, value, _oldState, newState) {
             const meta = tr.getMeta(highlightKey) as
-              | { sentences: WinstonSentenceScore[] | null }
+              | { sentences: WinstonSentenceScore[] | null; provenance: ProvenanceMap | null }
               | undefined;
             if (!meta && !tr.docChanged) return value;
             const sentences = meta ? meta.sentences : value.sentences;
-            return { sentences, decorations: buildDecorations(newState.doc, sentences) };
+            const provenance = meta ? meta.provenance : value.provenance;
+            return { sentences, provenance, decorations: buildDecorations(newState.doc, sentences, provenance) };
           },
         },
         props: {
@@ -85,8 +114,11 @@ export interface RichEditorHandle {
   getDoc(): object;
   /** Current selection as plain-text offsets, or null if nothing is selected. */
   getSelectionTextRange(): { start: number; end: number } | null;
-  replaceTextRange(start: number, end: number, replacement: string): void;
-  replaceAll(text: string): void;
+  /** `origin: "ai"` records the replacement as an AI rewrite for provenance
+   *  highlighting and the post-rescan report; omitted (defaults to "user")
+   *  for anything driven by the user's own action. */
+  replaceTextRange(start: number, end: number, replacement: string, opts?: { origin?: ProvenanceSource }): void;
+  replaceAll(text: string, opts?: { origin?: ProvenanceSource }): void;
   focus(): void;
 }
 
@@ -94,6 +126,7 @@ export function RichEditor({
   initialDoc,
   initialText,
   winstonSentences,
+  provenance,
   onChange,
   onSelectionChange,
   handleRef,
@@ -101,7 +134,8 @@ export function RichEditor({
   initialDoc: object | null;
   initialText: string;
   winstonSentences: WinstonSentenceScore[] | null;
-  onChange: (next: { text: string; doc: object }) => void;
+  provenance: ProvenanceMap | null;
+  onChange: (next: { text: string; doc: object; origin: ProvenanceSource }) => void;
   onSelectionChange?: () => void;
   handleRef: Ref<RichEditorHandle>;
 }) {
@@ -118,8 +152,14 @@ export function RichEditor({
     onSelectionChangeRef.current = onSelectionChange;
   });
 
+  // Set right before an imperative replace driven by our own code (accepting
+  // a suggestion, "rewrite entire draft"); read once by the very next
+  // onUpdate (dispatched synchronously by that same call) and reset, so
+  // ordinary typing - which never touches this ref - always reports "user".
+  const pendingOriginRef = useRef<ProvenanceSource>("user");
+
   const editor = useEditor({
-    extensions: [StarterKit, ScoreHighlight.configure({ sentences: winstonSentences })],
+    extensions: [StarterKit, ScoreHighlight.configure({ sentences: winstonSentences, provenance })],
     content: initialDoc ?? textToDoc(initialText),
     // Next.js renders this on the server first; without this React throws a
     // hydration mismatch.
@@ -130,17 +170,20 @@ export function RichEditor({
       },
     },
     onUpdate: ({ editor: e }) => {
-      onChangeRef.current({ text: docToPlainText(e.state.doc).text, doc: e.getJSON() });
+      const origin = pendingOriginRef.current;
+      pendingOriginRef.current = "user";
+      onChangeRef.current({ text: docToPlainText(e.state.doc).text, doc: e.getJSON(), origin });
     },
     onSelectionUpdate: () => onSelectionChangeRef.current?.(),
   });
 
-  // Winston scores arrive after a rescan, so push them into the plugin rather
-  // than rebuilding the editor (which would lose cursor and undo history).
+  // Winston scores arrive after a rescan and provenance changes on every
+  // edit, so push both into the plugin rather than rebuilding the editor
+  // (which would lose cursor and undo history).
   useEffect(() => {
     if (!editor) return;
-    editor.view.dispatch(editor.state.tr.setMeta(highlightKey, { sentences: winstonSentences }));
-  }, [editor, winstonSentences]);
+    editor.view.dispatch(editor.state.tr.setMeta(highlightKey, { sentences: winstonSentences, provenance }));
+  }, [editor, winstonSentences, provenance]);
 
   useImperativeHandle(
     handleRef,
@@ -154,13 +197,15 @@ export function RichEditor({
         const { segments } = docToPlainText(editor.state.doc);
         return pmRangeToTextRange(segments, from, to);
       },
-      replaceTextRange: (start, end, replacement) => {
+      replaceTextRange: (start, end, replacement, opts) => {
         if (!editor) return;
+        pendingOriginRef.current = opts?.origin ?? "user";
         const { segments } = docToPlainText(editor.state.doc);
         const { from, to } = textRangeToPmRange(segments, start, end);
         editor.chain().focus().insertContentAt({ from, to }, replacement).run();
       },
-      replaceAll: (text) => {
+      replaceAll: (text, opts) => {
+        pendingOriginRef.current = opts?.origin ?? "user";
         editor?.chain().focus().setContent(textToDoc(text)).run();
       },
       focus: () => editor?.chain().focus().run(),

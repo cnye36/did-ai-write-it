@@ -4,7 +4,14 @@ import { analyzeText } from "@/lib/detector";
 import { appendRunVersion, insertRun, insertRunVersion } from "@/lib/runs";
 import { scoreWithWinston, DETECT_MAX_CHARS } from "@/lib/winston";
 import { requireUser } from "@/lib/supabase/auth";
-import { assertWithinQuota, isDevBypass, PLAN_LIMITS, wordsUsedInCurrentPeriod, type Plan } from "@/lib/usage";
+import {
+  assertWithinQuota,
+  incrementUsage,
+  isDevBypass,
+  PLAN_LIMITS,
+  wordsUsedInCurrentPeriod,
+  type Plan,
+} from "@/lib/usage";
 
 export const maxDuration = 30;
 
@@ -73,9 +80,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const { data: updated } = (await supabase
-      .rpc("increment_usage", { p_user_id: userId, p_words: requestedWords })
-      .single()) as { data: { words_used: number; plan: string } | null };
+    const updatedWordsUsed = await incrementUsage(supabase, userId, requestedWords, plan, bypass);
 
     const winstonPayload = { score: winston.score, sentences: winston.sentences };
     const runResult = { winston: winstonPayload };
@@ -116,7 +121,7 @@ export async function POST(req: NextRequest) {
       winston: winstonPayload,
       runId: resultRunId,
       usage: {
-        used: updated?.words_used ?? wordsUsed + requestedWords,
+        used: updatedWordsUsed,
         limit: PLAN_LIMITS[plan],
       },
     });

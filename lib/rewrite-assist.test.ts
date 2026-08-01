@@ -1,7 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { analyzeText } from "./detector";
-import { rewriteWholeDocument, suggestRewrite } from "./rewrite-assist";
+import { rewriteWholeDocument, suggestRewrites } from "./rewrite-assist";
 
 /*
   Contract test against a mock OpenAI server (same convention as
@@ -16,8 +16,8 @@ const SLOP = `In today's fast-paced digital landscape, leveraging AI has become 
 const REWRITE = "We started using these tools because we had to, not because they were exciting.";
 
 let server: Server;
-let mockResponse = REWRITE;
-const received: { model?: string; messages?: { role: string; content: string }[] }[] = [];
+let mockChoices = [REWRITE];
+const received: { model?: string; n?: number; messages?: { role: string; content: string }[] }[] = [];
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -32,9 +32,11 @@ beforeAll(async () => {
           object: "chat.completion",
           created: Date.now(),
           model: "mock",
-          choices: [
-            { index: 0, message: { role: "assistant", content: mockResponse }, finish_reason: "stop" },
-          ],
+          choices: mockChoices.map((content, index) => ({
+            index,
+            message: { role: "assistant", content },
+            finish_reason: "stop",
+          })),
           usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
         })
       );
@@ -49,7 +51,7 @@ afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
 beforeEach(() => {
   process.env.OPENAI_API_KEY = "test-key";
-  mockResponse = REWRITE;
+  mockChoices = [REWRITE];
   received.length = 0;
 });
 
@@ -57,15 +59,18 @@ afterEach(() => {
   delete process.env.OPENAI_API_KEY;
 });
 
-describe("suggestRewrite", () => {
-  it("sends the marked span, its flagged reasons, and surrounding context, and returns the trimmed suggestion", async () => {
+describe("suggestRewrites", () => {
+  it("sends the marked span, its flagged reasons, surrounding context, and n=3, returning every distinct candidate", async () => {
+    mockChoices = [REWRITE, "We had to start using these tools, whether we liked it or not.", REWRITE];
     const start = SLOP.indexOf(SLOP_SENTENCE);
     const end = start + SLOP_SENTENCE.length;
 
-    const result = await suggestRewrite({ fullText: SLOP, start, end });
+    const result = await suggestRewrites({ fullText: SLOP, start, end });
 
-    expect(result).toBe(REWRITE);
+    // The duplicate third choice collapses, so only 2 distinct suggestions survive.
+    expect(result).toEqual([REWRITE, "We had to start using these tools, whether we liked it or not."]);
     expect(received).toHaveLength(1);
+    expect(received[0].n).toBe(3);
     expect(received[0].messages?.map((m) => m.role)).toEqual(["system", "user"]);
 
     const userMsg = received[0].messages![1].content;
@@ -91,7 +96,7 @@ describe("rewriteWholeDocument", () => {
   });
 
   it("throws a clear error when the completion comes back empty", async () => {
-    mockResponse = "   ";
+    mockChoices = ["   "];
     const result = analyzeText(SLOP);
     await expect(rewriteWholeDocument({ text: SLOP, result })).rejects.toThrow(/rewrite failed/i);
   });

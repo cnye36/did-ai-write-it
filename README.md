@@ -65,7 +65,7 @@ Copy `.env.local.example` → `.env.local` and set:
 | `SUPABASE_SECRET_KEY` | Stripe webhook only (bypasses RLS) |
 | `STRIPE_SECRET_KEY` | Billing |
 | `STRIPE_WEBHOOK_SECRET` | Webhook signature verification |
-| `STRIPE_PRICE_{LITE,PRO,STUDIO}_{MONTHLY,ANNUAL}` | Six Price IDs (one per plan × interval) |
+| `STRIPE_PRICE_{LITE,PLUS,PRO}_{MONTHLY,ANNUAL}` | Six Price IDs (one per plan × interval) |
 | `DEV_BYPASS_EMAIL` | Optional. One account exempt from word quotas |
 
 ### Database
@@ -81,7 +81,7 @@ Run the SQL migrations in order against your Supabase project (SQL Editor):
 stripe listen --forward-to localhost:3000/api/stripe/webhook
 ```
 
-Paste the signing secret into `STRIPE_WEBHOOK_SECRET`. Create Lite / Pro / Studio products with monthly and annual prices (annual = 50% off, billed yearly), then wire the six Price IDs into `.env.local`.
+Paste the signing secret into `STRIPE_WEBHOOK_SECRET`. Create Lite / Plus / Pro products with monthly and annual prices (annual = 50% off, billed yearly), then wire the six Price IDs into `.env.local`.
 
 ---
 

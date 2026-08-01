@@ -7,16 +7,22 @@ import {
   ArrowClockwiseIcon,
   ArrowLeftIcon,
   CheckIcon,
+  GitDiffIcon,
   SparkleIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { analyzeText, verdictFor } from "@/lib/detector";
-import { resolveSentenceScores, verifiedCoverage } from "@/lib/winston-sentences";
+import { normalize, resolveSentenceScores, verifiedCoverage } from "@/lib/winston-sentences";
+import { emptyProvenance, recordProvenance, type ProvenanceMap } from "@/lib/provenance";
 import { ScoreGauge } from "@/components/score-gauge";
 import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
 import { ConfirmRewriteAllModal } from "@/components/confirm-rewrite-all-modal";
 import { RichEditor, type RichEditorHandle } from "@/components/rich-editor";
 import { WinstonHighlightedText } from "@/components/winston-highlighted-text";
+import { VersionTabs } from "@/components/version-tabs";
+import { VersionDiffModal, type DiffFromOption } from "@/components/version-diff-modal";
+import { RescanResultsPanel } from "@/components/rescan-results";
+import { buildRescanResults, type RescanResults } from "@/lib/rescan-results";
 import type { DetectRunResult, RunRow, RunVersion } from "@/lib/runs";
 
 function versionScore(v: RunVersion): number {
@@ -35,7 +41,8 @@ interface Suggestion {
   source: "sentence" | "selection";
   busy: boolean;
   error: string | null;
-  text: string | null;
+  texts: string[] | null;
+  selectedIndex: number;
 }
 
 export function DetectEditorClient({
@@ -70,6 +77,10 @@ export function DetectEditorClient({
   const [docJson, setDocJson] = useState<object | null>(
     (versions[versions.length - 1].doc as object | null) ?? null
   );
+  // Who wrote each unverified sentence, for the editor's provenance
+  // highlighting and the post-rescan results report. Session-only: rebuilt
+  // fresh each time the editor loads, not persisted.
+  const [provenance, setProvenance] = useState<ProvenanceMap>(emptyProvenance());
   const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
 
@@ -79,6 +90,9 @@ export function DetectEditorClient({
   const [rewriteAllBusy, setRewriteAllBusy] = useState(false);
   const [rewriteAllError, setRewriteAllError] = useState<string | null>(null);
   const [quota, setQuota] = useState<{ plan: string; limit: number } | null>(null);
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [diffFromValue, setDiffFromValue] = useState(versions[versions.length - 1].id);
+  const [rescanResults, setRescanResults] = useState<RescanResults | null>(null);
 
   const live = useMemo(() => analyzeText(draft), [draft]);
 
@@ -95,9 +109,20 @@ export function DetectEditorClient({
     [resolved]
   );
 
+  const diffFromOptions: DiffFromOption[] = useMemo(
+    () =>
+      versions.map((v, i) => ({
+        value: v.id,
+        label: i === 0 ? "Report 1 (Original)" : `Report ${i + 1}`,
+        text: v.input_text,
+        score: v.score,
+        createdAt: v.created_at,
+      })),
+    [versions]
+  );
+
   const verifiedScore = versionScore(selectedVersion);
   const verifiedVerdict = verdictFor(verifiedScore);
-  const delta = live.score - verifiedScore;
 
   function updateSelection() {
     setSelection(editorRef.current?.getSelectionTextRange() ?? null);
@@ -105,7 +130,7 @@ export function DetectEditorClient({
 
   async function requestSuggestion(start: number, end: number, source: Suggestion["source"]) {
     const spanText = draft.slice(start, end);
-    setSuggestion({ start, end, spanText, source, busy: true, error: null, text: null });
+    setSuggestion({ start, end, spanText, source, busy: true, error: null, texts: null, selectedIndex: 0 });
     try {
       const res = await fetch("/api/rewrite-assist/suggest", {
         method: "POST",
@@ -119,7 +144,16 @@ export function DetectEditorClient({
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Could not get a suggestion.");
-      setSuggestion({ start, end, spanText, source, busy: false, error: null, text: data.suggestion });
+      setSuggestion({
+        start,
+        end,
+        spanText,
+        source,
+        busy: false,
+        error: null,
+        texts: data.suggestions,
+        selectedIndex: 0,
+      });
     } catch (e) {
       setSuggestion((s) =>
         s ? { ...s, busy: false, error: e instanceof Error ? e.message : "Could not get a suggestion." } : s
@@ -128,8 +162,9 @@ export function DetectEditorClient({
   }
 
   function acceptSuggestion() {
-    if (!suggestion?.text) return;
-    const { start, end, spanText, text } = suggestion;
+    const text = suggestion?.texts?.[suggestion.selectedIndex];
+    if (!text || !suggestion) return;
+    const { start, end, spanText } = suggestion;
     // The span may have moved while the request was in flight, so re-locate it
     // by content before splicing. (ProseMirror re-maps its own positions, but
     // these offsets were captured in plain-text space before the round trip.)
@@ -145,7 +180,7 @@ export function DetectEditorClient({
       targetStart = found;
       targetEnd = found + spanText.length;
     }
-    editorRef.current?.replaceTextRange(targetStart, targetEnd, text);
+    editorRef.current?.replaceTextRange(targetStart, targetEnd, text, { origin: "ai" });
     setSuggestion(null);
     setSelection(null);
   }
@@ -170,7 +205,7 @@ export function DetectEditorClient({
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Rewrite failed.");
-      editorRef.current?.replaceAll(data.text);
+      editorRef.current?.replaceAll(data.text, { origin: "ai" });
       setRewriteAllOpen(false);
     } catch (e) {
       setRewriteAllError(e instanceof Error ? e.message : "Rewrite failed.");
@@ -182,6 +217,8 @@ export function DetectEditorClient({
   async function scanAgain() {
     setRescanBusy(true);
     setRescanError(null);
+    setRescanResults(null);
+    const previousVersion = versions[versions.length - 1];
     try {
       const res = await fetch("/api/detect", {
         method: "POST",
@@ -209,6 +246,8 @@ export function DetectEditorClient({
           setSelectedIndex(next.length - 1);
           return next;
         });
+        setDiffFromValue(newVersion.id);
+        setRescanResults(buildRescanResults(previousVersion, newVersion, provenance));
       }
       router.refresh();
     } catch (e) {
@@ -237,35 +276,34 @@ export function DetectEditorClient({
               Fix what got flagged, at your own pace. Scan again whenever you want a real score.
             </p>
           </div>
-          <button
-            type="button"
-            disabled={rescanBusy || live.wordCount < 15}
-            onClick={scanAgain}
-            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <ArrowClockwiseIcon size={16} weight="bold" className={rescanBusy ? "animate-spin" : ""} />
-            {rescanBusy ? "Scanning..." : "Scan again"}
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDiffOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:border-faint"
+            >
+              <GitDiffIcon size={16} weight="bold" />
+              Diff
+            </button>
+            <button
+              type="button"
+              disabled={rescanBusy || live.wordCount < 15}
+              onClick={scanAgain}
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ArrowClockwiseIcon size={16} weight="bold" className={rescanBusy ? "animate-spin" : ""} />
+              {rescanBusy ? "Scanning..." : "Scan again"}
+            </button>
+          </div>
         </div>
 
         {rescanError && <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{rescanError}</p>}
 
-        <div className="flex flex-wrap items-center gap-2">
-          {versions.map((v, i) => (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => setSelectedIndex(i)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                i === selectedIndex
-                  ? "border-accent bg-accent-soft text-accent"
-                  : "border-line text-muted hover:border-faint"
-              }`}
-            >
-              Report {i + 1} · {versionScore(v)}
-            </button>
-          ))}
-        </div>
+        <VersionTabs versions={versions} selectedIndex={selectedIndex} onSelect={setSelectedIndex} />
+
+        {rescanResults && (
+          <RescanResultsPanel results={rescanResults} onDismiss={() => setRescanResults(null)} />
+        )}
 
         <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
           <div className="flex flex-col rounded-2xl border border-line bg-surface">
@@ -297,19 +335,16 @@ export function DetectEditorClient({
           <div className="flex flex-col rounded-2xl border border-line bg-surface">
             <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
               <span className="text-sm font-medium">Your edit</span>
-              <div className="flex items-center gap-2">
-                <ScoreGauge score={live.score} verdict={live.verdict} size={32} />
-                <span className="text-xs text-faint">
-                  Quick estimate{selectedWinston ? ` (${delta >= 0 ? "+" : ""}${delta} vs verified)` : ""}
-                </span>
-              </div>
+              <span className="text-xs text-faint">Scan again for a real score</span>
             </div>
             <RichEditor
               handleRef={editorRef}
               initialDoc={docJson}
               initialText={draft}
               winstonSentences={latestWinston?.sentences ?? null}
-              onChange={({ text, doc }) => {
+              provenance={provenance}
+              onChange={({ text, doc, origin }) => {
+                setProvenance((p) => recordProvenance(p, draft, text, origin));
                 setDraft(text);
                 setDocJson(doc);
               }}
@@ -356,16 +391,36 @@ export function DetectEditorClient({
               {suggestion.spanText}
             </p>
             {suggestion.busy ? (
-              <div className="mt-2 h-10 animate-pulse rounded-[10px] bg-surface" />
+              <div className="mt-2 space-y-2">
+                <div className="h-10 animate-pulse rounded-[10px] bg-surface" />
+                <div className="h-10 animate-pulse rounded-[10px] bg-surface" />
+                <div className="h-10 animate-pulse rounded-[10px] bg-surface" />
+              </div>
             ) : suggestion.error ? (
               <p className="mt-2 text-sm text-bad">{suggestion.error}</p>
             ) : (
-              <p className="mt-2 rounded-[10px] bg-accent-soft p-3 text-sm">{suggestion.text}</p>
+              <div className="mt-2 space-y-2">
+                {suggestion.texts?.map((text, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setSuggestion((s) => (s ? { ...s, selectedIndex: i } : s))}
+                    aria-pressed={i === suggestion.selectedIndex}
+                    className={`w-full rounded-[10px] p-3 text-left text-sm transition-colors ${
+                      i === suggestion.selectedIndex
+                        ? "bg-accent-soft ring-1 ring-inset ring-accent"
+                        : "bg-surface hover:bg-accent-soft/60"
+                    }`}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
             )}
             <div className="mt-3 flex items-center gap-2">
               <button
                 type="button"
-                disabled={suggestion.busy || !suggestion.text}
+                disabled={suggestion.busy || !suggestion.texts?.[suggestion.selectedIndex]}
                 onClick={acceptSuggestion}
                 className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 text-xs font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -401,23 +456,37 @@ export function DetectEditorClient({
             <p className="text-sm text-muted">Nothing flagged right now.</p>
           ) : (
             <ul className="space-y-3">
-              {flaggedSentences.map((s) => (
+              {flaggedSentences.map((s) => {
+                const origin = provenance.get(normalize(s.text)) ?? "user";
+                return (
                 <li key={`${s.start}-${s.end}`} className="rounded-[10px] border border-line p-3">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm leading-relaxed">{s.text}</p>
-                    <span
-                      className="shrink-0 rounded-full px-2 py-0.5 font-mono text-xs tabular-nums"
-                      style={{
-                        background: s.verdict === "mixed" ? "var(--warn-soft)" : "var(--bad-soft)",
-                        color: s.verdict === "mixed" ? "var(--warn)" : "var(--bad)",
-                      }}
-                    >
-                      {s.score}
-                    </span>
+                    {s.source === "verified" ? (
+                      <span
+                        className="shrink-0 rounded-full px-2 py-0.5 font-mono text-xs tabular-nums"
+                        style={{
+                          background: s.verdict === "mixed" ? "var(--warn-soft)" : "var(--bad-soft)",
+                          color: s.verdict === "mixed" ? "var(--warn)" : "var(--bad)",
+                        }}
+                      >
+                        {s.score}
+                      </span>
+                    ) : (
+                      <span
+                        className="shrink-0 rounded-full border border-dashed px-2 py-0.5 text-xs"
+                        style={{
+                          borderColor: origin === "ai" ? "var(--warn)" : "var(--accent)",
+                          color: origin === "ai" ? "var(--warn)" : "var(--accent)",
+                        }}
+                      >
+                        {origin === "ai" ? "AI rewrite" : "Your edit"}, not yet scanned
+                      </span>
+                    )}
                   </div>
-                  <p className="mt-1 text-[11px] text-faint">
-                    {s.source === "verified" ? "Verified score" : "Estimated, rescan to confirm"}
-                  </p>
+                  {s.source === "verified" && (
+                    <p className="mt-1 text-[11px] font-medium text-faint">Verified score</p>
+                  )}
                   {s.reasons.length > 0 && (
                     <ul className="mt-1.5 space-y-0.5">
                       {s.reasons.map((r) => (
@@ -436,7 +505,8 @@ export function DetectEditorClient({
                     Suggest a rewrite
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>
@@ -456,6 +526,14 @@ export function DetectEditorClient({
         onClose={() => setQuota(null)}
         plan={quota?.plan ?? "free"}
         limit={quota?.limit ?? 0}
+      />
+      <VersionDiffModal
+        open={diffOpen}
+        onClose={() => setDiffOpen(false)}
+        to={{ label: "Current edit", text: draft, score: null, createdAt: new Date().toISOString() }}
+        fromOptions={diffFromOptions}
+        fromValue={diffFromValue}
+        onFromChange={setDiffFromValue}
       />
     </>
   );

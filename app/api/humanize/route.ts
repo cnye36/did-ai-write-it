@@ -6,7 +6,14 @@ import { analyzeText, type DetectorResult } from "@/lib/detector";
 import { generateBestRewrite, getModelLabel } from "@/lib/rewrite";
 import { winstonScoreOnly } from "@/lib/winston";
 import { requireUser } from "@/lib/supabase/auth";
-import { assertWithinQuota, isDevBypass, PLAN_LIMITS, wordsUsedInCurrentPeriod, type Plan } from "@/lib/usage";
+import {
+  assertWithinQuota,
+  incrementUsage,
+  isDevBypass,
+  PLAN_LIMITS,
+  wordsUsedInCurrentPeriod,
+  type Plan,
+} from "@/lib/usage";
 
 export const maxDuration = 120;
 
@@ -63,9 +70,7 @@ export async function POST(req: NextRequest) {
     );
 
     const outputWords = analyzeText(outcome.text).wordCount;
-    const { data: updated } = (await supabase
-      .rpc("increment_usage", { p_user_id: userId, p_words: outputWords })
-      .single()) as { data: { words_used: number; plan: string } | null };
+    const updatedWordsUsed = await incrementUsage(supabase, userId, outputWords, plan, bypass);
 
     return Response.json({
       text: outcome.text,
@@ -75,7 +80,7 @@ export async function POST(req: NextRequest) {
       model: getModelLabel(),
       winston: summarizeWinston(outcome.externalBefore, outcome.externalAfter),
       usage: {
-        used: updated?.words_used ?? wordsUsed + outputWords,
+        used: updatedWordsUsed,
         limit: PLAN_LIMITS[plan],
       },
     });

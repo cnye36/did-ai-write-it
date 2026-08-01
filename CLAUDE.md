@@ -80,7 +80,7 @@ history shipped.** Three changes landed together:
   single request by a flat character ceiling matching Winston's own documented limits per endpoint
   (150k detect, 120k plagiarism, 10k fact-check, `/api/humanize` unchanged at 12k chars since that
   one is genuinely output-token-bound). Monthly quotas (`PLAN_LIMITS`) went up across the board to
-  match: **Free** 2,000, **Lite** 40,000, **Pro** 150,000, **Studio** 500,000 words/month, same
+  match: **Free** 2,000, **Lite** 40,000, **Plus** 150,000, **Pro** 500,000 words/month, same
   price points. See `docs/subscriptions.md` for the full before/after.
 - **Every successful check is now saved** to a `runs` table (`supabase/migrations/0004_runs.sql`,
   RLS-scoped to the owner) via `lib/runs.ts`'s `insertRun()`, called from `/api/detect`,
@@ -90,13 +90,21 @@ history shipped.** Three changes landed together:
   so a plagiarism run can't be opened from the fact-check page); `/api/runs` lists/deletes,
   `/api/runs/[id]` fetches one.
 
-**The free heuristic (`lib/detector.ts`) is not the customer-facing score anywhere it matters
-(as of 2026-07-26).** It scores most AI text as too human to be credible as *the* score for a
-product literally named "did AI write it," so Winston AI now powers every score a user is actually
-shown: the public homepage scan (`/api/preview-detect`, rate-limited) and the signed-in detector
-(`/api/detect`). The heuristic survives only as free, instant, zero-network supplementary signal
-(the homepage's live word count, `/app/detect`'s "quick estimate" as-you-type readout) and as the
-per-pass scoring signal feeding the humanize pipeline's prompts, never as a final verdict.
+**The free heuristic (`lib/detector.ts`) never shows a numeric score to a user anywhere
+(as of 2026-07-31).** It scores most AI text as too human to be credible as *the* score for a
+product literally named "did AI write it," and per-sentence calibration against real Winston data
+(`pnpm calibrate`) confirmed it, so Winston AI is the only source of a displayed 0-100 number: the
+public homepage scan (`/api/preview-detect`, rate-limited) and the signed-in detector (`/api/detect`).
+Every "quick estimate" / heuristic score readout that used to show before or alongside a Winston
+result (the pre-check textarea, the report header while `/api/detect` is in flight or unavailable,
+the Fix editor's "Your edit" pane, the version-diff modal's unscanned side) has been removed outright,
+one source of truth rather than a second, frequently-wrong number sitting next to the real one. The
+heuristic survives only as: free, instant, zero-network live word count before a check runs; pattern-
+based flag highlighting with no attached score (the line-by-line report, the Fix editor's "Flagged in
+your edit" list, where an unscanned sentence shows "Not yet scanned" instead of a guessed number) so
+triage still works without presenting a fabricated number as fact; the "Signal breakdown" sub-metric
+bars on the report page (Vocabulary/Cadence/Rhythm/etc., framed as diagnostic signals, not a
+competing overall score); and the per-pass scoring signal feeding the humanize pipeline's prompts.
 
 Positioning: *"Did AI write it? Find out."* Framing is deliberately **professional/marketing**
 (LinkedIn posts, newsletters, marketing copy), **not** academic-cheating. The project pivoted from a
@@ -130,7 +138,7 @@ Run everything through WSL with nvm sourced (default WSL node is v18; project ne
   interactively — prefix `CI=true` to auto-confirm.
 - Keys in `.env.local` (copy from `.env.local.example`): `OPENAI_API_KEY` (humanize),
   `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`/`SUPABASE_SECRET_KEY` (auth/DB),
-  `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`STRIPE_PRICE_{LITE,PRO,STUDIO}_{MONTHLY,ANNUAL}`
+  `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`STRIPE_PRICE_{LITE,PLUS,PRO}_{MONTHLY,ANNUAL}`
   (billing, six price IDs total). Optional: `OPENAI_MODEL` (default `gpt-5.5`), `OPENAI_BASE_URL`
   (point at any OpenAI-compatible serverless provider — Together/DeepInfra/Groq — with no code
   change), `HUMANIZE_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` (+ optional `ANTHROPIC_MODEL`, default

@@ -240,6 +240,12 @@ const LEXICON: LexiconRule[] = [
   { pattern: /\bis essential for\b/gi, reason: "“Is essential for” is a top AI trigram (writehuman 2026 corpus)", weight: 0.5 },
   { pattern: /\bin recent years\b/gi, reason: "“In recent years” is a formulaic AI opener" },
   { pattern: /\bthis (?:paper|article|post|essay) (?:introduces|explores|examines|discusses)\b/gi, reason: "“This paper introduces” is a formulaic AI opener" },
+  // Capitalized "From" (not case-insensitive) rather than a true sentence-start
+  // anchor: collectMatches scans the raw document text, not per-sentence text
+  // like TRANSITION_OPENER does, so `^` here would only match after a literal
+  // newline, missing this construction whenever it isn't the first sentence
+  // in its paragraph, which is most of the time.
+  { pattern: /\bFrom [^,.\n]{5,60} to [^,.\n]{5,60},/g, reason: "“From X to Y, ...” scope-broadening opener is a stock AI framing device", weight: 0.5 },
 ];
 
 /*
@@ -307,7 +313,7 @@ const HEDGES: RegExp[] = [
 
 const clamp = (n: number, lo = 0, hi = 100) => Math.min(hi, Math.max(lo, n));
 
-interface Sentence {
+export interface Sentence {
   text: string;
   start: number;
   end: number;
@@ -324,7 +330,7 @@ const MERGE_WITH_NEXT: RegExp[] = [
   /(?:^|\s)[A-Za-z]\.$/,
 ];
 
-function splitSentences(text: string): Sentence[] {
+export function splitSentences(text: string): Sentence[] {
   // Terminal punctuation may be followed by closing quotes or brackets: without
   // that, `He said "go." Then left.` splits mid-quote into `He said "go.` and
   // `" Then left.`, which corrupts sentence-length variance and the per-sentence

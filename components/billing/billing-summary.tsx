@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ArrowUpRightIcon,
   CheckCircleIcon,
@@ -41,14 +41,10 @@ export function BillingSummary({
   const remaining = remainingWords(plan, wordsUsed);
   const usedPct = limit === 0 ? 0 : Math.min(100, Math.round((wordsUsed / limit) * 100));
   const isPaid = plan !== "free";
-  const canUpgrade = plan !== "studio";
+  const canUpgrade = plan !== "pro";
   const resetLabel = periodStart
     ? formatPeriodResetLabel(periodStart)
     : formatPeriodResetLabel(new Date().toISOString().slice(0, 10));
-
-  useEffect(() => {
-    if (initialUpgradeOpen) setUpgradeOpen(true);
-  }, [initialUpgradeOpen]);
 
   return (
     <>

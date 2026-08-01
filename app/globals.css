@@ -169,6 +169,22 @@ mark[data-confidence="estimated"] {
   border-bottom-style: dashed;
 }
 
+/* Unverified text (no matching Winston score yet) is colored by who wrote it,
+   never by the heuristic's guessed verdict: see buildDecorations in
+   components/rich-editor.tsx for why. Amber for an accepted AI rewrite (the
+   closest fit already in the score-state palette to "orange" without adding a
+   second accent color); the existing accent blue for the user's own edits,
+   since that is already what "you, the user" means everywhere else in the UI. */
+.score-provenance-ai {
+  background: var(--warn-soft);
+  border-bottom-color: var(--warn);
+}
+
+.score-provenance-user {
+  background: var(--accent-soft);
+  border-bottom-color: var(--accent);
+}
+
 /* Editor content. The block spacing here is what the user sees; the plain-text
    projection in lib/editor-text.ts is what the detector sees, and the two are
    deliberately independent. */

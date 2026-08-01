@@ -61,11 +61,16 @@ ${reasonsBlock}
 Return only the replacement text for the marked part.`;
 }
 
-/** Rewrites one span, [start, end) into fullText. Used identically for a
+/** How many alternative rewrites suggestRewrites returns for the user to
+ *  choose from, rather than committing them to a single take. */
+const SUGGESTION_COUNT = 3;
+
+/** Rewrites one span, [start, end) into fullText, as a few distinct
+ *  candidates rather than one committed answer. Used identically for a
  *  flagged sentence (offsets from analyzeText) and an arbitrary highlighted
  *  selection (native textarea selectionStart/selectionEnd): both are just
  *  character ranges into the same string. */
-export async function suggestRewrite({
+export async function suggestRewrites({
   fullText,
   start,
   end,
@@ -73,13 +78,16 @@ export async function suggestRewrite({
   fullText: string;
   start: number;
   end: number;
-}): Promise<string> {
+}): Promise<string[]> {
   const spanText = fullText.slice(start, end);
   const { flags } = analyzeText(fullText);
   const reasons = reasonsForRange(flags, start, end);
   const { before, after } = windowContext(fullText, start, end);
 
   const client = getOpenAI();
+  // Sampled hot on purpose, same reasoning as lib/rewrite.ts's n:2 candidates:
+  // one API call, n distinct completions, dropped automatically by
+  // createSampledCompletion on a model that rejects the parameter.
   const completion = await createSampledCompletion(client, {
     model: REWRITE_ASSIST_MODEL,
     messages: [
@@ -87,11 +95,14 @@ export async function suggestRewrite({
       { role: "user", content: buildSuggestUser(before, spanText, after, reasons) },
     ],
     temperature: 0.9,
+    n: SUGGESTION_COUNT,
   });
 
-  const suggestion = completion.choices[0]?.message?.content?.trim();
-  if (!suggestion) throw new Error("No suggestion came back. Try again.");
-  return suggestion;
+  const suggestions = Array.from(
+    new Set(completion.choices.map((c) => c.message?.content?.trim() ?? "").filter(Boolean))
+  );
+  if (suggestions.length === 0) throw new Error("No suggestion came back. Try again.");
+  return suggestions;
 }
 
 function buildRewriteAllSystem(): string {

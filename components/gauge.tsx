@@ -17,6 +17,10 @@ export function Gauge({
   const r = 52;
   const c = 2 * Math.PI * r;
   const filled = (score / 100) * c;
+  // The number overlay is plain HTML, not part of the SVG's own viewBox
+  // scaling, so its font size has to scale with `size` by hand or it stays a
+  // fixed 30px and overflows any ring smaller than the ~120px default.
+  const fontSize = Math.max(11, Math.round(size * 0.25));
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -37,7 +41,10 @@ export function Gauge({
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-mono text-3xl font-semibold tabular-nums" style={{ color }}>
+          <span
+            className="font-mono font-semibold tabular-nums"
+            style={{ color, fontSize }}
+          >
             {score}
           </span>
         </div>

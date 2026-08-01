@@ -38,7 +38,7 @@ is winning on its own.
 
 Pricing tiers (see `docs/subscriptions.md` for the competitor research behind these numbers, and
 `lib/plans.ts`/`lib/usage.ts` for the source of truth): **Free** ($0, 2000 words/mo),
-**Lite** ($9/mo, 40,000 words/mo), **Pro** ($24/mo, 150,000 words/mo, priority processing), **Studio** ($49/mo, 500,000 words/mo, real
+**Lite** ($9/mo, 40,000 words/mo), **Plus** ($24/mo, 150,000 words/mo, priority processing), **Pro** ($49/mo, 500,000 words/mo, real
 detector pass reports, API access).
 
 ## Milestones
@@ -48,7 +48,7 @@ detector pass reports, API access).
 - **M1 — Auth + usage metering. Done.** Supabase email/password accounts, `/app/**` behind login
   (proxy-level redirect plus per-route `requireUser()` on every API endpoint), per-plan monthly word
   quotas enforced on `/api/humanize` via the `increment_usage` RPC, usage shown in the product nav.
-- **M2 — Stripe subscriptions. Done.** Stripe Checkout for Lite/Pro/Studio (`/api/stripe/checkout`),
+- **M2 — Stripe subscriptions. Done.** Stripe Checkout for Lite/Plus/Pro (`/api/stripe/checkout`),
   monthly and annual (2 months free, `lib/plans.ts`), a webhook (`/api/stripe/webhook`) that syncs
   `profiles.plan`/`stripe_customer_id`/`stripe_subscription_id` on `checkout.session.completed`,
   `customer.subscription.updated`, and `customer.subscription.deleted`, and a customer-portal link
@@ -85,7 +85,7 @@ detector pass reports, API access).
     GPTZero, Originality.ai, Copyleaks, Winston AI, and Sapling: every option has a real floor of
     roughly $25–50/month minimum just to unlock API access (see chat history / revisit and move into
     `docs/subscriptions.md` when scoping this), before per-word usage even matters at current volume.
-    Do this as soon as there's budget for it. Unlocks the "real detector pass reports" Studio feature
+    Do this as soon as there's budget for it. Unlocks the "real detector pass reports" Plus feature
     and the "guaranteed pass" claims already teased (as "Coming soon") on `/pricing` — those badges
     stay honest ("coming soon," not live) until this actually lands.
 - **M5 — Humanizer engine hardening.** The other half of the bet: make `lib/humanize.ts` itself more

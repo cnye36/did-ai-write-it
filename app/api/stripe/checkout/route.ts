@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/supabase/auth";
 import { getStripe, priceIdForPlan, type PaidPlan } from "@/lib/stripe";
 import type { BillingInterval } from "@/lib/plans";
 
-const CHECKOUT_PLANS: PaidPlan[] = ["lite", "pro", "studio"];
+const CHECKOUT_PLANS: PaidPlan[] = ["lite", "plus", "pro"];
 const INTERVALS: BillingInterval[] = ["month", "year"];
 
 export async function POST(req: NextRequest) {

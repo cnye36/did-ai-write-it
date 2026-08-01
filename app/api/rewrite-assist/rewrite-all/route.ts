@@ -5,6 +5,7 @@ import { REWRITE_ASSIST_MAX_CHARS, rewriteWholeDocument } from "@/lib/rewrite-as
 import { requireUser } from "@/lib/supabase/auth";
 import {
   assertWithinQuota,
+  incrementUsage,
   isDevBypass,
   PLAN_LIMITS,
   rewriteAssistQuotaWords,
@@ -50,14 +51,12 @@ export async function POST(req: NextRequest) {
 
     const rewritten = await rewriteWholeDocument({ text, result });
 
-    const { data: updated } = (await supabase
-      .rpc("increment_usage", { p_user_id: userId, p_words: quotaWords })
-      .single()) as { data: { words_used: number; plan: string } | null };
+    const updatedWordsUsed = await incrementUsage(supabase, userId, quotaWords, plan, bypass);
 
     return Response.json({
       text: rewritten,
       usage: {
-        used: updated?.words_used ?? wordsUsed + quotaWords,
+        used: updatedWordsUsed,
         limit: PLAN_LIMITS[plan],
       },
     });

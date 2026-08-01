@@ -27,7 +27,7 @@ tier is already on the generous end for a trial — no change needed there.
 
 **Where we're over-generous today:** our Pro ($19/50,000 words) undercuts Undetectable's $19/20,000
 tier by 2.5x, and beats GPTHuman's $25/60,000 tier on price despite a $6 lower price point. Our
-Studio ($39/200,000 words) is more than 4x Undetectable's top metered tier ($42.50/50,000) at a
+Plus ($39/200,000 words) is more than 4x Undetectable's top metered tier ($42.50/50,000) at a
 lower price. Neither plan caps words-per-output, which every competitor treats as a standard lever
 (it protects against one giant single-shot request draining a whole month's quota in one call, and
 it's also a natural paywall for long-form use cases).

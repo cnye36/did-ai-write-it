@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon, WrenchIcon } from "@phosphor-icons/react";
+import { GitDiffIcon, MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon, WrenchIcon } from "@phosphor-icons/react";
 import { analyzeText, verdictFor } from "@/lib/detector";
 import { useHandoffInput } from "@/lib/handoff";
-import type { DetectRunResult, RunRow } from "@/lib/runs";
+import type { DetectRunResult, RunRow, RunVersion } from "@/lib/runs";
 import {
   PLAGIARISM_MIN_CHARS,
   PLAGIARISM_MAX_CHARS,
@@ -23,6 +23,8 @@ import { PlagiarismAddonCard, FactCheckAddonCard, type AddonState } from "@/comp
 import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
 import { UploadTextButton } from "@/components/upload-text-button";
 import type { WinstonSentence } from "@/components/winston-sentence-list";
+import { VersionTabs } from "@/components/version-tabs";
+import { VersionDiffModal, type DiffFromOption } from "@/components/version-diff-modal";
 
 interface DetectResponse {
   winston: { score: number; sentences: WinstonSentence[] } | null;
@@ -41,7 +43,22 @@ function resultFromRun(run: RunRow): DetectResponse {
   };
 }
 
-export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) {
+function resultFromVersion(v: RunVersion, runId: string): DetectResponse {
+  const payload = v.result as DetectRunResult;
+  return {
+    winston: payload.winston,
+    runId,
+    usage: { used: 0, limit: 0 },
+  };
+}
+
+export function DetectPageClient({
+  initialRun,
+  versions,
+}: {
+  initialRun: RunRow | null;
+  versions: RunVersion[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const autoRun = searchParams.get("autorun") === "1";
@@ -54,25 +71,58 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
     initialRun ? resultFromRun(initialRun) : null
   );
   const [loadedRunId, setLoadedRunId] = useState<string | null>(initialRun?.id ?? null);
+  const [selectedVersionIndex, setSelectedVersionIndex] = useState(
+    Math.max(0, versions.length - 1)
+  );
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [diffFromValue, setDiffFromValue] = useState<string | null>(
+    versions.length > 1 ? versions[Math.max(0, versions.length - 2)].id : null
+  );
 
   const [wantPlagiarism, setWantPlagiarism] = useState(false);
   const [wantFactCheck, setWantFactCheck] = useState(false);
   const [plagiarism, setPlagiarism] = useState<AddonState<PlagiarismResult>>(EMPTY_ADDON);
   const [factCheck, setFactCheck] = useState<AddonState<FactCheckResult>>(EMPTY_ADDON);
 
-  // Sidebar navigation passes a new initialRun; sync during render (no effect).
+  // Sidebar navigation passes a new initialRun (and its versions); sync during render (no effect).
   if ((initialRun?.id ?? null) !== loadedRunId) {
     setLoadedRunId(initialRun?.id ?? null);
     setPlagiarism(EMPTY_ADDON);
     setFactCheck(EMPTY_ADDON);
+    const lastIndex = Math.max(0, versions.length - 1);
+    setSelectedVersionIndex(lastIndex);
+    setDiffFromValue(versions.length > 1 ? versions[Math.max(0, versions.length - 2)].id : null);
     if (initialRun) {
-      setInput(initialRun.input_text);
-      setResult(resultFromRun(initialRun));
+      const latestVersion = versions[lastIndex];
+      setInput(latestVersion ? latestVersion.input_text : initialRun.input_text);
+      setResult(
+        latestVersion ? resultFromVersion(latestVersion, initialRun.id) : resultFromRun(initialRun)
+      );
       setError(null);
     } else {
       setResult(null);
     }
   }
+
+  function selectVersion(index: number) {
+    if (!initialRun) return;
+    const version = versions[index];
+    if (!version) return;
+    setSelectedVersionIndex(index);
+    setInput(version.input_text);
+    setResult(resultFromVersion(version, initialRun.id));
+    setPlagiarism(EMPTY_ADDON);
+    setFactCheck(EMPTY_ADDON);
+  }
+
+  const diffFromOptions: DiffFromOption[] = versions.map((v, i) => ({
+    value: v.id,
+    label: i === 0 ? "Report 1 (Original)" : `Report ${i + 1}`,
+    text: v.input_text,
+    score: v.score,
+    createdAt: v.created_at,
+  }));
+  const selectedVersion = versions[selectedVersionIndex];
 
   const live = useMemo(() => analyzeText(input), [input]);
   const canRun = live.wordCount >= 15 && !busy;
@@ -224,10 +274,7 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
             <span className="text-sm font-medium">Your text</span>
             <div className="flex items-center gap-3">
               <UploadTextButton onText={setInput} onError={setError} />
-              <span className="font-mono text-xs tabular-nums text-faint">
-                {live.wordCount} words
-                {live.wordCount >= 15 && ` · ${live.score}/100 human (quick estimate)`}
-              </span>
+              <span className="font-mono text-xs tabular-nums text-faint">{live.wordCount} words</span>
             </div>
           </div>
           <textarea
@@ -299,14 +346,14 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
   }
 
   const verified = result?.winston ?? null;
-  const scoreForDisplay = verified ? verified.score : live.score;
-  const verdictForDisplay = verdictFor(scoreForDisplay);
-  const statusLabel = verified ? "Verified score" : "Quick estimate";
+  const scoreForDisplay = verified?.score ?? null;
+  const verdictForDisplay = scoreForDisplay !== null ? verdictFor(scoreForDisplay) : null;
+  const statusLabel = verified ? "Verified score" : busy ? "Verifying..." : "Real-detector check unavailable";
   const statusCaption = verified
     ? `${live.wordCount || initialRun?.word_count || 0} words`
     : busy
-      ? `${live.wordCount} words · verifying with a real detector...`
-      : `${live.wordCount} words · real-detector check unavailable, showing quick estimate`;
+      ? `${live.wordCount} words · checking with a real detector...`
+      : `${live.wordCount} words · try running the check again in a moment`;
 
   const addonsActive =
     plagiarism.result !== undefined ||
@@ -320,44 +367,77 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
   return (
     <>
     <div className="space-y-4">
-      <div className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-line bg-raised px-5 py-4 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-4">
-          <ScoreGauge score={scoreForDisplay} verdict={verdictForDisplay} size={72} />
-          <div>
-            <p className="text-sm font-semibold">{statusLabel}</p>
-            <p className="mt-0.5 text-xs text-faint">{statusCaption}</p>
+      <div className="space-y-3 rounded-2xl border border-line bg-raised px-5 py-4">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-4">
+            {scoreForDisplay !== null && verdictForDisplay !== null ? (
+              <ScoreGauge score={scoreForDisplay} verdict={verdictForDisplay} size={72} />
+            ) : (
+              <div className="size-[72px] shrink-0 animate-pulse rounded-full bg-surface" aria-hidden />
+            )}
+            <div>
+              <p className="text-sm font-semibold">{statusLabel}</p>
+              <p className="mt-0.5 text-xs text-faint">{statusCaption}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={newCheck}
+              className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <PlusIcon size={16} weight="bold" />
+              New
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={editText}
+              className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <PencilSimpleIcon size={16} weight="bold" />
+              Edit text
+            </button>
+            {versions.length > 1 && diffFromValue && (
+              <button
+                type="button"
+                onClick={() => setDiffOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint"
+              >
+                <GitDiffIcon size={16} weight="bold" />
+                Diff
+              </button>
+            )}
+            {result?.runId && (
+              <Link
+                href={`/app/detect/editor?run=${result.runId}`}
+                className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
+              >
+                <WrenchIcon size={16} weight="bold" />
+                Fix
+              </Link>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={newCheck}
-            className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <PlusIcon size={16} weight="bold" />
-            New
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={editText}
-            className="inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-faint disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <PencilSimpleIcon size={16} weight="bold" />
-            Edit text
-          </button>
-          {result?.runId && (
-            <Link
-              href={`/app/detect/editor?run=${result.runId}`}
-              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
-            >
-              <WrenchIcon size={16} weight="bold" />
-              Fix
-            </Link>
-          )}
-        </div>
+
+        {live.metrics.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+            {live.metrics.map((m) => (
+              <span
+                key={m.id}
+                className="rounded-full bg-surface px-2.5 py-1 text-xs text-muted"
+              >
+                {m.label}: <span className="font-mono tabular-nums text-ink">{m.score}/100</span>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
+
+      {versions.length > 0 && (
+        <VersionTabs versions={versions} selectedIndex={selectedVersionIndex} onSelect={selectVersion} />
+      )}
 
       {error && <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{error}</p>}
 
@@ -425,6 +505,21 @@ export function DetectPageClient({ initialRun }: { initialRun: RunRow | null }) 
       plan={quota?.plan ?? "free"}
       limit={quota?.limit ?? 0}
     />
+    {selectedVersion && diffFromValue && (
+      <VersionDiffModal
+        open={diffOpen}
+        onClose={() => setDiffOpen(false)}
+        to={{
+          label: `Report ${selectedVersionIndex + 1}`,
+          text: selectedVersion.input_text,
+          score: selectedVersion.score,
+          createdAt: selectedVersion.created_at,
+        }}
+        fromOptions={diffFromOptions}
+        fromValue={diffFromValue}
+        onFromChange={setDiffFromValue}
+      />
+    )}
     </>
   );
 }

@@ -18,11 +18,8 @@ export function getStripe(): Stripe {
 
 const PLAN_PRICE_IDS: Record<PaidPlan, Record<BillingInterval, string | undefined>> = {
   lite: { month: process.env.STRIPE_PRICE_LITE_MONTHLY, year: process.env.STRIPE_PRICE_LITE_ANNUAL },
+  plus: { month: process.env.STRIPE_PRICE_PLUS_MONTHLY, year: process.env.STRIPE_PRICE_PLUS_ANNUAL },
   pro: { month: process.env.STRIPE_PRICE_PRO_MONTHLY, year: process.env.STRIPE_PRICE_PRO_ANNUAL },
-  studio: {
-    month: process.env.STRIPE_PRICE_STUDIO_MONTHLY,
-    year: process.env.STRIPE_PRICE_STUDIO_ANNUAL,
-  },
 };
 
 export function priceIdForPlan(plan: PaidPlan, interval: BillingInterval): string {

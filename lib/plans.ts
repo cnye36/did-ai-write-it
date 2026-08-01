@@ -12,7 +12,7 @@ export interface PlanInfo {
   features: string[];
 }
 
-export const PLAN_ORDER: Plan[] = ["free", "lite", "pro", "studio"];
+export const PLAN_ORDER: Plan[] = ["free", "lite", "plus", "pro"];
 
 /** Annual billing is half the monthly list price. */
 export const ANNUAL_DISCOUNT_PERCENT = 50;
@@ -52,24 +52,24 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
       "Full sentence-by-sentence report",
     ],
   },
-  pro: {
-    plan: "pro",
-    name: "Pro",
+  plus: {
+    plan: "plus",
+    name: "Plus",
     priceMonthly: 24,
     priceAnnualMonthly: 12,
     features: [
-      `${PLAN_LIMITS.pro.toLocaleString()} credits / month`,
+      `${PLAN_LIMITS.plus.toLocaleString()} credits / month`,
       "AI detection, plagiarism & fact checks",
       "Priority processing",
     ],
   },
-  studio: {
-    plan: "studio",
-    name: "Studio",
+  pro: {
+    plan: "pro",
+    name: "Pro",
     priceMonthly: 49,
     priceAnnualMonthly: 24,
     features: [
-      `${PLAN_LIMITS.studio.toLocaleString()} credits / month`,
+      `${PLAN_LIMITS.pro.toLocaleString()} credits / month`,
       "AI detection, plagiarism & fact checks",
       "Priority processing",
     ],

@@ -1,12 +1,13 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { QuotaExceededError } from "./api-errors";
 
-export type Plan = "free" | "lite" | "pro" | "studio";
+export type Plan = "free" | "lite" | "plus" | "pro";
 
 export const PLAN_LIMITS: Record<Plan, number> = {
   free: 2_000,
   lite: 40_000,
-  pro: 150_000,
-  studio: 500_000,
+  plus: 150_000,
+  pro: 500_000,
 };
 
 export function remainingWords(plan: Plan, wordsUsed: number): number {
@@ -58,6 +59,38 @@ export function assertWithinQuota(
   if (requestedWords > remaining) {
     throw new QuotaExceededError(plan, PLAN_LIMITS[plan]);
   }
+}
+
+/**
+ * The only way to spend quota. Wraps the increment_usage RPC, which enforces
+ * the plan limit atomically under its own row lock (p_limit null for the
+ * dev-bypass account). This is the authoritative check: assertWithinQuota is
+ * still called earlier in each route as a fast pre-check, but only this call
+ * closes the check-then-increment race a pure pre-check can't, since two
+ * concurrent requests can both pass a pre-check against the same stale
+ * words_used before either has actually written back. Throws
+ * QuotaExceededError if the limit would be exceeded (nothing gets charged in
+ * that case); returns the new words_used total otherwise.
+ */
+export async function incrementUsage(
+  supabase: SupabaseClient,
+  userId: string,
+  words: number,
+  plan: Plan,
+  bypass: boolean
+): Promise<number> {
+  const { data } = (await supabase
+    .rpc("increment_usage", {
+      p_user_id: userId,
+      p_words: words,
+      p_limit: bypass ? null : PLAN_LIMITS[plan],
+    })
+    .single()) as { data: { words_used: number; plan: string; ok: boolean } | null };
+
+  if (data && !data.ok) {
+    throw new QuotaExceededError(plan, PLAN_LIMITS[plan]);
+  }
+  return data?.words_used ?? words;
 }
 
 /** Parse a "YYYY-MM-DD" (or ISO) date as UTC midnight. */

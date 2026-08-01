@@ -57,7 +57,7 @@ export interface ResolvedSentence {
 }
 
 /** Collapse whitespace so re-wrapping alone doesn't count as an edit. */
-function normalize(s: string): string {
+export function normalize(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
@@ -65,6 +65,16 @@ function normalize(s: string): string {
  * Per-sentence scores for the current draft, preferring Winston's real score
  * for any sentence still present unchanged from the last scan and falling back
  * to the heuristic for edited or newly typed text.
+ *
+ * Winston's own sentence split is coarser than ours: it frequently merges
+ * several of our sentences into one scored chunk (short fragments with a
+ * neighbor, sometimes across a paragraph break), so a byte-for-byte match
+ * against a single Winston sentence fails constantly even when nothing was
+ * edited. Matching by containment (is this sentence a substring of some
+ * Winston chunk?), scanning forward through the chunks in document order,
+ * fixes that without needing to replicate Winston's undocumented merging
+ * rules: it still requires literal, un-reworded text, so an actual edit still
+ * correctly falls back to "estimated".
  */
 export function resolveSentenceScores(
   draft: string,
@@ -72,17 +82,33 @@ export function resolveSentenceScores(
 ): ResolvedSentence[] {
   const live = analyzeText(draft);
 
-  const verified = new Map<string, number>();
-  for (const s of winstonSentences ?? []) {
-    const key = normalize(s.text);
-    if (key) verified.set(key, s.score);
-  }
+  const chunks = (winstonSentences ?? [])
+    .map((s) => ({ text: normalize(s.text), score: s.score }))
+    .filter((c) => c.text.length > 0);
+
+  let cursor = 0;
 
   return live.sentences.map((s) => {
-    const match = verified.get(normalize(s.text));
-    if (match === undefined) {
+    const key = normalize(s.text);
+
+    // Search forward from the last matched chunk (never backward, so a
+    // short phrase that recurs later in the document can't steal an
+    // earlier sentence's match) without consuming chunks that turn out
+    // unmatched, since one chunk can cover several of our sentences in a row.
+    let matchIndex = -1;
+    for (let i = cursor; i < chunks.length; i++) {
+      if (chunks[i].text.includes(key)) {
+        matchIndex = i;
+        break;
+      }
+    }
+
+    if (matchIndex === -1) {
       return { ...s, source: "estimated" as const };
     }
+    cursor = matchIndex;
+    const match = chunks[matchIndex].score;
+
     return {
       text: s.text,
       start: s.start,

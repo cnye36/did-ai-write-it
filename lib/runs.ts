@@ -62,11 +62,28 @@ export const RUN_KIND_HREF: Record<RunKind, string> = {
   humanize: "/app/humanize",
 };
 
+/** Absolute date/time for a report, e.g. "Jul 31, 2:14 PM" — used wherever a
+ *  relative "3h ago" isn't precise enough (version tabs, the diff modal). */
+export function formatRunDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 /** First ~72 chars of the input, collapsed to one line, for the sidebar. */
 export function titleFromText(text: string, max = 72): string {
   const oneLine = text.replace(/\s+/g, " ").trim();
   if (oneLine.length <= max) return oneLine || "Untitled report";
   return `${oneLine.slice(0, max - 1).trimEnd()}…`;
+}
+
+/** `runs.score` / `run_versions.score` are integers; Winston often returns
+ *  fractions (e.g. 97.42). Round at the write boundary so every caller is safe. */
+function scoreToInt(score: number | null): number | null {
+  return score == null ? null : Math.round(score);
 }
 
 export async function insertRun(
@@ -88,7 +105,7 @@ export async function insertRun(
       title: titleFromText(opts.inputText),
       input_text: opts.inputText,
       word_count: opts.wordCount,
-      score: opts.score,
+      score: scoreToInt(opts.score),
       result: opts.result,
     })
     .select("id")
@@ -121,7 +138,7 @@ export async function insertRunVersion(
     run_id: runId,
     input_text: inputText,
     word_count: wordCount,
-    score,
+    score: scoreToInt(score),
     result,
     doc,
   });
@@ -143,7 +160,7 @@ export async function appendRunVersion(
     .update({
       input_text: inputText,
       word_count: wordCount,
-      score,
+      score: scoreToInt(score),
       result,
       doc,
       updated_at: new Date().toISOString(),

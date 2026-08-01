@@ -19,9 +19,15 @@ function truncateToWords(text: string, maxWords: number): string {
   return words.slice(0, maxWords).join(" ");
 }
 
+/** The LAST entry in X-Forwarded-For is the one the edge itself appended (the
+ *  real client IP); every earlier entry is client-suppliable and trivially
+ *  spoofed to defeat the per-IP daily limit below. */
 function getClientIp(req: NextRequest): string {
   const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
+  if (forwarded) {
+    const parts = forwarded.split(",");
+    return parts[parts.length - 1].trim();
+  }
   return req.headers.get("x-real-ip") ?? "unknown";
 }
 

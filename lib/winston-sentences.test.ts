@@ -60,6 +60,32 @@ describe("resolveSentenceScores", () => {
     expect(resolved.every((s) => s.source === "estimated")).toBe(true);
   });
 
+  it("matches several of our sentences against one coarser Winston chunk", () => {
+    // Real Winston responses merge short/adjacent sentences into one scored
+    // unit instead of splitting the same way lib/detector.ts does.
+    const text = "The business is fine. It is also broke. My friend runs a shop.";
+    const merged = [{ text, score: 20 }];
+    const resolved = resolveSentenceScores(text, merged);
+    expect(resolved).toHaveLength(3);
+    expect(resolved.every((s) => s.source === "verified")).toBe(true);
+    expect(resolved.every((s) => s.score === 20)).toBe(true);
+  });
+
+  it("keeps matching later untouched sentences after a merged chunk was edited", () => {
+    const original = "Short one. Short two. This sentence stands alone and is untouched.";
+    const merged = [
+      { text: "Short one. Short two.", score: 20 },
+      { text: "This sentence stands alone and is untouched.", score: 80 },
+    ];
+    const edited = original.replace("Short one. Short two.", "A completely different sentence now.");
+    const resolved = resolveSentenceScores(edited, merged);
+
+    const last = resolved[resolved.length - 1];
+    expect(last.text).toBe("This sentence stands alone and is untouched.");
+    expect(last.source).toBe("verified");
+    expect(last.score).toBe(80);
+  });
+
   it("carries the verdict implied by the anchored score, not the heuristic's", () => {
     // 12/100 is "ai" even though this short, plain sentence trips no pattern
     // rule of ours: the whole point of anchoring is that Winston wins.

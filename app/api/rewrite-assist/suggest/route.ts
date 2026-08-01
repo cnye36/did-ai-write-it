@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { errorResponse } from "@/lib/api-errors";
 import { analyzeText } from "@/lib/detector";
-import { REWRITE_ASSIST_SELECTION_MAX_CHARS, suggestRewrite } from "@/lib/rewrite-assist";
+import { REWRITE_ASSIST_SELECTION_MAX_CHARS, suggestRewrites } from "@/lib/rewrite-assist";
 import { requireUser } from "@/lib/supabase/auth";
 import {
   assertWithinQuota,
+  incrementUsage,
   isDevBypass,
   PLAN_LIMITS,
   rewriteAssistQuotaWords,
@@ -60,16 +61,14 @@ export async function POST(req: NextRequest) {
     const bypass = isDevBypass(email);
     assertWithinQuota(plan, wordsUsed, quotaWords, bypass);
 
-    const suggestion = await suggestRewrite({ fullText: text, start, end });
+    const suggestions = await suggestRewrites({ fullText: text, start, end });
 
-    const { data: updated } = (await supabase
-      .rpc("increment_usage", { p_user_id: userId, p_words: quotaWords })
-      .single()) as { data: { words_used: number; plan: string } | null };
+    const updatedWordsUsed = await incrementUsage(supabase, userId, quotaWords, plan, bypass);
 
     return Response.json({
-      suggestion,
+      suggestions,
       usage: {
-        used: updated?.words_used ?? wordsUsed + quotaWords,
+        used: updatedWordsUsed,
         limit: PLAN_LIMITS[plan],
       },
     });
