@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { safeAuthNext } from "@/lib/auth-next";
 import { AuthDivider, GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import posthog from "posthog-js";
 
 const MIN_PASSWORD_LENGTH = 6;
 
@@ -62,11 +63,13 @@ export function SignupForm({ next }: { next?: string }) {
       setBusy(false);
       return;
     }
-    if (data.session) {
+    if (data.session && data.user) {
+      posthog.capture("user_signed_up", { method: "password", confirmation_required: false });
       router.push(destination);
       router.refresh();
       return;
     }
+    posthog.capture("user_signed_up", { method: "password", confirmation_required: true });
     setCheckEmail(true);
     setBusy(false);
   }

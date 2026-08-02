@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import { CaretUpDownIcon, CreditCardIcon, SignOutIcon, SunIcon, MoonIcon } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
 import type { Plan } from "@/lib/usage";
+import posthog from "posthog-js";
 
 export function UserNav({
   email,
@@ -44,6 +45,7 @@ export function UserNav({
   }, [open]);
 
   async function signOut() {
+    posthog.capture("user_signed_out");
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { safeAuthNext } from "@/lib/auth-next";
 import { AuthDivider, GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import posthog from "posthog-js";
 
 export function LoginForm() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export function LoginForm() {
       setBusy(false);
       return;
     }
+    posthog.capture("user_signed_in", { method: "password" });
     const next = safeAuthNext(new URLSearchParams(window.location.search).get("next"));
     router.push(next);
     router.refresh();

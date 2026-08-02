@@ -20,6 +20,8 @@ const CHECK_LINKS = [
 
 const FEATURE_LINKS = [{ href: "/revision-history", label: "Revision History" }];
 
+const RESOURCE_LINKS = [{ href: "/blog", label: "Blog" }];
+
 const LEGAL_LINKS = [
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
@@ -75,6 +77,18 @@ export function SiteFooter() {
           <p className="text-xs font-medium text-faint">Features</p>
           <ul className="mt-2 space-y-1.5">
             {FEATURE_LINKS.map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="text-sm text-muted transition-colors hover:text-ink">
+                  {l.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-faint">Resources</p>
+          <ul className="mt-2 space-y-1.5">
+            {RESOURCE_LINKS.map((l) => (
               <li key={l.href}>
                 <Link href={l.href} className="text-sm text-muted transition-colors hover:text-ink">
                   {l.label}

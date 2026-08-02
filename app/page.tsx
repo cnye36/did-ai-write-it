@@ -133,6 +133,12 @@ export default function Landing() {
               Fact check
             </Link>
             <Link
+              href="/blog"
+              className="hidden text-sm text-muted transition-colors hover:text-ink md:block"
+            >
+              Blog
+            </Link>
+            <Link
               href="/pricing"
               className="hidden text-sm text-muted transition-colors hover:text-ink sm:block"
             >

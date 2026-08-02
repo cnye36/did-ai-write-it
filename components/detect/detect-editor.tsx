@@ -24,6 +24,7 @@ import { VersionDiffModal, type DiffFromOption } from "@/components/detect/versi
 import { RescanResultsPanel } from "@/components/detect/rescan-results";
 import { buildRescanResults, type RescanResults } from "@/lib/rescan-results";
 import type { DetectRunResult, RunRow, RunVersion } from "@/lib/runs";
+import posthog from "posthog-js";
 
 function versionScore(v: RunVersion): number {
   return v.score ?? 0;
@@ -130,6 +131,7 @@ export function DetectEditorClient({
 
   async function requestSuggestion(start: number, end: number, source: Suggestion["source"]) {
     const spanText = draft.slice(start, end);
+    posthog.capture("rewrite_suggestion_requested", { source });
     setSuggestion({ start, end, spanText, source, busy: true, error: null, texts: null, selectedIndex: 0 });
     try {
       const res = await fetch("/api/rewrite-assist/suggest", {
@@ -181,6 +183,7 @@ export function DetectEditorClient({
       targetEnd = found + spanText.length;
     }
     editorRef.current?.replaceTextRange(targetStart, targetEnd, text, { origin: "ai" });
+    posthog.capture("rewrite_suggestion_applied", { source: suggestion.source });
     setSuggestion(null);
     setSelection(null);
   }
@@ -190,6 +193,7 @@ export function DetectEditorClient({
   }
 
   async function rewriteAll() {
+    posthog.capture("rewrite_all_requested");
     setRewriteAllBusy(true);
     setRewriteAllError(null);
     try {
@@ -215,6 +219,7 @@ export function DetectEditorClient({
   }
 
   async function scanAgain() {
+    posthog.capture("detection_rescan_requested");
     setRescanBusy(true);
     setRescanError(null);
     setRescanResults(null);

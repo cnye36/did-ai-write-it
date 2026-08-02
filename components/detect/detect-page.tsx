@@ -25,6 +25,7 @@ import { UploadTextButton } from "@/components/editor/upload-text-button";
 import type { WinstonSentence } from "@/components/detect/winston-sentence-list";
 import { VersionTabs } from "@/components/detect/version-tabs";
 import { VersionDiffModal, type DiffFromOption } from "@/components/detect/version-diff-modal";
+import posthog from "posthog-js";
 
 interface DetectResponse {
   winston: { score: number; sentences: WinstonSentence[] } | null;
@@ -135,6 +136,11 @@ export function DetectPageClient({
   const factCheckIneligibleReason = `Needs ${FACT_CHECK_MIN_CHARS.toLocaleString()}-${FACT_CHECK_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
 
   async function runDetect() {
+    posthog.capture("ai_detection_requested", {
+      check_source: "primary",
+      includes_plagiarism_check: wantPlagiarism && plagiarismEligible,
+      includes_fact_check: wantFactCheck && factCheckEligible,
+    });
     setBusy(true);
     setError(null);
     setResult(null);
@@ -164,6 +170,7 @@ export function DetectPageClient({
   }
 
   async function runPlagiarism() {
+    posthog.capture("plagiarism_check_requested", { check_source: "ai_detection_addon" });
     setPlagiarism((s) => ({ ...s, busy: true, error: null }));
     try {
       const res = await fetch("/api/plagiarism", {
@@ -190,6 +197,7 @@ export function DetectPageClient({
   }
 
   async function runFactCheck() {
+    posthog.capture("fact_check_requested", { check_source: "ai_detection_addon" });
     setFactCheck((s) => ({ ...s, busy: true, error: null }));
     try {
       const res = await fetch("/api/fact-check", {

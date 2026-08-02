@@ -13,6 +13,7 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { ScoreGauge } from "@/components/detect/score-gauge";
 import { WinstonSentenceList, type WinstonSentence } from "@/components/detect/winston-sentence-list";
+import posthog from "posthog-js";
 
 const FREE_WORD_LIMIT = 300;
 
@@ -68,6 +69,7 @@ export function PublicToolForm({ kind }: { kind: CheckKind }) {
       : chars >= minChars && chars <= maxChars;
 
   function continueToSignup() {
+    posthog.capture("public_check_started", { check_kind: kind, destination: "signup" });
     saveCheckHandoff({ text, kind });
     window.location.assign(signupHref(copy.route));
   }
@@ -88,6 +90,7 @@ export function PublicToolForm({ kind }: { kind: CheckKind }) {
       return;
     }
 
+    posthog.capture("public_check_started", { check_kind: kind, destination: "preview" });
     setBusy(true);
     setPreview(null);
     setModalOpen(true);

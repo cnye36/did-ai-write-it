@@ -22,6 +22,7 @@ import { QuotaExceededModal } from "@/components/ui/quota-exceeded-modal";
 import { DetectAddonCard, FactCheckAddonCard, type AddonState, type DetectAddonResult } from "@/components/detect/check-addons";
 import { UploadTextButton } from "@/components/editor/upload-text-button";
 import { useHandoffInput } from "@/lib/handoff";
+import posthog from "posthog-js";
 
 interface PlagiarismResponse {
   plagiarism: PlagiarismResult | null;
@@ -82,6 +83,7 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
   const factCheckIneligibleReason = `Needs ${FACT_CHECK_MIN_CHARS.toLocaleString()}-${FACT_CHECK_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
 
   async function runDetectAddon() {
+    posthog.capture("ai_detection_requested", { check_source: "plagiarism_addon" });
     setDetectAddon((s) => ({ ...s, busy: true, error: null }));
     try {
       const res = await fetch("/api/detect", {
@@ -108,6 +110,7 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
   }
 
   async function runFactCheck() {
+    posthog.capture("fact_check_requested", { check_source: "plagiarism_addon" });
     setFactCheck((s) => ({ ...s, busy: true, error: null }));
     try {
       const res = await fetch("/api/fact-check", {
@@ -134,6 +137,11 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
   }
 
   async function check() {
+    posthog.capture("plagiarism_check_requested", {
+      check_source: "primary",
+      includes_ai_detection: wantDetect && detectEligible,
+      includes_fact_check: wantFactCheck && factCheckEligible,
+    });
     setBusy(true);
     setError(null);
     setResult(null);

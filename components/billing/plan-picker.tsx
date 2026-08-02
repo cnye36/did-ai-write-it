@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PLAN_INFO, PLAN_ORDER, formatPlanPrice, priceForInterval, type BillingInterval } from "@/lib/plans";
 import type { Plan } from "@/lib/usage";
 import { IntervalToggle } from "./interval-toggle";
+import posthog from "posthog-js";
 
 export function PlanPicker({
   currentPlan,
@@ -19,6 +20,11 @@ export function PlanPicker({
   const [error, setError] = useState<string | null>(null);
 
   async function upgrade(plan: Plan) {
+    posthog.capture("subscription_checkout_started", {
+      plan,
+      billing_interval: interval,
+      current_plan: currentPlan,
+    });
     setBusyPlan(plan);
     setError(null);
     try {

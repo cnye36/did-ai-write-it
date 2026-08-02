@@ -4,6 +4,7 @@ import { useState } from "react";
 import { GoogleLogoIcon } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
 import { safeAuthNext } from "@/lib/auth-next";
+import posthog from "posthog-js";
 
 export function GoogleSignInButton({
   next,
@@ -16,6 +17,7 @@ export function GoogleSignInButton({
   const [error, setError] = useState<string | null>(null);
 
   async function onClick() {
+    posthog.capture("google_sign_in_started");
     setBusy(true);
     setError(null);
     const destination = safeAuthNext(next ?? new URLSearchParams(window.location.search).get("next"));

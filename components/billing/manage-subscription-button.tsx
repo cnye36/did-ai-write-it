@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 
 type PortalFlow = "manage" | "cancel";
 
@@ -20,6 +21,7 @@ export function ManageSubscriptionButton({
     flow === "cancel" ? "Cancel subscription" : "Manage billing";
 
   async function openPortal() {
+    posthog.capture("billing_portal_opened", { flow });
     setBusy(true);
     setError(null);
     try {
