@@ -3,9 +3,10 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { Reveal } from "@/components/reveal";
 import { PricingComparison } from "@/components/pricing/pricing-comparison";
+import { BrandName } from "@/components/brand-name";
 
 export const metadata: Metadata = {
-  title: "Pricing | Did AI Write It",
+  title: "Pricing | Did AI Write It?",
   description:
     "Compare every Did AI Write It? plan: real, verified AI detection, monthly credit allowances, and what's shipping next.",
 };
@@ -45,9 +46,7 @@ export default function PricingPage() {
             Simple pricing for real AI detection
           </h1>
           <p className="mx-auto mt-4 max-w-[52ch] text-lg leading-relaxed text-muted">
-            A quick scan is free on the homepage, no account needed. Sign up
-            and every plan checks up to 150,000 characters at a time against a
-            real third-party detector, no per-request cap. Pick a plan for
+            A quick scan is free on the homepage, no account needed. Pick a plan for
             how many credits you need each month.
           </p>
         </Reveal>
@@ -62,7 +61,7 @@ export default function PricingPage() {
       <footer className="flex flex-col items-start justify-between gap-6 border-t border-line py-12 md:flex-row md:items-center">
         <div>
           <p className="text-sm font-semibold tracking-tight">
-            Did <span className="text-accent">AI </span> Write It?
+            <BrandName />
           </p>
           <p className="mt-1 max-w-[46ch] text-sm text-muted">
             Detect AI writing with real, verified scoring. Built for professional

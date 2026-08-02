@@ -11,11 +11,12 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Reveal } from "@/components/reveal";
 import { CtaPanel } from "@/components/cta-panel";
+import { BrandName } from "@/components/brand-name";
 import { jsonLdScriptProps } from "@/lib/seo";
 
-const TITLE = "Did AI Write It vs Copyleaks: AI Detector Comparison";
+const TITLE = "Did AI Write It? vs Copyleaks: AI Detector Comparison";
 const DESCRIPTION =
-  "Copyleaks sells seats, contracts, and LMS integrations. Did AI Write It is a flat monthly plan you can start using in the next minute. Here is the real difference.";
+  "Copyleaks sells seats, contracts, and LMS integrations. Did AI Write It? is a flat monthly plan you can start using in the next minute. Here is the real difference.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -46,11 +47,11 @@ const FAQ = [
   },
   {
     q: "Does Copyleaks have a free plan?",
-    a: "Copyleaks offers a limited free tier, generally capped to a small number of pages a month. Did AI Write It's free plan runs on words instead of pages and includes plagiarism and fact-checking in the same allowance.",
+    a: "Copyleaks offers a limited free tier, generally capped to a small number of pages a month. Did AI Write It?'s free plan runs on words instead of pages and includes plagiarism and fact-checking in the same allowance.",
   },
   {
     q: "Can I get an API to run checks programmatically?",
-    a: "Not yet on Did AI Write It. Copyleaks' API access is one of its stronger features for teams building detection into their own workflow.",
+    a: "Not yet on Did AI Write It? Copyleaks' API access is one of its stronger features for teams building detection into their own workflow.",
   },
 ];
 
@@ -81,11 +82,11 @@ export default function VsCopyleaksPage() {
         <section className="py-10 md:py-16">
           <Reveal>
             <h1 className="max-w-[18ch] text-4xl font-semibold leading-[1.05] tracking-tighter md:text-5xl">
-              Did AI Write It vs Copyleaks
+              <BrandName /> vs Copyleaks
             </h1>
             <p className="mt-5 max-w-[52ch] text-lg leading-relaxed text-muted">
               Copyleaks is built to sell into organizations: seats, contracts,
-              LMS integrations. Did AI Write It is built to work the moment
+              LMS integrations. Did AI Write It? is built to work the moment
               you paste something in.
             </p>
             <Link
@@ -115,7 +116,9 @@ export default function VsCopyleaksPage() {
               </ol>
             </Reveal>
             <Reveal delay={0.12}>
-              <p className="text-xs font-medium text-faint">Did AI Write It</p>
+              <p className="text-xs font-medium text-faint">
+                <BrandName />
+              </p>
               <ol className="mt-4 space-y-5">
                 {OUR_PATH.map((s, i) => (
                   <li key={s.label} className="flex gap-4">
@@ -161,7 +164,9 @@ export default function VsCopyleaksPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <CheckCircleIcon size={18} weight="bold" className="text-accent" />
-                  <p className="text-sm font-semibold tracking-tight">Did AI Write It</p>
+                  <p className="text-sm font-semibold tracking-tight">
+                    <BrandName />
+                  </p>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {OUR_TAGS.map((t) => (

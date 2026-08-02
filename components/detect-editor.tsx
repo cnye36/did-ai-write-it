@@ -271,7 +271,8 @@ export function DetectEditorClient({
               <ArrowLeftIcon size={14} weight="bold" />
               Back to report
             </Link>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight">{run.title}</h1>
+            <p className="mt-2 text-xs font-medium uppercase tracking-wide text-faint">Revision History</p>
+            <h1 className="text-2xl font-semibold tracking-tight">{run.title}</h1>
             <p className="mt-1 text-sm text-muted">
               Fix what got flagged, at your own pace. Scan again whenever you want a real score.
             </p>

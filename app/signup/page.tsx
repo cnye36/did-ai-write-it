@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SignupForm } from "@/components/auth/signup-form";
 import { safeAuthNext } from "@/lib/auth-next";
+import { BrandName } from "@/components/brand-name";
 
 export default async function SignupPage({
   searchParams,
@@ -15,7 +16,7 @@ export default async function SignupPage({
     <div className="flex min-h-[100dvh] flex-col">
       <header className="border-b border-line px-4 py-4 sm:px-6">
         <Link href="/" className="text-sm font-semibold tracking-tight">
-          Did <span className="text-accent">AI </span> Write It?
+          <BrandName />
         </Link>
       </header>
       <main className="flex flex-1 items-center justify-center px-4 py-12">

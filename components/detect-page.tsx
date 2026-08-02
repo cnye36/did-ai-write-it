@@ -415,7 +415,7 @@ export function DetectPageClient({
                 className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"
               >
                 <WrenchIcon size={16} weight="bold" />
-                Fix
+                Improve Score
               </Link>
             )}
           </div>

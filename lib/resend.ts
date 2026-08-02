@@ -1,10 +1,11 @@
 /**
- * Notifies ADMIN_EMAIL by email (via Resend's REST API) when a new user signs
- * up. Called from /api/admin/notify-signup, which Supabase's Database
- * Webhooks hits on every insert into public.profiles (see that route for the
- * full trigger chain). Best-effort only: a missing key or a failed send is
- * logged, never thrown, since a notification failure shouldn't surface as a
- * user-facing error anywhere (nothing else depends on this succeeding).
+ * Notifies ADMIN_EMAIL by email (via Resend's REST API) when a user finishes
+ * signup (confirmed email, or Google/OAuth). Called from
+ * /api/admin/notify-signup, which Supabase's Database Webhooks hits on every
+ * insert into public.verified_signups (see that route for the full trigger
+ * chain). Best-effort only: a missing key or a failed send is logged, never
+ * thrown, since a notification failure shouldn't surface as a user-facing
+ * error anywhere (nothing else depends on this succeeding).
  */
 const RESEND_API_URL = "https://api.resend.com/emails";
 
@@ -26,7 +27,7 @@ export async function sendSignupNotification(email: string): Promise<void> {
         from,
         to,
         subject: `New signup: ${email}`,
-        text: `${email} just created an account.`,
+        text: `${email} just verified their account.`,
       }),
     });
     if (!res.ok) {

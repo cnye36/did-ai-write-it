@@ -10,11 +10,12 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Reveal } from "@/components/reveal";
 import { CtaPanel } from "@/components/cta-panel";
+import { BrandName } from "@/components/brand-name";
 import { jsonLdScriptProps } from "@/lib/seo";
 
-const TITLE = "Did AI Write It vs Originality.ai: Free AI Detector Comparison";
+const TITLE = "Did AI Write It? vs Originality.ai: Free AI Detector Comparison";
 const DESCRIPTION =
-  "Originality.ai runs on paid credits with no free plan. Did AI Write It checks AI detection, plagiarism, and facts for free before you ever pay. Here is the real difference.";
+  "Originality.ai runs on paid credits with no free plan. Did AI Write It? checks AI detection, plagiarism, and facts for free before you ever pay. Here is the real difference.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -25,12 +26,12 @@ export const metadata: Metadata = {
 
 const FAQ = [
   {
-    q: "Does Did AI Write It have a free plan like Originality.ai doesn't?",
+    q: "Does Did AI Write It? have a free plan like Originality.ai doesn't?",
     a: "Yes. The homepage runs a free instant scan with no account, and a free signed-in plan includes 2,000 words a month across AI detection, plagiarism, and fact-checking. Originality.ai has no free plan; every scan draws from paid credits.",
   },
   {
     q: "Is Originality.ai's plagiarism checker better?",
-    a: "Both use real third-party scanning rather than a heuristic. Originality.ai's plagiarism check is billed as a separate, doubled credit cost on top of detection. Did AI Write It runs it as part of the same monthly word allowance.",
+    a: "Both use real third-party scanning rather than a heuristic. Originality.ai's plagiarism check is billed as a separate, doubled credit cost on top of detection. Did AI Write It? runs it as part of the same monthly word allowance.",
   },
   {
     q: "Can a content team use both tools?",
@@ -66,12 +67,12 @@ export default function VsOriginalityAiPage() {
           <Reveal>
             <div className="flex h-full flex-col justify-center">
               <h1 className="text-4xl font-semibold leading-[1.05] tracking-tighter md:text-5xl">
-                Did AI Write It vs Originality.ai
+                <BrandName /> vs Originality.ai
               </h1>
               <p className="mt-5 max-w-[48ch] text-lg leading-relaxed text-muted">
                 Originality.ai is built for agencies checking freelance
                 content at scale, priced in credits with no free tier. Did AI
-                Write It gives you a real, verified score for free before you
+                Write It? gives you a real, verified score for free before you
                 ever reach for a card.
               </p>
               <Link
@@ -106,7 +107,7 @@ export default function VsOriginalityAiPage() {
               </h2>
               <p className="mx-auto mt-4 max-w-[46ch] leading-relaxed text-muted">
                 Originality.ai spends its credits on tooling for content
-                operations. Did AI Write It spends its word allowance on one
+                operations. Did AI Write It? spends its word allowance on one
                 more check: whether the claims in the draft hold up.
               </p>
             </div>
@@ -135,7 +136,9 @@ export default function VsOriginalityAiPage() {
             <Reveal delay={0.12}>
               <div className="h-full rounded-2xl bg-accent-soft p-6 sm:p-8">
                 <ChatCircleTextIcon size={24} weight="bold" className="text-accent" />
-                <h3 className="mt-4 font-semibold tracking-tight">Did AI Write It includes</h3>
+                <h3 className="mt-4 font-semibold tracking-tight">
+                  <BrandName /> includes
+                </h3>
                 <ul className="mt-3 space-y-2 text-sm leading-relaxed">
                   <li className="flex gap-2">
                     <CheckCircleIcon size={16} weight="bold" className="mt-0.5 shrink-0 text-accent" />

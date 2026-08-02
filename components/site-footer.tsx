@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandName } from "@/components/brand-name";
 
 const COMPARE_LINKS = [
   { href: "/vs/gptzero", label: "vs GPTZero" },
@@ -17,6 +18,8 @@ const CHECK_LINKS = [
   { href: "/ai-detector-for-linkedin", label: "AI detector for LinkedIn" },
 ];
 
+const FEATURE_LINKS = [{ href: "/revision-history", label: "Revision History" }];
+
 const LEGAL_LINKS = [
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
@@ -27,7 +30,7 @@ export function SiteFooter() {
     <footer className="flex flex-col gap-8 border-t border-line py-12 md:flex-row md:items-start md:justify-between">
       <div>
         <p className="text-sm font-semibold tracking-tight">
-          Did <span className="text-accent">AI </span> Write It?
+          <BrandName />
         </p>
         <p className="mt-1 max-w-[46ch] text-sm text-muted">
           Real AI-detection scores for any draft. Built for professional
@@ -60,6 +63,18 @@ export function SiteFooter() {
           <p className="text-xs font-medium text-faint">Checks</p>
           <ul className="mt-2 space-y-1.5">
             {CHECK_LINKS.map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="text-sm text-muted transition-colors hover:text-ink">
+                  {l.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-faint">Features</p>
+          <ul className="mt-2 space-y-1.5">
+            {FEATURE_LINKS.map((l) => (
               <li key={l.href}>
                 <Link href={l.href} className="text-sm text-muted transition-colors hover:text-ink">
                   {l.label}

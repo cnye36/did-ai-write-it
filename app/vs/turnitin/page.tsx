@@ -7,9 +7,9 @@ import { Reveal } from "@/components/reveal";
 import { CtaPanel } from "@/components/cta-panel";
 import { jsonLdScriptProps } from "@/lib/seo";
 
-const TITLE = "Did AI Write It vs Turnitin: Can You Even Sign Up?";
+const TITLE = "Did AI Write It? vs Turnitin: Can You Even Sign Up?";
 const DESCRIPTION =
-  "Turnitin isn't sold to individuals at all, only to schools on a contract. Did AI Write It is a free plan anyone can start in the next minute. Here is the real comparison.";
+  "Turnitin isn't sold to individuals at all, only to schools on a contract. Did AI Write It? is a free plan anyone can start in the next minute. Here is the real comparison.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -25,7 +25,7 @@ const FAQ = [
   },
   {
     q: "Is Turnitin's detection more accurate than Did AI Write It?",
-    a: "There is no public way to compare the two directly. Turnitin builds its Similarity Report and AI writing detection for institutional academic-integrity workflows. Did AI Write It scores professional drafts against Winston's real detection model. They are built for different jobs.",
+    a: "There is no public way to compare the two directly. Turnitin builds its Similarity Report and AI writing detection for institutional academic-integrity workflows. Did AI Write It? scores professional drafts against Winston's real detection model. They are built for different jobs.",
   },
   {
     q: "Should a school switch from Turnitin to Did AI Write It?",
@@ -63,7 +63,7 @@ export default function VsTurnitinPage() {
               You can&apos;t sign up for Turnitin.
             </h1>
             <p className="mx-auto mt-5 max-w-[46ch] text-lg leading-relaxed text-muted">
-              It is sold to schools on a contract, not to you. Did AI Write It
+              It is sold to schools on a contract, not to you. Did AI Write It?
               is a free plan anyone can start in the next minute.
             </p>
             <Link
@@ -114,7 +114,7 @@ export default function VsTurnitinPage() {
               </h2>
               <p className="mx-auto mt-4 max-w-[46ch] leading-relaxed text-muted">
                 Turnitin exists to enforce academic integrity inside a school&apos;s
-                LMS. Did AI Write It exists to check the professional draft
+                LMS. Did AI Write It? exists to check the professional draft
                 you are about to send. Neither one is trying to replace the other.
               </p>
             </div>

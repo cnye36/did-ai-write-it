@@ -18,10 +18,10 @@ export function CookieNotice() {
   useEffect(() => {
     try {
       if (localStorage.getItem(STORAGE_KEY) !== "dismissed") {
-        setVisible(true);
+        setTimeout(() => setVisible(true), 100);
       }
     } catch {
-      setVisible(true);
+      setTimeout(() => setVisible(true), 100);
     }
   }, []);
 

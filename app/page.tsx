@@ -13,6 +13,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { HowItWorks } from "@/components/how-it-works";
 import { Reveal } from "@/components/reveal";
 import { CtaPanel } from "@/components/cta-panel";
+import { BrandName } from "@/components/brand-name";
 import { SITE_URL, jsonLdScriptProps } from "@/lib/seo";
 
 const SIGNALS = [
@@ -81,7 +82,7 @@ const FAQ = [
 const SOFTWARE_APPLICATION_JSON_LD = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "Did <span className='text-accent'>AI </span> Write It?",
+  name: "Did AI Write It?",
   url: SITE_URL,
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
@@ -151,7 +152,7 @@ export default function Landing() {
               Free instant check. No account needed.
             </span>
             <h1 className="mt-4 text-4xl font-semibold leading-[1.05] tracking-tighter md:text-6xl">
-              Did <span className="text-accent">AI </span> Write It?
+              <BrandName />
               <br />
               Paste it below to find out.
             </h1>
@@ -256,7 +257,7 @@ export default function Landing() {
                       className="group flex items-center justify-between text-sm font-medium text-ink transition-colors hover:text-accent"
                     >
                       <span>
-                        Did <span className="text-accent">AI </span> Write It? vs {l.vs}
+                        <BrandName /> vs {l.vs}
                       </span>
                       <ArrowRightIcon
                         size={16}

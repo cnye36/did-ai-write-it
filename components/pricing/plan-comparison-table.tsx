@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CheckIcon, MinusIcon } from "@phosphor-icons/react";
 import { PLAN_INFO, PLAN_ORDER } from "@/lib/plans";
 
@@ -15,6 +16,8 @@ interface ComparisonRow {
 
 interface ComparisonGroup {
   title: string;
+  /** Links the group title to a marketing page with more detail, e.g. Revision History. */
+  href?: string;
   rows: ComparisonRow[];
 }
 
@@ -31,6 +34,19 @@ const GROUPS: ComparisonGroup[] = [
         values: [false, false, false, true],
         comingSoon: true,
       },
+    ],
+  },
+  {
+    title: "Revision History",
+    href: "/revision-history",
+    rows: [
+      {
+        label: "AI-suggested rewrites for flagged sentences",
+        values: [true, true, true, true],
+        note: "2 credits/word",
+      },
+      { label: "Rescan for a new verified score, as many times as you want", values: [true, true, true, true] },
+      { label: "Full version history with side-by-side diffs", values: [true, true, true, true] },
     ],
   },
   {
@@ -95,7 +111,13 @@ export function PlanComparisonTable() {
           <tbody key={group.title}>
             <tr>
               <td colSpan={5} className="pb-2 pt-6 text-sm font-semibold tracking-tight">
-                {group.title}
+                {group.href ? (
+                  <Link href={group.href} className="hover:text-accent">
+                    {group.title}
+                  </Link>
+                ) : (
+                  group.title
+                )}
               </td>
             </tr>
             {group.rows.map((row) => (

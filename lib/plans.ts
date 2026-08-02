@@ -39,6 +39,7 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
       `${PLAN_LIMITS.free.toLocaleString()} credits / month`,
       "AI detection, plagiarism & fact checks",
       "Full sentence-by-sentence report",
+      "Revision History: fix, rescan, diff",
     ],
   },
   lite: {
@@ -50,6 +51,7 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
       `${PLAN_LIMITS.lite.toLocaleString()} credits / month`,
       "AI detection, plagiarism & fact checks",
       "Full sentence-by-sentence report",
+      "Revision History: fix, rescan, diff",
     ],
   },
   plus: {
@@ -60,6 +62,7 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     features: [
       `${PLAN_LIMITS.plus.toLocaleString()} credits / month`,
       "AI detection, plagiarism & fact checks",
+      "Revision History: fix, rescan, diff",
       "Priority processing",
     ],
   },
@@ -71,6 +74,7 @@ export const PLAN_INFO: Record<Plan, PlanInfo> = {
     features: [
       `${PLAN_LIMITS.pro.toLocaleString()} credits / month`,
       "AI detection, plagiarism & fact checks",
+      "Revision History: fix, rescan, diff",
       "Priority processing",
     ],
   },

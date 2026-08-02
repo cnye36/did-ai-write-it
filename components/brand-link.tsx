@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { BrandName } from "@/components/brand-name";
 
 export function BrandLink({
   href = "/",
@@ -25,7 +26,7 @@ export function BrandLink({
         className="size-8 shrink-0 rounded-full"
       />
       <span>
-        Did <span className="text-accent">AI </span> Write It?
+        <BrandName />
       </span>
     </Link>
   );
