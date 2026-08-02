@@ -14,14 +14,14 @@ import {
 import { analyzeText, verdictFor } from "@/lib/detector";
 import { normalize, resolveSentenceScores, verifiedCoverage } from "@/lib/winston-sentences";
 import { emptyProvenance, recordProvenance, type ProvenanceMap } from "@/lib/provenance";
-import { ScoreGauge } from "@/components/score-gauge";
-import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
-import { ConfirmRewriteAllModal } from "@/components/confirm-rewrite-all-modal";
-import { RichEditor, type RichEditorHandle } from "@/components/rich-editor";
-import { WinstonHighlightedText } from "@/components/winston-highlighted-text";
-import { VersionTabs } from "@/components/version-tabs";
-import { VersionDiffModal, type DiffFromOption } from "@/components/version-diff-modal";
-import { RescanResultsPanel } from "@/components/rescan-results";
+import { ScoreGauge } from "@/components/detect/score-gauge";
+import { QuotaExceededModal } from "@/components/ui/quota-exceeded-modal";
+import { ConfirmRewriteAllModal } from "@/components/detect/confirm-rewrite-all-modal";
+import { RichEditor, type RichEditorHandle } from "@/components/editor/rich-editor";
+import { WinstonHighlightedText } from "@/components/detect/winston-highlighted-text";
+import { VersionTabs } from "@/components/detect/version-tabs";
+import { VersionDiffModal, type DiffFromOption } from "@/components/detect/version-diff-modal";
+import { RescanResultsPanel } from "@/components/detect/rescan-results";
 import { buildRescanResults, type RescanResults } from "@/lib/rescan-results";
 import type { DetectRunResult, RunRow, RunVersion } from "@/lib/runs";
 

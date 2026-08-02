@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BrandName } from "@/components/brand-name";
+import { BrandName } from "@/components/marketing/brand-name";
 
 const COMPARE_LINKS = [
   { href: "/vs/gptzero", label: "vs GPTZero" },

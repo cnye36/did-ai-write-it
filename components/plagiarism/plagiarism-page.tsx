@@ -15,12 +15,12 @@ import {
 } from "@/lib/winston";
 import { plagiarismVerdict } from "@/lib/score-verdicts";
 import type { PlagiarismRunResult, RunRow } from "@/lib/runs";
-import { Gauge } from "@/components/gauge";
-import { PlagiarismHighlightedText } from "@/components/plagiarism-highlighted-text";
-import { PlagiarismSources } from "@/components/plagiarism-sources";
-import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
-import { DetectAddonCard, FactCheckAddonCard, type AddonState, type DetectAddonResult } from "@/components/check-addons";
-import { UploadTextButton } from "@/components/upload-text-button";
+import { Gauge } from "@/components/ui/gauge";
+import { PlagiarismHighlightedText } from "@/components/plagiarism/plagiarism-highlighted-text";
+import { PlagiarismSources } from "@/components/plagiarism/plagiarism-sources";
+import { QuotaExceededModal } from "@/components/ui/quota-exceeded-modal";
+import { DetectAddonCard, FactCheckAddonCard, type AddonState, type DetectAddonResult } from "@/components/detect/check-addons";
+import { UploadTextButton } from "@/components/editor/upload-text-button";
 import { useHandoffInput } from "@/lib/handoff";
 
 interface PlagiarismResponse {

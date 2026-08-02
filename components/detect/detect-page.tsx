@@ -15,16 +15,16 @@ import {
   type PlagiarismResult,
   type FactCheckResult,
 } from "@/lib/winston";
-import { ScoreGauge } from "@/components/score-gauge";
-import { DetectionReportBody } from "@/components/detection-report";
-import { WinstonHighlightedText } from "@/components/winston-highlighted-text";
-import { DetectionSignals } from "@/components/detection-signals";
-import { PlagiarismAddonCard, FactCheckAddonCard, type AddonState } from "@/components/check-addons";
-import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
-import { UploadTextButton } from "@/components/upload-text-button";
-import type { WinstonSentence } from "@/components/winston-sentence-list";
-import { VersionTabs } from "@/components/version-tabs";
-import { VersionDiffModal, type DiffFromOption } from "@/components/version-diff-modal";
+import { ScoreGauge } from "@/components/detect/score-gauge";
+import { DetectionReportBody } from "@/components/detect/detection-report";
+import { WinstonHighlightedText } from "@/components/detect/winston-highlighted-text";
+import { DetectionSignals } from "@/components/detect/detection-signals";
+import { PlagiarismAddonCard, FactCheckAddonCard, type AddonState } from "@/components/detect/check-addons";
+import { QuotaExceededModal } from "@/components/ui/quota-exceeded-modal";
+import { UploadTextButton } from "@/components/editor/upload-text-button";
+import type { WinstonSentence } from "@/components/detect/winston-sentence-list";
+import { VersionTabs } from "@/components/detect/version-tabs";
+import { VersionDiffModal, type DiffFromOption } from "@/components/detect/version-diff-modal";
 
 interface DetectResponse {
   winston: { score: number; sentences: WinstonSentence[] } | null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo } from "react";
-import { Modal } from "@/components/modal";
+import { Modal } from "@/components/ui/modal";
 import { diffText, type DiffEntry } from "@/lib/diff";
 import { formatRunDateTime } from "@/lib/runs";
 

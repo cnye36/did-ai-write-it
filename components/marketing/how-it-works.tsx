@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useReducedMotion } from "motion/react";
 import { CursorClickIcon } from "@phosphor-icons/react";
-import { ScoreGauge } from "./score-gauge";
-import { Reveal } from "./reveal";
+import { ScoreGauge } from "@/components/detect/score-gauge";
+import { Reveal } from "@/components/ui/reveal";
 import type { Verdict } from "@/lib/detector";
 
 const STEPS = [

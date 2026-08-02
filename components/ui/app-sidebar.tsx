@@ -19,7 +19,7 @@ import {
   type RunKind,
   type RunListItem,
 } from "@/lib/runs";
-import { BrandLink } from "@/components/brand-link";
+import { BrandLink } from "@/components/marketing/brand-link";
 import { UserNav } from "@/components/auth/user-nav";
 import type { Plan } from "@/lib/usage";
 import { verdictFor } from "@/lib/detector";

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { BrandName } from "@/components/brand-name";
+import { BrandName } from "@/components/marketing/brand-name";
 
 export function BrandLink({
   href = "/",

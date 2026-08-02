@@ -1,6 +1,6 @@
 "use client";
 
-import { Modal } from "@/components/modal";
+import { Modal } from "@/components/ui/modal";
 import { PlanPicker } from "@/components/billing/plan-picker";
 import type { BillingInterval } from "@/lib/plans";
 import type { Plan } from "@/lib/usage";

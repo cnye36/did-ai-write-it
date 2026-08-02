@@ -10,9 +10,9 @@ import {
   PLAGIARISM_MAX_CHARS,
   PLAGIARISM_MIN_CHARS,
 } from "@/lib/winston";
-import { Modal } from "@/components/modal";
-import { ScoreGauge } from "@/components/score-gauge";
-import { WinstonSentenceList, type WinstonSentence } from "@/components/winston-sentence-list";
+import { Modal } from "@/components/ui/modal";
+import { ScoreGauge } from "@/components/detect/score-gauge";
+import { WinstonSentenceList, type WinstonSentence } from "@/components/detect/winston-sentence-list";
 
 const FREE_WORD_LIMIT = 300;
 

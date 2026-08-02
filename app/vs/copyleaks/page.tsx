@@ -7,11 +7,11 @@ import {
   GlobeIcon,
   BuildingsIcon,
 } from "@phosphor-icons/react/dist/ssr";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { Reveal } from "@/components/reveal";
-import { CtaPanel } from "@/components/cta-panel";
-import { BrandName } from "@/components/brand-name";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { SiteFooter } from "@/components/marketing/site-footer";
+import { Reveal } from "@/components/ui/reveal";
+import { CtaPanel } from "@/components/marketing/cta-panel";
+import { BrandName } from "@/components/marketing/brand-name";
 import { jsonLdScriptProps } from "@/lib/seo";
 
 const TITLE = "Did AI Write It? vs Copyleaks: AI Detector Comparison";

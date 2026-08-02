@@ -1,8 +1,8 @@
 "use client";
 
 import { reasonsForRange, verdictFor, type DetectorResult, type Verdict } from "@/lib/detector";
-import { locateWinstonSentences } from "@/components/winston-highlighted-text";
-import type { WinstonSentence } from "@/components/winston-sentence-list";
+import { locateWinstonSentences } from "@/components/detect/winston-highlighted-text";
+import type { WinstonSentence } from "@/components/detect/winston-sentence-list";
 
 const VERDICT_CLASSES: Record<Verdict, string> = {
   human: "bg-good-soft text-good",

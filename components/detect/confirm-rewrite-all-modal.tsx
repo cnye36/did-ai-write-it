@@ -1,7 +1,7 @@
 "use client";
 
 import { SparkleIcon } from "@phosphor-icons/react";
-import { Modal } from "@/components/modal";
+import { Modal } from "@/components/ui/modal";
 
 export function ConfirmRewriteAllModal({
   open,

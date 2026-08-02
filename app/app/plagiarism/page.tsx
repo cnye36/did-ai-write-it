@@ -1,4 +1,4 @@
-import { PlagiarismPageClient } from "@/components/plagiarism-page";
+import { PlagiarismPageClient } from "@/components/plagiarism/plagiarism-page";
 import { loadOwnedRun } from "@/lib/load-run";
 
 export default async function PlagiarismPage({

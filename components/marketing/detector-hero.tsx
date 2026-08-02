@@ -9,9 +9,9 @@ import {
 } from "@phosphor-icons/react";
 import { analyzeText, verdictFor } from "@/lib/detector";
 import { saveCheckHandoff } from "@/lib/handoff";
-import { ScoreGauge } from "./score-gauge";
-import { WinstonSentenceList, type WinstonSentence } from "./winston-sentence-list";
-import { Modal } from "./modal";
+import { ScoreGauge } from "@/components/detect/score-gauge";
+import { WinstonSentenceList, type WinstonSentence } from "@/components/detect/winston-sentence-list";
+import { Modal } from "@/components/ui/modal";
 
 type SampleId = "ai" | "mixed" | "human";
 

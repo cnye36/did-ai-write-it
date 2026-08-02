@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { DetectEditorClient } from "@/components/detect-editor";
+import { DetectEditorClient } from "@/components/detect/detect-editor";
 import { loadOwnedRun, loadRunVersions } from "@/lib/load-run";
 
 export default async function DetectEditorPage({

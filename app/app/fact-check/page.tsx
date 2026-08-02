@@ -1,4 +1,4 @@
-import { FactCheckPageClient } from "@/components/fact-check-page";
+import { FactCheckPageClient } from "@/components/fact-check/fact-check-page";
 import { loadOwnedRun } from "@/lib/load-run";
 
 export default async function FactCheckPage({

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ToolMarketingPage } from "@/components/tool-marketing-page";
+import { ToolMarketingPage } from "@/components/marketing/tool-marketing-page";
 
 const title = "Fact Checker: Verify Claims in Your Draft";
 const description =

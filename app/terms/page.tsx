@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LegalDoc, type LegalSection } from "@/components/legal-doc";
+import { LegalDoc, type LegalSection } from "@/components/marketing/legal-doc";
 import {
   LEGAL_EFFECTIVE_DATE,
   SITE_NAME,

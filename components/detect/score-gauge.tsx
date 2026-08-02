@@ -1,7 +1,7 @@
 "use client";
 
 import type { Verdict } from "@/lib/detector";
-import { Gauge } from "@/components/gauge";
+import { Gauge } from "@/components/ui/gauge";
 
 const VERDICT_COLOR: Record<Verdict, string> = {
   human: "var(--good)",

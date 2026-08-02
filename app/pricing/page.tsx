@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
-import { Reveal } from "@/components/reveal";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { Reveal } from "@/components/ui/reveal";
 import { PricingComparison } from "@/components/pricing/pricing-comparison";
-import { BrandName } from "@/components/brand-name";
+import { BrandName } from "@/components/marketing/brand-name";
 
 export const metadata: Metadata = {
   title: "Pricing | Did AI Write It?",

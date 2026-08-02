@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { BrandLink } from "@/components/brand-link";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLink } from "@/components/marketing/brand-link";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 
 export async function SiteHeader({ navLinks }: { navLinks: React.ReactNode }) {

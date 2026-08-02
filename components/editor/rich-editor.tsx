@@ -10,7 +10,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { docToPlainText, pmRangeToTextRange, textRangeToPmRange } from "@/lib/editor-text";
 import { normalize, resolveSentenceScores, type WinstonSentenceScore } from "@/lib/winston-sentences";
 import type { ProvenanceMap, ProvenanceSource } from "@/lib/provenance";
-import { EditorRibbon } from "@/components/editor-ribbon";
+import { EditorRibbon } from "@/components/editor/editor-ribbon";
 
 /*
   Score highlighting is a ProseMirror DECORATION, not markup in the document.

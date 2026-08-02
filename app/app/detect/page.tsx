@@ -1,4 +1,4 @@
-import { DetectPageClient } from "@/components/detect-page";
+import { DetectPageClient } from "@/components/detect/detect-page";
 import { loadOwnedRun, loadRunVersions } from "@/lib/load-run";
 
 export default async function DetectPage({

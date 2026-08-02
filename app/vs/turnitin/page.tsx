@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircleIcon, ProhibitIcon } from "@phosphor-icons/react/dist/ssr";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { Reveal } from "@/components/reveal";
-import { CtaPanel } from "@/components/cta-panel";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { SiteFooter } from "@/components/marketing/site-footer";
+import { Reveal } from "@/components/ui/reveal";
+import { CtaPanel } from "@/components/marketing/cta-panel";
 import { jsonLdScriptProps } from "@/lib/seo";
 
 const TITLE = "Did AI Write It? vs Turnitin: Can You Even Sign Up?";

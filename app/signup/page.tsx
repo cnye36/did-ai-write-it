@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SignupForm } from "@/components/auth/signup-form";
 import { safeAuthNext } from "@/lib/auth-next";
-import { BrandName } from "@/components/brand-name";
+import { BrandName } from "@/components/marketing/brand-name";
 
 export default async function SignupPage({
   searchParams,

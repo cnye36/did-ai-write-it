@@ -7,10 +7,10 @@ import {
   SparkleIcon,
   ArrowClockwiseIcon,
 } from "@phosphor-icons/react/dist/ssr";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { Reveal } from "@/components/reveal";
-import { CtaPanel } from "@/components/cta-panel";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { SiteFooter } from "@/components/marketing/site-footer";
+import { Reveal } from "@/components/ui/reveal";
+import { CtaPanel } from "@/components/marketing/cta-panel";
 import { jsonLdScriptProps } from "@/lib/seo";
 
 const title = "Revision History: Fix, Rescan & Diff Your Reports";

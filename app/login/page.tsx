@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LoginForm } from "@/components/auth/login-form";
 import { safeAuthNext } from "@/lib/auth-next";
-import { BrandName } from "@/components/brand-name";
+import { BrandName } from "@/components/marketing/brand-name";
 
 export default async function LoginPage({
   searchParams,

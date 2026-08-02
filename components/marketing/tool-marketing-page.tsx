@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { CheckCircleIcon, TextAlignLeftIcon, MagnifyingGlassIcon } from "@phosphor-icons/react/dist/ssr";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { PublicToolForm } from "@/components/public-tool-form";
-import { Reveal } from "@/components/reveal";
-import { CtaPanel } from "@/components/cta-panel";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { SiteFooter } from "@/components/marketing/site-footer";
+import { PublicToolForm } from "@/components/marketing/public-tool-form";
+import { Reveal } from "@/components/ui/reveal";
+import { CtaPanel } from "@/components/marketing/cta-panel";
 import type { CheckKind } from "@/lib/handoff";
 import { jsonLdScriptProps } from "@/lib/seo";
 

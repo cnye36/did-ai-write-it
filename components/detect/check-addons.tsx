@@ -7,13 +7,13 @@ import {
   SparkleIcon,
   CaretRightIcon,
 } from "@phosphor-icons/react";
-import { Gauge } from "@/components/gauge";
-import { PlagiarismSources } from "@/components/plagiarism-sources";
-import { FactCheckClaims } from "@/components/fact-check-claims";
+import { Gauge } from "@/components/ui/gauge";
+import { PlagiarismSources } from "@/components/plagiarism/plagiarism-sources";
+import { FactCheckClaims } from "@/components/fact-check/fact-check-claims";
 import { plagiarismVerdict, factCheckVerdict } from "@/lib/score-verdicts";
 import { verdictFor, type Verdict } from "@/lib/detector";
 import type { PlagiarismResult, FactCheckResult } from "@/lib/winston";
-import type { WinstonSentence } from "@/components/winston-sentence-list";
+import type { WinstonSentence } from "@/components/detect/winston-sentence-list";
 
 /** One add-on's state, owned by the parent so the same check can be kicked
  *  off either up front (bundled with the page's own primary check) or on

@@ -14,12 +14,12 @@ import {
   type PlagiarismResult,
 } from "@/lib/winston";
 import type { FactCheckRunResult, RunRow } from "@/lib/runs";
-import { Gauge } from "@/components/gauge";
-import { FactCheckHighlightedText } from "@/components/fact-check-highlighted-text";
-import { FactCheckClaims } from "@/components/fact-check-claims";
-import { QuotaExceededModal } from "@/components/quota-exceeded-modal";
-import { DetectAddonCard, PlagiarismAddonCard, type AddonState, type DetectAddonResult } from "@/components/check-addons";
-import { UploadTextButton } from "@/components/upload-text-button";
+import { Gauge } from "@/components/ui/gauge";
+import { FactCheckHighlightedText } from "@/components/fact-check/fact-check-highlighted-text";
+import { FactCheckClaims } from "@/components/fact-check/fact-check-claims";
+import { QuotaExceededModal } from "@/components/ui/quota-exceeded-modal";
+import { DetectAddonCard, PlagiarismAddonCard, type AddonState, type DetectAddonResult } from "@/components/detect/check-addons";
+import { UploadTextButton } from "@/components/editor/upload-text-button";
 import { useHandoffInput } from "@/lib/handoff";
 
 interface FactCheckResponse {

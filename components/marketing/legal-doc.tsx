@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { Reveal } from "@/components/reveal";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { SiteFooter } from "@/components/marketing/site-footer";
+import { Reveal } from "@/components/ui/reveal";
 import { LEGAL_EFFECTIVE_DATE } from "@/lib/seo";
 
 export type LegalSection = {

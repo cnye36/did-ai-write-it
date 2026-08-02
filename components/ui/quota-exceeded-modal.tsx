@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { LightningIcon } from "@phosphor-icons/react";
-import { Modal } from "@/components/modal";
+import { Modal } from "@/components/ui/modal";
 
 export function QuotaExceededModal({
   open,

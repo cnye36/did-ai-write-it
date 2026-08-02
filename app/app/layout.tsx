@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebar } from "@/components/ui/app-sidebar";
 import { createClient } from "@/lib/supabase/server";
 import type { RunListItem } from "@/lib/runs";
 import { PLAN_LIMITS, wordsUsedInCurrentPeriod, type Plan } from "@/lib/usage";

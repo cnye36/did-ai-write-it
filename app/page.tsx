@@ -7,13 +7,13 @@ import {
   PenNibIcon,
   ArrowRightIcon,
 } from "@phosphor-icons/react/dist/ssr";
-import { DetectorHero } from "@/components/detector-hero";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { HowItWorks } from "@/components/how-it-works";
-import { Reveal } from "@/components/reveal";
-import { CtaPanel } from "@/components/cta-panel";
-import { BrandName } from "@/components/brand-name";
+import { DetectorHero } from "@/components/marketing/detector-hero";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { SiteFooter } from "@/components/marketing/site-footer";
+import { HowItWorks } from "@/components/marketing/how-it-works";
+import { Reveal } from "@/components/ui/reveal";
+import { CtaPanel } from "@/components/marketing/cta-panel";
+import { BrandName } from "@/components/marketing/brand-name";
 import { SITE_URL, jsonLdScriptProps } from "@/lib/seo";
 
 const SIGNALS = [
