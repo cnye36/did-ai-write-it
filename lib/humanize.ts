@@ -1,4 +1,4 @@
-import { analyzeText, type DetectorResult } from "./detector";
+import { analyzeText, countWords, type DetectorResult } from "./detector";
 
 /*
   Multi-pass humanize pipeline.
@@ -151,8 +151,4 @@ function lengthPreserved(candidate: string, original: string): boolean {
   if (originalWords === 0) return false;
   const ratio = countWords(candidate) / originalWords;
   return ratio >= MIN_LENGTH_RATIO && ratio <= MAX_LENGTH_RATIO;
-}
-
-function countWords(text: string): number {
-  return text.split(/\s+/).filter(Boolean).length;
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { ClipboardTextIcon, UploadSimpleIcon } from "@phosphor-icons/react";
-import { verdictFor } from "@/lib/detector";
+import { countWords, verdictFor } from "@/lib/detector";
 import { saveCheckHandoff, type CheckKind } from "@/lib/handoff";
 import {
   FACT_CHECK_MAX_CHARS,
@@ -41,10 +41,6 @@ const TOOL_COPY: Record<
   },
 };
 
-function wordCount(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
-}
-
 function signupHref(next: string): string {
   return `/signup?next=${encodeURIComponent(next)}`;
 }
@@ -59,7 +55,7 @@ export function PublicToolForm({ kind }: { kind: CheckKind }) {
   const [modalOpen, setModalOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const copy = TOOL_COPY[kind];
-  const words = useMemo(() => wordCount(text), [text]);
+  const words = useMemo(() => countWords(text), [text]);
   const chars = text.trim().length;
   const minChars = kind === "plagiarism" ? PLAGIARISM_MIN_CHARS : FACT_CHECK_MIN_CHARS;
   const maxChars = kind === "plagiarism" ? PLAGIARISM_MAX_CHARS : FACT_CHECK_MAX_CHARS;

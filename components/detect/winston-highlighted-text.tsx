@@ -63,7 +63,9 @@ export function WinstonHighlightedText({
         const title =
           reasons.length > 0
             ? `${seg.score}/100 human · likely reason: ${reasons.join("; ")}`
-            : `${seg.score}/100 human`;
+            : verdict === "human"
+              ? `${seg.score}/100 human · no AI-pattern flags detected in this sentence`
+              : `${seg.score}/100 human`;
         return (
           <mark key={i} data-severity={verdict} title={title}>
             {seg.text}

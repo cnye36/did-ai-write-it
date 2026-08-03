@@ -491,11 +491,15 @@ export function DetectPageClient({
                 <span className="size-2 rounded-full" style={{ background: "var(--warn)" }} />
                 Mixed
               </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="size-2 rounded-full" style={{ background: "var(--good)" }} />
+                Human
+              </span>
             </div>
           </div>
           <div className="max-h-[65vh] min-h-[300px] flex-1 overflow-y-auto p-4">
             {verified ? (
-              <WinstonHighlightedText text={input} sentences={verified.sentences} flags={live.flags} />
+              <WinstonHighlightedText text={input} sentences={verified.sentences} flags={live.flags} showHuman />
             ) : (
               <DetectionReportBody text={input} result={live} />
             )}

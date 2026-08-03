@@ -334,8 +334,10 @@ export function splitSentences(text: string): Sentence[] {
   // Terminal punctuation may be followed by closing quotes or brackets: without
   // that, `He said "go." Then left.` splits mid-quote into `He said "go.` and
   // `" Then left.`, which corrupts sentence-length variance and the per-sentence
-  // report alike.
-  const re = /[^.!?\n]+[.!?]*['"“”‘’)\]]*/g;
+  // report alike. CJK terminal punctuation (。！？) is included too, since CJK
+  // text has no ASCII . ! ? and would otherwise come back as one giant
+  // "sentence", forcing `thin` on any non-Latin document regardless of length.
+  const re = /[^.!?。！？\n]+[.!?。！？]*['"“”‘’)\]]*/g;
   const chunks: { start: number; end: number }[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
@@ -371,8 +373,46 @@ export function splitSentences(text: string): Sentence[] {
   return out;
 }
 
-function countWords(text: string): number {
-  return text.split(/\s+/).filter(Boolean).length;
+/*
+  CJK scripts (Chinese, Japanese, Korean) don't delimit words with spaces, so
+  a naive whitespace split undercounts a CJK document by orders of magnitude
+  (an entire article can come back as "1 word"). Since this count drives
+  quota billing (analyzeText().wordCount, called from every /api/* route) as
+  well as the free-tier word caps on the landing page and the anonymous
+  preview scan, undercounting here means CJK text is effectively unmetered.
+  Each CJK character is counted as its own word-equivalent, the standard
+  convention for per-word billing in these scripts; everything else still
+  splits on whitespace.
+*/
+const CJK_CHAR_GLOBAL = /[一-鿿㐀-䶿぀-ヿ가-힯]/g;
+const CJK_CHAR = /[一-鿿㐀-䶿぀-ヿ가-힯]/;
+
+export function countWords(text: string): number {
+  const cjkCount = (text.match(CJK_CHAR_GLOBAL) ?? []).length;
+  const rest = text.replace(CJK_CHAR_GLOBAL, " ").split(/\s+/).filter(Boolean).length;
+  return cjkCount + rest;
+}
+
+/** Truncates to the first `maxWords` word-equivalents (see countWords), preserving
+ *  the original text up to that cut point rather than rejoining tokens. */
+export function truncateWords(text: string, maxWords: number): string {
+  let units = 0;
+  let inWord = false;
+  let i = 0;
+  for (; i < text.length; i++) {
+    const ch = text[i];
+    if (CJK_CHAR.test(ch)) {
+      units++;
+      inWord = false;
+    } else if (/\s/.test(ch)) {
+      inWord = false;
+    } else if (!inWord) {
+      units++;
+      inWord = true;
+    }
+    if (units > maxWords) break;
+  }
+  return text.slice(0, i).trimEnd();
 }
 
 function stdev(nums: number[]): number {

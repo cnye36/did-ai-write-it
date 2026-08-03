@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeText, reasonsForRange, type Flag } from "./detector";
+import { analyzeText, countWords, reasonsForRange, splitSentences, truncateWords, type Flag } from "./detector";
 
 const SLOP = `In today's fast-paced digital landscape, content creation is more crucial than ever. Businesses must delve into innovative strategies to stay ahead. AI writing tools offer a seamless way to elevate your content game. Moreover, these robust solutions unlock the power of scalable content production. It's not just about writing faster, it's about writing smarter. Whether you're a founder, a marketer, or a consultant, these tools are a game-changer. Furthermore, they provide actionable insights that underscore the importance of quality. In conclusion, embracing AI is a testament to forward thinking. The results speak for themselves, and the future looks bright for everyone. Harness the potential of these cutting-edge platforms today and revolutionize the way you work.`;
 
@@ -284,6 +284,37 @@ describe("cadence signals", () => {
       "We packed bread, cheese, and wine. The drive took all morning because I refused to use the highway and my sister kept changing the music. We brought books, blankets, and coffee. She slept through the best views anyway, which felt criminal at the time."
     );
     expect([...r].some((x) => /noun-phrase fragments/.test(x))).toBe(false);
+  });
+});
+
+describe("CJK word counting", () => {
+  it("counts each Chinese character as its own word, not the whole string as one token", () => {
+    // Whitespace-split would count this entire sentence as 1 "word", which is
+    // what silently exempted CJK text from quota billing before this fix.
+    expect(countWords("人工智能正在改变商业世界")).toBe(12);
+  });
+
+  it("counts mixed CJK and Latin text as the sum of both", () => {
+    expect(countWords("我用 AI 写了这篇文章 today")).toBe(10);
+  });
+
+  it("truncates Chinese text to the requested word count instead of passing it through whole", () => {
+    const long = "人工智能正在改变商业世界".repeat(50); // 600 "words"
+    const truncated = truncateWords(long, 300);
+    expect(countWords(truncated)).toBeLessThanOrEqual(300);
+    expect(truncated.length).toBeLessThan(long.length);
+  });
+
+  it("splits Chinese sentences on full-width terminal punctuation", () => {
+    const sentences = splitSentences("今天天气很好。我们出去散步了！你觉得怎么样？");
+    expect(sentences.length).toBe(3);
+  });
+
+  it("does not mark a full paragraph of Chinese text as thin", () => {
+    // Before CJK punctuation was recognized, splitSentences found no sentence
+    // boundaries in non-Latin text, so `thin` fired regardless of length.
+    const r = analyzeText("人工智能正在改变商业世界。这项技术带来了新的机遇和挑战。企业需要认真思考如何应对这种变化，并制定合适的战略。".repeat(3));
+    expect(r.thin).toBe(false);
   });
 });
 

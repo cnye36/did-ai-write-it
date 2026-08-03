@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { errorResponse } from "@/lib/api-errors";
 import { scoreWithWinston } from "@/lib/winston";
 import { createServiceClient } from "@/lib/supabase/service";
+import { truncateWords } from "@/lib/detector";
 
 export const maxDuration = 30;
 
@@ -12,11 +13,6 @@ const MAX_WORDS = 300;
 
 interface PreviewBody {
   text: string;
-}
-
-function truncateToWords(text: string, maxWords: number): string {
-  const words = text.split(/\s+/).filter(Boolean);
-  return words.slice(0, maxWords).join(" ");
 }
 
 /** The LAST entry in X-Forwarded-For is the one the edge itself appended (the
@@ -34,7 +30,7 @@ function getClientIp(req: NextRequest): string {
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as PreviewBody;
-    const text = truncateToWords(body.text?.trim() ?? "", MAX_WORDS);
+    const text = truncateWords(body.text?.trim() ?? "", MAX_WORDS);
 
     if (!text) {
       return Response.json({ error: "Nothing to check." }, { status: 400 });

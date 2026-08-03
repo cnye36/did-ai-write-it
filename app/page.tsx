@@ -77,6 +77,10 @@ const FAQ = [
     q: "Do I need to install anything?",
     a: "No. Paste or upload text right in the browser and get a score in seconds. No account needed for a quick check.",
   },
+  {
+    q: "Does the AI detector work in languages other than English?",
+    a: "Yes. AI detection covers a range of languages, including Spanish, French, German, Portuguese, and Chinese, and plagiarism checking covers well over a hundred. Accuracy is strongest in English and the other widely-supported languages; coverage keeps expanding.",
+  },
 ];
 
 const SOFTWARE_APPLICATION_JSON_LD = {

@@ -28,6 +28,7 @@ const GROUPS: ComparisonGroup[] = [
       { label: "Real, verified detection score", values: [true, true, true, true] },
       { label: "Full sentence-by-sentence report", values: [true, true, true, true] },
       { label: "Up to 150,000 characters per check", values: [true, true, true, true] },
+      { label: "Multi-language support (Spanish, French, German, Portuguese, Chinese, and more)", values: [true, true, true, true] },
       { label: "Submission and report history, saved to your account", values: [true, true, true, true] },
       {
         label: "Multi-provider detection (GPTZero, Turnitin, and more)",

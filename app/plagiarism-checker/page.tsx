@@ -23,6 +23,7 @@ export default function PlagiarismCheckerPage() {
         { title: "Sources, not a mystery score", body: "See the pages that overlap with your draft and how much of the text is implicated." },
         { title: "Highlights in the original text", body: "Matched passages are marked inline so you can review the exact wording without comparing documents by hand." },
         { title: "One workspace for every check", body: "Run AI detection and fact checking on the same text when you need a fuller content-integrity read." },
+        { title: "Checks well over a hundred languages", body: "Source matching is not limited to English drafts, so translated or multilingual content gets the same scan." },
       ]}
       faq={[
         { q: "Can I check plagiarism for free?", a: "A free account includes monthly credits for plagiarism checks. We ask you to sign up before running a scan because source matching is a full report, not a preview." },

@@ -23,6 +23,7 @@ export default function AiDetectorPage() {
         { title: "A real detector, not a guess", body: "Your score is verified against a third-party detection model, not just a list of suspicious words." },
         { title: "Sentence-by-sentence detail", body: "Signed-in reports show the lines that contributed to the score, so you can judge the result in context." },
         { title: "Built for professional drafts", body: "Check a newsletter, campaign, report, or LinkedIn post before it goes out under your name." },
+        { title: "Works beyond English", body: "Detection covers a range of languages, including Spanish, French, German, Portuguese, and Chinese, not just English drafts." },
       ]}
       faq={[
         { q: "Is the AI detector free?", a: "Yes. You can run a real AI check on up to 300 words without an account. Create a free account for longer drafts and the complete report." },

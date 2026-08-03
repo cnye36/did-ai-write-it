@@ -7,7 +7,7 @@ import {
   UploadSimpleIcon,
   ArrowRightIcon,
 } from "@phosphor-icons/react";
-import { analyzeText, verdictFor } from "@/lib/detector";
+import { analyzeText, truncateWords, verdictFor } from "@/lib/detector";
 import { saveCheckHandoff } from "@/lib/handoff";
 import { ScoreGauge } from "@/components/detect/score-gauge";
 import { WinstonSentenceList, type WinstonSentence } from "@/components/detect/winston-sentence-list";
@@ -76,11 +76,6 @@ const MAX_SCAN_WORDS = 300;
 
 type Tab = "paste" | "upload";
 
-function firstWords(text: string, maxWords: number): string {
-  const words = text.trim().split(/\s+/).filter(Boolean);
-  return words.slice(0, maxWords).join(" ");
-}
-
 export function DetectorHero() {
   const [tab, setTab] = useState<Tab>("paste");
   const [text, setText] = useState("");
@@ -98,7 +93,7 @@ export function DetectorHero() {
 
   const words = useMemo(() => analyzeText(text).wordCount, [text]);
   const canCheck = words >= 15;
-  const scannedText = useMemo(() => firstWords(text, MAX_SCAN_WORDS), [text]);
+  const scannedText = useMemo(() => truncateWords(text, MAX_SCAN_WORDS), [text]);
 
   function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
