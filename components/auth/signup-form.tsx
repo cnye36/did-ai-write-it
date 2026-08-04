@@ -32,6 +32,7 @@ export function SignupForm({ next }: { next?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -74,11 +75,80 @@ export function SignupForm({ next }: { next?: string }) {
     setBusy(false);
   }
 
+  async function onVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const token = code.trim();
+    if (!token) {
+      setError("Enter the confirmation code from your email.");
+      return;
+    }
+
+    setBusy(true);
+    const supabase = createClient();
+    const { data, error: verifyError } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: "signup",
+    });
+    if (verifyError) {
+      setError(verifyError.message);
+      setBusy(false);
+      return;
+    }
+    if (data.session && data.user) {
+      posthog.capture("user_signed_up", { method: "password", confirmation_required: true, verified_via: "otp" });
+      router.push(destination);
+      router.refresh();
+      return;
+    }
+    setError("Could not verify that code. Try again or use the link in the email.");
+    setBusy(false);
+  }
+
   if (checkEmail) {
     return (
-      <p className="rounded-[10px] bg-accent-soft px-4 py-3 text-sm leading-relaxed text-ink">
-        Confirmation link sent to {email}. Click it to finish creating your account.
-      </p>
+      <div className="space-y-4">
+        <div className="rounded-[10px] bg-accent-soft px-4 py-3 text-sm leading-relaxed text-ink">
+          <p>
+            Confirmation email sent to <span className="font-medium">{email}</span>. Open the
+            link, or enter the code below.
+          </p>
+          <p className="mt-2 text-muted">
+            Do not see it? Check your spam or junk folder. New sending domains often land there
+            for a bit.
+          </p>
+        </div>
+        <form onSubmit={onVerifyCode} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="confirmation-code" className="text-sm font-medium">
+              Confirmation code
+            </label>
+            <input
+              id="confirmation-code"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              required
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="6-digit code"
+              className="w-full rounded-[10px] border border-line bg-surface p-3 text-sm tracking-widest outline-none transition-colors placeholder:text-faint placeholder:tracking-normal focus:border-accent"
+            />
+          </div>
+          {error && (
+            <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{error}</p>
+          )}
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full rounded-full bg-accent px-6 py-3 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy ? "Verifying..." : "Verify and continue"}
+          </button>
+        </form>
+      </div>
     );
   }
 
