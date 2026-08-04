@@ -31,7 +31,7 @@ const FAQ = [
   },
   {
     q: "Is Originality.ai's plagiarism checker better?",
-    a: "Both use real third-party scanning rather than a heuristic. Originality.ai's plagiarism check is billed as a separate, doubled credit cost on top of detection. Did AI Write It? runs it as part of the same monthly word allowance.",
+    a: "Both use real verified scanning rather than a heuristic. Originality.ai's plagiarism check is billed as a separate, doubled credit cost on top of detection. Did AI Write It? runs it as part of the same monthly word allowance.",
   },
   {
     q: "Can a content team use both tools?",

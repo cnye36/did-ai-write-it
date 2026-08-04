@@ -44,7 +44,7 @@ const SIGNALS = [
 ];
 
 const CHECKS = [
-  { title: "AI detection", body: "A real, Winston-verified score for every sentence." },
+  { title: "AI detection", body: "A real, verified score for every sentence." },
   { title: "Plagiarism", body: "Matched sources and highlighted overlap, inline." },
   { title: "Fact-check", body: "Claim-by-claim verdicts with sources, not just a score." },
 ];
@@ -71,7 +71,7 @@ const FAQ = [
   },
   {
     q: "What happens if I go over my word limit?",
-    a: "The free check on this page caps out at 300 words per scan with a limited number of free scans per day. Sign up for a higher monthly word allowance and the full sentence-by-sentence report.",
+    a: "The free check on this page takes 200-500 words per scan (detectors are unreliable on shorter text) and is capped at 3 scans per day. Sign up for a higher monthly word allowance and the full sentence-by-sentence report.",
   },
   {
     q: "Do I need to install anything?",
@@ -91,7 +91,7 @@ const SOFTWARE_APPLICATION_JSON_LD = {
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
   description:
-    "Real, Winston-verified AI-detection scoring, plus plagiarism and fact-checking, for any draft.",
+    "Real, verified AI-detection scoring, plus plagiarism and fact-checking, for any draft.",
   offers: {
     "@type": "Offer",
     price: "0",

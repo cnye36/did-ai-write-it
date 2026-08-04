@@ -8,7 +8,7 @@ import { jsonLdScriptProps } from "@/lib/seo";
 
 const TITLE = "Claude Detector: Check If Claude Wrote It";
 const DESCRIPTION =
-  "Paste any email, report, or post and get a real, Winston-verified score for whether Claude wrote it. Free instant check, no account needed.";
+  "Paste any email, report, or post and get a real, verified score for whether Claude wrote it. Free instant check, no account needed.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -43,7 +43,7 @@ const FAQ = [
   },
   {
     q: "Is this the same free scan as the homepage?",
-    a: "Yes. This page runs the same free, no-account check capped at 300 words a scan. Sign up for the full sentence-by-sentence report and a higher monthly word allowance.",
+    a: "Yes. This page runs the same free, no-account check: 200-500 words a scan, 3 scans a day. Sign up for the full sentence-by-sentence report and a higher monthly word allowance.",
   },
 ];
 

@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 const CLUSTERS = [
   {
     title: "Detection & scoring",
-    us: "One Winston-verified score per check, with every sentence flagged and reasoned individually.",
+    us: "One verified score per check, with every sentence flagged and reasoned individually.",
     them: "A per-document score plus a sentence-level burstiness breakdown, tuned for catching AI-written essays.",
   },
   {
@@ -46,7 +46,7 @@ const CLUSTERS = [
 const FAQ = [
   {
     q: "Is Did AI Write It? more accurate than GPTZero?",
-    a: "Neither tool is certain on every input. Did AI Write It? scores every check against Winston's real detection model rather than a heuristic, and shows the reasoning behind every flagged sentence so you can judge the call yourself.",
+    a: "Neither tool is certain on every input. Did AI Write It? runs every check through our verified detection model rather than a heuristic, and shows the reasoning behind every flagged sentence so you can judge the call yourself.",
   },
   {
     q: "Can I use both GPTZero and Did AI Write It? on the same draft?",

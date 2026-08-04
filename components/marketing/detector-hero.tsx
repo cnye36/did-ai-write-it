@@ -7,8 +7,10 @@ import {
   UploadSimpleIcon,
   ArrowRightIcon,
 } from "@phosphor-icons/react";
-import { analyzeText, truncateWords, verdictFor } from "@/lib/detector";
+import { analyzeText, verdictFor } from "@/lib/detector";
 import { saveCheckHandoff } from "@/lib/handoff";
+import { MIN_WORDS_FOR_CHECK, WORD_COUNT_HELP_TEXT } from "@/lib/winston";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ScoreGauge } from "@/components/detect/score-gauge";
 import { WinstonSentenceList, type WinstonSentence } from "@/components/detect/winston-sentence-list";
 import { Modal } from "@/components/ui/modal";
@@ -72,7 +74,10 @@ const SAMPLES: Record<
 };
 
 const FREE_PREVIEW = { revealCount: 1 };
-const MAX_SCAN_WORDS = 300;
+/** Keep in sync with MAX_WORDS in app/api/preview-detect/route.ts. */
+const MAX_SCAN_WORDS = 500;
+/** Keep in sync with DAILY_LIMIT in app/api/preview-detect/route.ts. */
+const DAILY_FREE_CHECKS = 3;
 
 type Tab = "paste" | "upload";
 
@@ -92,8 +97,9 @@ export function DetectorHero() {
   const [rateLimited, setRateLimited] = useState(false);
 
   const words = useMemo(() => analyzeText(text).wordCount, [text]);
-  const canCheck = words >= 15;
-  const scannedText = useMemo(() => truncateWords(text, MAX_SCAN_WORDS), [text]);
+  // Samples are pre-scored canned demos, not a live check on unreliable
+  // short text, so they're exempt from the word floor below.
+  const canCheck = activeSample !== null || words >= MIN_WORDS_FOR_CHECK;
 
   function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -139,7 +145,7 @@ export function DetectorHero() {
       const res = await fetch("/api/preview-detect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: scannedText }),
+        body: JSON.stringify({ text }),
       });
       if (res.status === 429) {
         setModalOpen(false);
@@ -191,6 +197,10 @@ export function DetectorHero() {
         />
       </div>
 
+      <p className="mt-2 px-1 text-center text-[11px] text-faint sm:text-left">
+        {DAILY_FREE_CHECKS} free checks per day · {MIN_WORDS_FOR_CHECK}-{MAX_SCAN_WORDS} words per check
+      </p>
+
       {/* Input */}
       <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
         <textarea
@@ -207,10 +217,18 @@ export function DetectorHero() {
         <div className="mt-2 flex items-center justify-between border-t border-line pt-3">
           <div className="flex items-center gap-3 text-xs text-faint">
             <span
-              className={`font-mono tabular-nums ${words >= MAX_SCAN_WORDS ? "text-accent" : ""}`}
+              className={`font-mono tabular-nums ${words > MAX_SCAN_WORDS ? "text-accent" : ""}`}
             >
-              {words.toLocaleString()} words{words > MAX_SCAN_WORDS ? " · Sign up free for this full check" : ` · Free up to ${MAX_SCAN_WORDS}`}
+              {words.toLocaleString()} words
+              {activeSample
+                ? " · Sample text"
+                : words < MIN_WORDS_FOR_CHECK
+                  ? ` · Needs at least ${MIN_WORDS_FOR_CHECK} words for a reliable score`
+                  : words > MAX_SCAN_WORDS
+                    ? " · Sign up free for this full check"
+                    : ` · Free up to ${MAX_SCAN_WORDS} words`}
             </span>
+            <InfoTooltip text={WORD_COUNT_HELP_TEXT} />
             {fileName && <span className="max-w-[140px] truncate">{fileName}</span>}
             {!text && (
               <span className="flex items-center gap-2">
@@ -275,7 +293,7 @@ export function DetectorHero() {
               Your text
             </p>
             <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted">
-              {scannedText}
+              {text}
             </div>
           </div>
 
@@ -298,7 +316,7 @@ export function DetectorHero() {
               <>
                 <div className="flex flex-col items-start gap-1">
                   <ScoreGauge score={preview.score} verdict={verdictFor(preview.score)} size={92} />
-                  <span className="text-[11px] text-faint">Powered by Winston AI</span>
+                  <span className="text-[11px] text-faint">Verified score</span>
                 </div>
                 {preview.sentences.length > 0 && (
                   <div className="mt-4">

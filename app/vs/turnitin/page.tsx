@@ -25,7 +25,7 @@ const FAQ = [
   },
   {
     q: "Is Turnitin's detection more accurate than Did AI Write It?",
-    a: "There is no public way to compare the two directly. Turnitin builds its Similarity Report and AI writing detection for institutional academic-integrity workflows. Did AI Write It? scores professional drafts against Winston's real detection model. They are built for different jobs.",
+    a: "There is no public way to compare the two directly. Turnitin builds its Similarity Report and AI writing detection for institutional academic-integrity workflows. Did AI Write It? scores professional drafts with our own verified detection model. They are built for different jobs.",
   },
   {
     q: "Should a school switch from Turnitin to Did AI Write It?",

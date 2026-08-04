@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { GitDiffIcon, MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon, WrenchIcon } from "@phosphor-icons/react";
@@ -12,9 +12,12 @@ import {
   PLAGIARISM_MAX_CHARS,
   FACT_CHECK_MIN_CHARS,
   FACT_CHECK_MAX_CHARS,
+  MIN_WORDS_FOR_CHECK,
+  WORD_COUNT_HELP_TEXT,
   type PlagiarismResult,
   type FactCheckResult,
 } from "@/lib/winston";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ScoreGauge } from "@/components/detect/score-gauge";
 import { DetectionReportBody } from "@/components/detect/detection-report";
 import { WinstonHighlightedText } from "@/components/detect/winston-highlighted-text";
@@ -126,16 +129,25 @@ export function DetectPageClient({
   const selectedVersion = versions[selectedVersionIndex];
 
   const live = useMemo(() => analyzeText(input), [input]);
-  const canRun = live.wordCount >= 15 && !busy;
+  const canRun = live.wordCount >= MIN_WORDS_FOR_CHECK && !busy;
   const showReport = busy || result !== null;
 
   const charCount = input.trim().length;
-  const plagiarismEligible = charCount >= PLAGIARISM_MIN_CHARS && charCount <= PLAGIARISM_MAX_CHARS;
-  const factCheckEligible = charCount >= FACT_CHECK_MIN_CHARS && charCount <= FACT_CHECK_MAX_CHARS;
-  const plagiarismIneligibleReason = `Needs ${PLAGIARISM_MIN_CHARS.toLocaleString()}-${PLAGIARISM_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
-  const factCheckIneligibleReason = `Needs ${FACT_CHECK_MIN_CHARS.toLocaleString()}-${FACT_CHECK_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
+  const wordCount = live.wordCount;
+  const plagiarismEligible =
+    wordCount >= MIN_WORDS_FOR_CHECK && charCount >= PLAGIARISM_MIN_CHARS && charCount <= PLAGIARISM_MAX_CHARS;
+  const factCheckEligible =
+    wordCount >= MIN_WORDS_FOR_CHECK && charCount >= FACT_CHECK_MIN_CHARS && charCount <= FACT_CHECK_MAX_CHARS;
+  const plagiarismIneligibleReason =
+    wordCount < MIN_WORDS_FOR_CHECK
+      ? `Needs at least ${MIN_WORDS_FOR_CHECK} words (this text is ${wordCount}).`
+      : `Needs ${PLAGIARISM_MIN_CHARS.toLocaleString()}-${PLAGIARISM_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
+  const factCheckIneligibleReason =
+    wordCount < MIN_WORDS_FOR_CHECK
+      ? `Needs at least ${MIN_WORDS_FOR_CHECK} words (this text is ${wordCount}).`
+      : `Needs ${FACT_CHECK_MIN_CHARS.toLocaleString()}-${FACT_CHECK_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
 
-  async function runDetect() {
+  const runDetect = useCallback(async () => {
     posthog.capture("ai_detection_requested", {
       check_source: "primary",
       includes_plagiarism_check: wantPlagiarism && plagiarismEligible,
@@ -167,7 +179,14 @@ export function DetectPageClient({
     } finally {
       setBusy(false);
     }
-  }
+  }, [
+    input,
+    router,
+    wantPlagiarism,
+    plagiarismEligible,
+    wantFactCheck,
+    factCheckEligible,
+  ]);
 
   async function runPlagiarism() {
     posthog.capture("plagiarism_check_requested", { check_source: "ai_detection_addon" });
@@ -234,7 +253,7 @@ export function DetectPageClient({
     autoRunStarted.current = true;
     router.replace("/app/detect");
     void runDetect();
-  }, [autoRun, canRun, input, router, runDetect]);
+  }, [autoRun, canRun, router, runDetect]);
 
   function editText() {
     setResult(null);
@@ -263,8 +282,8 @@ export function DetectPageClient({
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">AI Detector</h1>
             <p className="mt-1 max-w-[60ch] text-sm leading-relaxed text-muted">
-              Paste any text to get an instant free AI score, then verify it
-              against a real third-party detector.
+              Paste any text and get a verified AI-detection score for every
+              sentence.
             </p>
           </div>
           <button
@@ -280,9 +299,15 @@ export function DetectPageClient({
         <div className="flex flex-col rounded-2xl border border-line bg-raised">
           <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
             <span className="text-sm font-medium">Your text</span>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <UploadTextButton onText={setInput} onError={setError} />
-              <span className="font-mono text-xs tabular-nums text-faint">{live.wordCount} words</span>
+              <span className="font-mono text-xs tabular-nums text-faint">
+                {live.wordCount} words
+                {live.wordCount < MIN_WORDS_FOR_CHECK
+                  ? ` · needs ${MIN_WORDS_FOR_CHECK}+ for a reliable score`
+                  : ""}
+              </span>
+              <InfoTooltip text={WORD_COUNT_HELP_TEXT} />
             </div>
           </div>
           <textarea

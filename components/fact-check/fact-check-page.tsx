@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react";
 import {
@@ -10,11 +10,15 @@ import {
   DETECT_MAX_CHARS,
   PLAGIARISM_MIN_CHARS,
   PLAGIARISM_MAX_CHARS,
+  MIN_WORDS_FOR_CHECK,
+  WORD_COUNT_HELP_TEXT,
   type FactCheckResult,
   type PlagiarismResult,
 } from "@/lib/winston";
+import { countWords } from "@/lib/detector";
 import type { FactCheckRunResult, RunRow } from "@/lib/runs";
 import { Gauge } from "@/components/ui/gauge";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { FactCheckHighlightedText } from "@/components/fact-check/fact-check-highlighted-text";
 import { FactCheckClaims } from "@/components/fact-check/fact-check-claims";
 import { QuotaExceededModal } from "@/components/ui/quota-exceeded-modal";
@@ -79,13 +83,25 @@ export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null 
   }
 
   const charCount = input.trim().length;
-  const canRun = charCount >= FACT_CHECK_MIN_CHARS && charCount <= FACT_CHECK_MAX_CHARS && !busy;
+  const wordCount = useMemo(() => countWords(input), [input]);
+  const canRun =
+    wordCount >= MIN_WORDS_FOR_CHECK &&
+    charCount >= FACT_CHECK_MIN_CHARS &&
+    charCount <= FACT_CHECK_MAX_CHARS &&
+    !busy;
   const showReport = busy || result !== null;
 
-  const detectEligible = charCount >= WINSTON_MIN_CHARS && charCount <= DETECT_MAX_CHARS;
-  const plagiarismEligible = charCount >= PLAGIARISM_MIN_CHARS && charCount <= PLAGIARISM_MAX_CHARS;
-  const detectIneligibleReason = `Needs ${WINSTON_MIN_CHARS.toLocaleString()}-${DETECT_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
-  const plagiarismIneligibleReason = `Needs ${PLAGIARISM_MIN_CHARS.toLocaleString()}-${PLAGIARISM_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
+  const detectEligible = wordCount >= MIN_WORDS_FOR_CHECK && charCount >= WINSTON_MIN_CHARS && charCount <= DETECT_MAX_CHARS;
+  const plagiarismEligible =
+    wordCount >= MIN_WORDS_FOR_CHECK && charCount >= PLAGIARISM_MIN_CHARS && charCount <= PLAGIARISM_MAX_CHARS;
+  const detectIneligibleReason =
+    wordCount < MIN_WORDS_FOR_CHECK
+      ? `Needs at least ${MIN_WORDS_FOR_CHECK} words (this text is ${wordCount}).`
+      : `Needs ${WINSTON_MIN_CHARS.toLocaleString()}-${DETECT_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
+  const plagiarismIneligibleReason =
+    wordCount < MIN_WORDS_FOR_CHECK
+      ? `Needs at least ${MIN_WORDS_FOR_CHECK} words (this text is ${wordCount}).`
+      : `Needs ${PLAGIARISM_MIN_CHARS.toLocaleString()}-${PLAGIARISM_MAX_CHARS.toLocaleString()} characters (this text is ${charCount.toLocaleString()}).`;
 
   async function runDetectAddon() {
     posthog.capture("ai_detection_requested", { check_source: "fact_check_addon" });
@@ -231,11 +247,13 @@ export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null 
         <div className="flex flex-col rounded-2xl border border-line bg-raised">
           <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
             <span className="text-sm font-medium">Your text</span>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <UploadTextButton onText={setInput} onError={setError} />
               <span className="font-mono text-xs tabular-nums text-faint">
                 {charCount.toLocaleString()} / {FACT_CHECK_MAX_CHARS.toLocaleString()} characters
+                {wordCount < MIN_WORDS_FOR_CHECK ? ` · needs ${MIN_WORDS_FOR_CHECK}+ words` : ""}
               </span>
+              <InfoTooltip text={WORD_COUNT_HELP_TEXT} />
             </div>
           </div>
           <textarea

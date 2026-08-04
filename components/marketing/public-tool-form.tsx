@@ -6,16 +6,20 @@ import { countWords, verdictFor } from "@/lib/detector";
 import { saveCheckHandoff, type CheckKind } from "@/lib/handoff";
 import {
   FACT_CHECK_MAX_CHARS,
-  FACT_CHECK_MIN_CHARS,
   PLAGIARISM_MAX_CHARS,
-  PLAGIARISM_MIN_CHARS,
+  MIN_WORDS_FOR_CHECK,
+  WORD_COUNT_HELP_TEXT,
 } from "@/lib/winston";
 import { Modal } from "@/components/ui/modal";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ScoreGauge } from "@/components/detect/score-gauge";
 import { WinstonSentenceList, type WinstonSentence } from "@/components/detect/winston-sentence-list";
 import posthog from "posthog-js";
 
-const FREE_WORD_LIMIT = 300;
+/** Keep in sync with MAX_WORDS in app/api/preview-detect/route.ts. */
+const FREE_WORD_LIMIT = 500;
+/** Keep in sync with DAILY_LIMIT in app/api/preview-detect/route.ts. */
+const DAILY_FREE_CHECKS = 3;
 
 const TOOL_COPY: Record<
   CheckKind,
@@ -57,12 +61,11 @@ export function PublicToolForm({ kind }: { kind: CheckKind }) {
   const copy = TOOL_COPY[kind];
   const words = useMemo(() => countWords(text), [text]);
   const chars = text.trim().length;
-  const minChars = kind === "plagiarism" ? PLAGIARISM_MIN_CHARS : FACT_CHECK_MIN_CHARS;
   const maxChars = kind === "plagiarism" ? PLAGIARISM_MAX_CHARS : FACT_CHECK_MAX_CHARS;
   const canSubmit =
     kind === "detect"
-      ? words >= 15
-      : chars >= minChars && chars <= maxChars;
+      ? words >= MIN_WORDS_FOR_CHECK
+      : words >= MIN_WORDS_FOR_CHECK && chars <= maxChars;
 
   function continueToSignup() {
     posthog.capture("public_check_started", { check_kind: kind, destination: "signup" });
@@ -142,19 +145,24 @@ export function PublicToolForm({ kind }: { kind: CheckKind }) {
             className="w-full resize-none bg-transparent text-sm leading-relaxed text-ink outline-none placeholder:text-faint"
           />
           <div className="mt-3 flex flex-col gap-3 border-t border-line pt-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-faint">
+            <div className="flex items-center gap-2 text-xs text-faint">
               {kind === "detect" ? (
                 <span className={`font-mono tabular-nums ${overFreeLimit ? "text-accent" : ""}`}>
                   {words.toLocaleString()} words
-                  {overFreeLimit ? " · Sign up free for this full check" : " · Free up to 300 words"}
+                  {words < MIN_WORDS_FOR_CHECK
+                    ? ` · Needs at least ${MIN_WORDS_FOR_CHECK} words for a reliable score`
+                    : overFreeLimit
+                      ? " · Sign up free for this full check"
+                      : ` · Free up to ${FREE_WORD_LIMIT} words`}
                 </span>
               ) : (
                 <span className="font-mono tabular-nums">
                   {chars.toLocaleString()} / {maxChars.toLocaleString()} characters
-                  {chars < minChars ? ` · Needs at least ${minChars.toLocaleString()}` : ""}
+                  {words < MIN_WORDS_FOR_CHECK ? ` · Needs at least ${MIN_WORDS_FOR_CHECK} words` : ""}
                 </span>
               )}
-              {fileName && <span className="ml-3">{fileName}</span>}
+              <InfoTooltip text={WORD_COUNT_HELP_TEXT} />
+              {fileName && <span className="ml-1">{fileName}</span>}
             </div>
             <button
               type="button"
@@ -165,6 +173,11 @@ export function PublicToolForm({ kind }: { kind: CheckKind }) {
               {busy ? "Checking..." : overFreeLimit ? "Sign up to check" : copy.cta}
             </button>
           </div>
+          {kind === "detect" && (
+            <p className="mt-2 text-[11px] text-faint">
+              {DAILY_FREE_CHECKS} free checks per day · {MIN_WORDS_FOR_CHECK}-{FREE_WORD_LIMIT} words per check
+            </p>
+          )}
         </div>
         {error && <p className="mt-3 text-sm text-bad">{error}</p>}
         {rateLimited && (
@@ -192,7 +205,7 @@ export function PublicToolForm({ kind }: { kind: CheckKind }) {
             ) : preview ? (
               <>
                 <ScoreGauge score={preview.score} verdict={verdictFor(preview.score)} size={92} />
-                <span className="mt-1 text-[11px] text-faint">Powered by Winston AI</span>
+                <span className="mt-1 text-[11px] text-faint">Verified score</span>
                 <div className="mt-4">
                   <WinstonSentenceList
                     sentences={preview.sentences}

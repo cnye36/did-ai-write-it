@@ -28,6 +28,18 @@ const WINSTON_API_URL = "https://api.gowinston.ai/v2/ai-content-detection";
 const PLAGIARISM_API_URL = "https://api.gowinston.ai/v2/plagiarism";
 const FACT_CHECK_API_URL = "https://api.gowinston.ai/v2/fact-checker";
 
+/**
+ * Product-level floor, well above Winston's own per-endpoint minimums below:
+ * detectors (ours and Winston's) are unreliable on short text, so every
+ * check requires at least this many words, homepage preview and every
+ * in-app plan alike.
+ */
+export const MIN_WORDS_FOR_CHECK = 200;
+
+/** Explains MIN_WORDS_FOR_CHECK in the UI; shared so the wording stays identical everywhere it's shown. */
+export const WORD_COUNT_HELP_TEXT =
+  "The more words you check, the more reliable the score. Short text is more likely to produce a false positive or false negative.";
+
 /** Winston rejects requests under this length; shorter text is skipped rather than erroring. */
 export const WINSTON_MIN_CHARS = 300;
 /** Matches /api/detect's own flat per-request character ceiling. */

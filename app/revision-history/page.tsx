@@ -150,7 +150,7 @@ export default function RevisionHistoryPage() {
                 {
                   icon: ArrowClockwiseIcon,
                   title: "Verified rescans, every time",
-                  body: "\"Scan again\" runs the same real, third-party-verified check as your first report. It's never a heuristic standing in for a real score.",
+                  body: "\"Scan again\" runs the same verified check as your first report. It's never a heuristic standing in for a real score.",
                 },
                 {
                   icon: GitDiffIcon,

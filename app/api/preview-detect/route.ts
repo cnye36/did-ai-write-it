@@ -1,15 +1,20 @@
 import { NextRequest } from "next/server";
 import { errorResponse } from "@/lib/api-errors";
-import { scoreWithWinston } from "@/lib/winston";
+import { scoreWithWinston, MIN_WORDS_FOR_CHECK } from "@/lib/winston";
 import { createServiceClient } from "@/lib/supabase/service";
-import { truncateWords } from "@/lib/detector";
+import { countWords } from "@/lib/detector";
 
 export const maxDuration = 30;
 
 /** Free anonymous checks per IP per rolling 24h. Only successful Winston checks count. */
-const DAILY_LIMIT = 5;
-/** Hard cap on how much of the pasted text gets sent to Winston, independent of any client cap. */
-const MAX_WORDS = 300;
+const DAILY_LIMIT = 3;
+/**
+ * Hard cap on the free preview's length. Unlike the old behavior, text over
+ * this cap is rejected outright rather than silently truncated: detectors
+ * are unreliable on partial text, so the user trims it themselves or signs
+ * up for the full-length check instead.
+ */
+const MAX_WORDS = 500;
 
 interface PreviewBody {
   text: string;
@@ -30,10 +35,28 @@ function getClientIp(req: NextRequest): string {
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as PreviewBody;
-    const text = truncateWords(body.text?.trim() ?? "", MAX_WORDS);
+    const text = body.text?.trim() ?? "";
 
     if (!text) {
       return Response.json({ error: "Nothing to check." }, { status: 400 });
+    }
+
+    const wordCount = countWords(text);
+    if (wordCount < MIN_WORDS_FOR_CHECK) {
+      return Response.json(
+        {
+          error: `Add at least ${MIN_WORDS_FOR_CHECK} words. Detectors are unreliable on shorter text.`,
+        },
+        { status: 400 }
+      );
+    }
+    if (wordCount > MAX_WORDS) {
+      return Response.json(
+        {
+          error: `Free checks are limited to ${MAX_WORDS} words. Trim your text or sign up free to check longer text.`,
+        },
+        { status: 400 }
+      );
     }
 
     const ip = getClientIp(req);

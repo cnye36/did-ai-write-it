@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { errorResponse } from "@/lib/api-errors";
 import { analyzeText } from "@/lib/detector";
 import { insertRun } from "@/lib/runs";
-import { scoreWithPlagiarism, PLAGIARISM_MAX_CHARS } from "@/lib/winston";
+import { scoreWithPlagiarism, PLAGIARISM_MAX_CHARS, MIN_WORDS_FOR_CHECK } from "@/lib/winston";
 import { requireUser } from "@/lib/supabase/auth";
 import {
   assertWithinQuota,
@@ -38,6 +38,15 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    const wordCount = analyzeText(text).wordCount;
+    if (wordCount < MIN_WORDS_FOR_CHECK) {
+      return Response.json(
+        {
+          error: `Text is too short for a reliable result. Add at least ${MIN_WORDS_FOR_CHECK} words (this text is ${wordCount}).`,
+        },
+        { status: 400 }
+      );
+    }
 
     const [{ data: profile }, { data: usage }] = await Promise.all([
       supabase.from("profiles").select("plan").eq("id", userId).single(),
@@ -45,7 +54,6 @@ export async function POST(req: NextRequest) {
     ]);
     const plan = (profile?.plan as Plan | undefined) ?? "free";
     const wordsUsed = wordsUsedInCurrentPeriod(usage?.period_start, usage?.words_used);
-    const wordCount = analyzeText(text).wordCount;
     const quotaWords = wordCount * PLAGIARISM_WORD_MULTIPLIER;
     const bypass = isDevBypass(email);
     assertWithinQuota(plan, wordsUsed, quotaWords, bypass);

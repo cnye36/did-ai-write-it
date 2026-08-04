@@ -58,7 +58,7 @@ export function DetectAddonCard({ busy, error, result, runId, eligible, ineligib
       <AddonCard
         icon={<SparkleIcon size={18} weight="bold" />}
         title="AI detection"
-        description={eligible ? "Score this text against a real third-party AI detector." : ineligibleReason}
+        description={eligible ? "Run a verified AI-detection score on this text." : ineligibleReason}
         busy={busy}
         error={error}
         disabled={!eligible}

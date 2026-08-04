@@ -8,7 +8,7 @@ import { jsonLdScriptProps } from "@/lib/seo";
 
 const TITLE = "AI Detector for LinkedIn Posts: Check Before You Post";
 const DESCRIPTION =
-  "Paste your LinkedIn post or comment and get a real, Winston-verified AI-detection score before you post it. Free instant check, no account needed.";
+  "Paste your LinkedIn post or comment and get a real, verified AI-detection score before you post it. Free instant check, no account needed.";
 
 export const metadata: Metadata = {
   title: TITLE,

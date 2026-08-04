@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeftIcon, ClockIcon } from "@phosphor-icons/react/dist/ssr";
 import { SiteHeader } from "@/components/marketing/site-header";
@@ -44,23 +45,56 @@ export function BlogPostLayout({
                 {post.title}
               </h1>
               <p className="mt-4 max-w-[58ch] text-lg leading-relaxed text-muted">
-                {post.excerpt}
+                {post.description}
               </p>
-              <div className="mt-5 flex items-center gap-3 text-sm text-faint">
-                <span className="rounded-full border border-line px-2.5 py-1 text-xs font-medium text-muted">
-                  {post.category}
-                </span>
+              <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-faint">
+                {post.categories.map((category) => (
+                  <Link
+                    key={category}
+                    href={`/blog?category=${encodeURIComponent(category)}`}
+                    className="rounded-full border border-line px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-ink"
+                  >
+                    {category}
+                  </Link>
+                ))}
                 <time dateTime={post.date}>{formatBlogDate(post.date)}</time>
                 <span className="flex items-center gap-1">
                   <ClockIcon size={14} />
                   {post.readingTime}
                 </span>
+                {post.author ? <span>By {post.author}</span> : null}
               </div>
+              {post.tags.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {post.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-raised px-2.5 py-1 text-xs text-faint"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </Reveal>
           </section>
 
           <Reveal>
-            <div className="mx-auto max-w-[70ch] space-y-5 py-12 text-[17px] leading-relaxed text-muted md:py-16 [&_a]:text-accent [&_a]:underline-offset-2 hover:[&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-5 [&_blockquote]:not-italic [&_blockquote]:text-ink [&_h2]:pt-4 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-ink [&_li]:leading-relaxed [&_strong]:font-medium [&_strong]:text-ink [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5">
+            <div className="mx-auto max-w-[70ch] pt-10 md:pt-14">
+              <Image
+                src={post.featuredImage.src}
+                alt={post.featuredImage.alt}
+                width={post.featuredImage.width}
+                height={post.featuredImage.height}
+                className="h-auto w-full rounded-2xl border border-line"
+                sizes="(max-width: 768px) 100vw, 70ch"
+                priority
+              />
+            </div>
+          </Reveal>
+
+          <Reveal>
+            <div className="mx-auto max-w-[70ch] space-y-5 py-12 text-[17px] leading-relaxed text-muted md:py-16">
               {children}
             </div>
           </Reveal>

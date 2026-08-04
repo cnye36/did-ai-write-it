@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { errorResponse } from "@/lib/api-errors";
 import { analyzeText } from "@/lib/detector";
 import { appendRunVersion, insertRun, insertRunVersion } from "@/lib/runs";
-import { scoreWithWinston, DETECT_MAX_CHARS } from "@/lib/winston";
+import { scoreWithWinston, DETECT_MAX_CHARS, MIN_WORDS_FOR_CHECK } from "@/lib/winston";
 import { requireUser } from "@/lib/supabase/auth";
 import {
   assertWithinQuota,
@@ -45,6 +45,15 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    const requestedWords = analyzeText(text).wordCount;
+    if (requestedWords < MIN_WORDS_FOR_CHECK) {
+      return Response.json(
+        {
+          error: `Text is too short for a reliable result. Add at least ${MIN_WORDS_FOR_CHECK} words (this text is ${requestedWords}).`,
+        },
+        { status: 400 }
+      );
+    }
 
     if (runId) {
       const { data: existing } = await supabase
@@ -65,7 +74,6 @@ export async function POST(req: NextRequest) {
     ]);
     const plan = (profile?.plan as Plan | undefined) ?? "free";
     const wordsUsed = wordsUsedInCurrentPeriod(usage?.period_start, usage?.words_used);
-    const requestedWords = analyzeText(text).wordCount;
     const bypass = isDevBypass(email);
     assertWithinQuota(plan, wordsUsed, requestedWords, bypass);
 

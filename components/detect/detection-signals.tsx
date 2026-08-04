@@ -92,7 +92,7 @@ export function DetectionSignals({
         </p>
         <p className="mb-3 text-xs leading-relaxed text-faint">
           {verified
-            ? "Winston doesn't publish its own reasoning, so these are the patterns our own signal scan found in each flagged sentence, offered as a likely explanation, not Winston's literal reasoning."
+            ? "These are the patterns our signal scan found in each flagged sentence, offered as a likely explanation for the verified score."
             : "Patterns our signal scan found in each flagged sentence."}
         </p>
         {flagged.length === 0 ? (

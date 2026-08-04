@@ -114,9 +114,9 @@ const sections: LegalSection[] = [
             our servers.
           </li>
           <li>
-            <strong>Winston AI.</strong> Third-party AI detection, plagiarism,
-            and fact-checking APIs. Submitted text is sent to Winston to produce
-            the scores and reports we show you.
+            <strong>Detection infrastructure.</strong> AI detection, plagiarism,
+            and fact-checking systems that process submitted text to produce the
+            scores and reports we show you.
           </li>
           <li>
             <strong>OpenAI or Anthropic.</strong> Only if you use rewrite or
