@@ -223,7 +223,7 @@ export function DetectorHero() {
               {activeSample
                 ? " · Sample text"
                 : words < MIN_WORDS_FOR_CHECK
-                  ? ` · Needs at least ${MIN_WORDS_FOR_CHECK} words for a reliable score`
+                  ? ` · ${MIN_WORDS_FOR_CHECK} words min, up to ${MAX_SCAN_WORDS} free`
                   : words > MAX_SCAN_WORDS
                     ? " · Sign up free for this full check"
                     : ` · Free up to ${MAX_SCAN_WORDS} words`}

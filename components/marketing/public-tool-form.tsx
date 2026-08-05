@@ -150,7 +150,7 @@ export function PublicToolForm({ kind }: { kind: CheckKind }) {
                 <span className={`font-mono tabular-nums ${overFreeLimit ? "text-accent" : ""}`}>
                   {words.toLocaleString()} words
                   {words < MIN_WORDS_FOR_CHECK
-                    ? ` · Needs at least ${MIN_WORDS_FOR_CHECK} words for a reliable score`
+                    ? ` · ${MIN_WORDS_FOR_CHECK} words min, up to ${FREE_WORD_LIMIT} free`
                     : overFreeLimit
                       ? " · Sign up free for this full check"
                       : ` · Free up to ${FREE_WORD_LIMIT} words`}
@@ -158,7 +158,7 @@ export function PublicToolForm({ kind }: { kind: CheckKind }) {
               ) : (
                 <span className="font-mono tabular-nums">
                   {chars.toLocaleString()} / {maxChars.toLocaleString()} characters
-                  {words < MIN_WORDS_FOR_CHECK ? ` · Needs at least ${MIN_WORDS_FOR_CHECK} words` : ""}
+                  {words < MIN_WORDS_FOR_CHECK ? ` · ${MIN_WORDS_FOR_CHECK} words min` : ""}
                 </span>
               )}
               <InfoTooltip text={WORD_COUNT_HELP_TEXT} />

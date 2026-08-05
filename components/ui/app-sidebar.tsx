@@ -21,6 +21,7 @@ import {
 } from "@/lib/runs";
 import { BrandLink } from "@/components/marketing/brand-link";
 import { UserNav } from "@/components/auth/user-nav";
+import { FeedbackWidget } from "@/components/feedback-widget";
 import type { Plan } from "@/lib/usage";
 import { verdictFor } from "@/lib/detector";
 import { plagiarismVerdict, factCheckVerdict } from "@/lib/score-verdicts";
@@ -246,6 +247,7 @@ export function AppSidebar({
             Admin
           </Link>
         )}
+        <FeedbackWidget onNavigate={() => setMobileOpen(false)} />
       </nav>
 
       <div className="flex items-center justify-between border-t border-line px-4 py-3">

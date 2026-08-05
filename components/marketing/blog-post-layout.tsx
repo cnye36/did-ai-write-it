@@ -32,7 +32,7 @@ export function BlogPostLayout({
 
       <div className="mx-auto w-full max-w-[1160px] px-4 sm:px-6">
         <article>
-          <section className="border-b border-line py-10 md:py-14">
+          <div className="pt-10 md:pt-14">
             <Reveal>
               <Link
                 href="/blog"
@@ -41,7 +41,26 @@ export function BlogPostLayout({
                 <ArrowLeftIcon size={14} weight="bold" />
                 Blog
               </Link>
-              <h1 className="mt-5 max-w-[26ch] text-4xl font-semibold leading-[1.05] tracking-tighter md:text-5xl">
+            </Reveal>
+
+            <Reveal delay={0.05}>
+              <div className="mt-5 aspect-video w-full overflow-hidden rounded-2xl border border-line">
+                <Image
+                  src={post.featuredImage.src}
+                  alt={post.featuredImage.alt}
+                  width={post.featuredImage.width}
+                  height={post.featuredImage.height}
+                  className="h-full w-full object-cover"
+                  sizes="(max-width: 1160px) 100vw, 1160px"
+                  priority
+                />
+              </div>
+            </Reveal>
+          </div>
+
+          <section className="border-b border-line pb-10 pt-8 md:pb-14">
+            <Reveal delay={0.1}>
+              <h1 className="max-w-[26ch] text-4xl font-semibold leading-[1.05] tracking-tighter md:text-5xl">
                 {post.title}
               </h1>
               <p className="mt-4 max-w-[58ch] text-lg leading-relaxed text-muted">
@@ -79,21 +98,7 @@ export function BlogPostLayout({
             </Reveal>
           </section>
 
-          <Reveal>
-            <div className="mx-auto max-w-[70ch] pt-10 md:pt-14">
-              <Image
-                src={post.featuredImage.src}
-                alt={post.featuredImage.alt}
-                width={post.featuredImage.width}
-                height={post.featuredImage.height}
-                className="h-auto w-full rounded-2xl border border-line"
-                sizes="(max-width: 768px) 100vw, 70ch"
-                priority
-              />
-            </div>
-          </Reveal>
-
-          <Reveal>
+          <Reveal amount={0}>
             <div className="mx-auto max-w-[70ch] space-y-5 py-12 text-[17px] leading-relaxed text-muted md:py-16">
               {children}
             </div>

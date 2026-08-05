@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeftIcon } from "@phosphor-icons/react/dist/ssr";
+import { ArrowLeftIcon, ChatCircleTextIcon } from "@phosphor-icons/react/dist/ssr";
 import { requireUser } from "@/lib/supabase/auth";
 import { isAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -76,7 +76,16 @@ export default async function AdminPage() {
           <ArrowLeftIcon size={14} weight="bold" />
           Back to app
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">Admin</h1>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
+          <Link
+            href="/admin/feedback"
+            className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-ink"
+          >
+            <ChatCircleTextIcon size={14} weight="bold" />
+            Feedback
+          </Link>
+        </div>
         <p className="mt-1 text-sm text-muted">
           Verified users, plans, and monthly usage. Unconfirmed signups are excluded below.
         </p>
