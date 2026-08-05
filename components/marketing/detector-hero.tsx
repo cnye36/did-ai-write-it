@@ -200,23 +200,42 @@ export function DetectorHero() {
       </div>
 
       <p className="mt-2 px-1 text-center text-[11px] text-faint sm:text-left">
-        {DAILY_FREE_CHECKS} free checks per day · {MIN_WORDS_FOR_CHECK}-{MAX_SCAN_WORDS} words per check
+        {DAILY_FREE_CHECKS} free checks per day
       </p>
 
       {/* Input */}
       <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
-        <textarea
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            setActiveSample(null);
-          }}
-          rows={9}
-          aria-label="Text to check for AI"
-          placeholder="Paste AI-generated text here to see how detectable it is..."
-          className="w-full resize-none bg-transparent text-sm leading-relaxed text-ink outline-none placeholder:text-faint"
-        />
-        <div className="mt-2 flex items-center justify-between border-t border-line pt-3">
+        <div className="relative">
+          <textarea
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              setActiveSample(null);
+            }}
+            rows={9}
+            aria-label="Text to check for AI"
+            placeholder="Paste AI-generated text here to see how detectable it is..."
+            className="w-full resize-none bg-transparent text-sm leading-relaxed text-ink outline-none placeholder:text-faint"
+          />
+          {!text && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end">
+              <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-line bg-raised px-1 py-1 shadow-sm">
+                <span className="pl-2 text-[11px] text-faint">Try a sample</span>
+                {(Object.keys(SAMPLES) as SampleId[]).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => selectSample(id)}
+                    className="rounded-full px-2.5 py-1 text-[11px] font-medium text-muted transition-colors hover:bg-accent/10 hover:text-accent"
+                  >
+                    {SAMPLES[id].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
           <div className="flex items-center gap-3 text-xs text-faint">
             <span
               className={`font-mono tabular-nums ${words > MAX_SCAN_WORDS ? "text-accent" : ""}`}
@@ -232,21 +251,6 @@ export function DetectorHero() {
             </span>
             <InfoTooltip text={WORD_COUNT_HELP_TEXT} />
             {fileName && <span className="max-w-[140px] truncate">{fileName}</span>}
-            {!text && (
-              <span className="flex items-center gap-2">
-                Try a sample:
-                {(Object.keys(SAMPLES) as SampleId[]).map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => selectSample(id)}
-                    className="text-accent hover:underline"
-                  >
-                    {SAMPLES[id].label}
-                  </button>
-                ))}
-              </span>
-            )}
           </div>
           <button
             type="button"

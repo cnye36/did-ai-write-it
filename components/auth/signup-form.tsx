@@ -115,8 +115,7 @@ export function SignupForm({ next }: { next?: string }) {
             link, or enter the code below.
           </p>
           <p className="mt-2 text-muted">
-            Do not see it? Check your spam or junk folder.
-            for a bit.
+            Do not see it? Check your spam or junk folder, we are still new aand growing.
           </p>
         </div>
         <form onSubmit={onVerifyCode} className="space-y-4">
