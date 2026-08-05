@@ -118,6 +118,20 @@ export async function refundUsage(userId: string, words: number): Promise<number
   return data;
 }
 
+/** Like refundUsage, but logs and returns null instead of throwing. Use in
+ *  catch paths so a refund failure does not mask the original error. */
+export async function safeRefundUsage(
+  userId: string,
+  words: number
+): Promise<number | null> {
+  try {
+    return await refundUsage(userId, words);
+  } catch (err) {
+    console.error("safeRefundUsage failed:", err);
+    return null;
+  }
+}
+
 /** Parse a "YYYY-MM-DD" (or ISO) date as UTC midnight. */
 function parseUtcDate(date: string): Date {
   const day = date.slice(0, 10);

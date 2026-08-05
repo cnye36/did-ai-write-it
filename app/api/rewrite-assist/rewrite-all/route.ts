@@ -8,8 +8,8 @@ import {
   incrementUsage,
   isDevBypass,
   PLAN_LIMITS,
-  refundUsage,
   rewriteAssistQuotaWords,
+  safeRefundUsage,
   wordsUsedInCurrentPeriod,
   type Plan,
 } from "@/lib/usage";
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
         },
       });
     } catch (err) {
-      await refundUsage(userId, quotaWords);
+      await safeRefundUsage(userId, quotaWords);
       throw err;
     }
   } catch (err) {

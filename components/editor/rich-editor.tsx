@@ -2,8 +2,12 @@
 
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
-import { Extension } from "@tiptap/core";
+import { Extension, posToDOMRect } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
+import TextAlign from "@tiptap/extension-text-align";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import Placeholder from "@tiptap/extension-placeholder";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
@@ -118,8 +122,18 @@ export interface RichEditorHandle {
    *  highlighting and the post-rescan report; omitted (defaults to "user")
    *  for anything driven by the user's own action. */
   replaceTextRange(start: number, end: number, replacement: string, opts?: { origin?: ProvenanceSource }): void;
-  replaceAll(text: string, opts?: { origin?: ProvenanceSource }): void;
+  /** `doc`, when given, replaces the document directly instead of
+   *  reconstructing one from `text` (which only ever yields plain
+   *  paragraphs) — used to restore an autosaved draft without losing its
+   *  formatting. */
+  replaceAll(text: string, opts?: { origin?: ProvenanceSource; doc?: object }): void;
   focus(): void;
+  /** Selects and scrolls a plain-text range into view, e.g. to point the
+   *  editor at a sentence a suggestion popover was opened for. */
+  focusRange(start: number, end: number): void;
+  /** Viewport-relative box for a plain-text range, for positioning a popover
+   *  anchored to it. Null once the editor itself isn't mounted yet. */
+  getRangeRect(start: number, end: number): DOMRect | null;
 }
 
 export function RichEditor({
@@ -159,7 +173,14 @@ export function RichEditor({
   const pendingOriginRef = useRef<ProvenanceSource>("user");
 
   const editor = useEditor({
-    extensions: [StarterKit, ScoreHighlight.configure({ sentences: winstonSentences, provenance })],
+    extensions: [
+      StarterKit,
+      TextAlign.configure({ types: ["paragraph", "heading"] }),
+      TaskList,
+      TaskItem.configure({ nested: false }),
+      Placeholder.configure({ placeholder: "Start writing..." }),
+      ScoreHighlight.configure({ sentences: winstonSentences, provenance }),
+    ],
     content: initialDoc ?? textToDoc(initialText),
     // Next.js renders this on the server first; without this React throws a
     // hydration mismatch.
@@ -206,9 +227,21 @@ export function RichEditor({
       },
       replaceAll: (text, opts) => {
         pendingOriginRef.current = opts?.origin ?? "user";
-        editor?.chain().focus().setContent(textToDoc(text)).run();
+        editor?.chain().focus().setContent(opts?.doc ?? textToDoc(text)).run();
       },
       focus: () => editor?.chain().focus().run(),
+      focusRange: (start, end) => {
+        if (!editor) return;
+        const { segments } = docToPlainText(editor.state.doc);
+        const { from, to } = textRangeToPmRange(segments, start, end);
+        editor.chain().focus().setTextSelection({ from, to }).scrollIntoView().run();
+      },
+      getRangeRect: (start, end) => {
+        if (!editor) return null;
+        const { segments } = docToPlainText(editor.state.doc);
+        const { from, to } = textRangeToPmRange(segments, start, end);
+        return posToDOMRect(editor.view, from, to);
+      },
     }),
     [editor]
   );

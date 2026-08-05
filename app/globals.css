@@ -205,6 +205,13 @@ mark[data-confidence="estimated"] {
   margin-bottom: 0;
 }
 
+.prose-editor h1 {
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin: 1.3em 0 0.55em;
+}
+
 .prose-editor h2 {
   font-size: 1.25rem;
   font-weight: 600;
@@ -250,6 +257,65 @@ mark[data-confidence="estimated"] {
 
 .prose-editor strong {
   font-weight: 650;
+}
+
+.prose-editor pre {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 0 0 0.85em;
+  overflow-x: auto;
+  padding: 0.75em 0.9em;
+}
+
+.prose-editor pre code {
+  background: none;
+  border: none;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85em;
+  padding: 0;
+}
+
+.prose-editor code {
+  background: var(--surface);
+  border-radius: 4px;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+}
+
+.prose-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.prose-editor ul[data-type="taskList"] li {
+  align-items: flex-start;
+  display: flex;
+}
+
+.prose-editor ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-right: 0.5em;
+  padding-top: 0.2em;
+  user-select: none;
+}
+
+.prose-editor ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+}
+
+.prose-editor ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--faint);
+  text-decoration: line-through;
+}
+
+.prose-editor p.is-editor-empty:first-child::before {
+  color: var(--faint);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
 }
 
 .prose-editor:focus {

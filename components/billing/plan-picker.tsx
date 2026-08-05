@@ -20,11 +20,15 @@ export function PlanPicker({
   const [error, setError] = useState<string | null>(null);
 
   async function upgrade(plan: Plan) {
-    posthog.capture("subscription_checkout_started", {
-      plan,
-      billing_interval: interval,
-      current_plan: currentPlan,
-    });
+    const changingExisting = currentPlan !== "free";
+    posthog.capture(
+      changingExisting ? "subscription_plan_change_started" : "subscription_checkout_started",
+      {
+        plan,
+        billing_interval: interval,
+        current_plan: currentPlan,
+      }
+    );
     setBusyPlan(plan);
     setError(null);
     try {
@@ -33,11 +37,32 @@ export function PlanPicker({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan, interval }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not start checkout.");
+      const data = (await res.json()) as {
+        error?: string;
+        url?: string;
+        changed?: boolean;
+        plan?: Plan;
+      };
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            (changingExisting ? "Could not change plan." : "Could not start checkout.")
+        );
+      }
+      if (data.changed) {
+        window.location.assign("/app/billing?success=1");
+        return;
+      }
+      if (!data.url) throw new Error("Could not start checkout.");
       window.location.assign(data.url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start checkout.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : changingExisting
+            ? "Could not change plan."
+            : "Could not start checkout."
+      );
       setBusyPlan(null);
     }
   }
@@ -91,7 +116,11 @@ export function PlanPicker({
                   onClick={() => upgrade(plan)}
                   className="mt-6 rounded-full bg-accent px-5 py-2.5 text-center text-sm font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {busyPlan === plan ? "Redirecting..." : `Upgrade to ${info.name}`}
+                  {busyPlan === plan
+                    ? "Redirecting..."
+                    : currentPlan === "free"
+                      ? `Upgrade to ${info.name}`
+                      : `Switch to ${info.name}`}
                 </button>
               )}
             </div>

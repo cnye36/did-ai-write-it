@@ -36,6 +36,17 @@ export async function POST(req: NextRequest) {
       await applySubscriptionObject(event.data.object as Stripe.Subscription, true);
       break;
     }
+    case "invoice.payment_failed": {
+      const invoice = event.data.object as Stripe.Invoice;
+      console.error("Stripe invoice.payment_failed", {
+        invoiceId: invoice.id,
+        customerId:
+          typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id,
+        attemptCount: invoice.attempt_count,
+        billingReason: invoice.billing_reason,
+      });
+      break;
+    }
   }
 
   return Response.json({ received: true });

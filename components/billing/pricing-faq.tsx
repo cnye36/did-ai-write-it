@@ -17,7 +17,7 @@ const FAQ = [
   },
   {
     q: "Can I change plans anytime?",
-    a: "Yes. Upgrade from the Change plan button on this page. Changing plans resets your credit usage to zero and starts a new monthly cycle. To cancel, use Cancel subscription. Payment methods and invoices live under Manage billing.",
+    a: "Yes. Use Change plan on this page. If you already subscribe, the switch updates your current subscription in place (with Stripe proration) and resets your credit usage to the new plan's full allowance. To cancel, use Cancel subscription. Payment methods and invoices live under Manage billing.",
   },
 ];
 

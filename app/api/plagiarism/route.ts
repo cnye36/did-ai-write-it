@@ -11,6 +11,7 @@ import {
   PLAN_LIMITS,
   PLAGIARISM_WORD_MULTIPLIER,
   refundUsage,
+  safeRefundUsage,
   wordsUsedInCurrentPeriod,
   type Plan,
 } from "@/lib/usage";
@@ -60,33 +61,39 @@ export async function POST(req: NextRequest) {
     assertWithinQuota(plan, wordsUsed, quotaWords, bypass);
 
     const updatedWordsUsed = await incrementUsage(supabase, userId, quotaWords, plan, bypass);
-    const plagiarism = await scoreWithPlagiarism(text);
 
-    if (!plagiarism) {
-      const refundedWordsUsed = await refundUsage(userId, quotaWords);
-      return Response.json({
-        plagiarism: null,
-        usage: { used: refundedWordsUsed, limit: PLAN_LIMITS[plan] },
+    try {
+      const plagiarism = await scoreWithPlagiarism(text);
+
+      if (!plagiarism) {
+        const refundedWordsUsed = await refundUsage(userId, quotaWords);
+        return Response.json({
+          plagiarism: null,
+          usage: { used: refundedWordsUsed, limit: PLAN_LIMITS[plan] },
+        });
+      }
+
+      const runId = await insertRun(supabase, {
+        userId,
+        kind: "plagiarism",
+        inputText: text,
+        wordCount,
+        score: plagiarism.score,
+        result: { plagiarism },
       });
+
+      return Response.json({
+        plagiarism,
+        runId,
+        usage: {
+          used: updatedWordsUsed,
+          limit: PLAN_LIMITS[plan],
+        },
+      });
+    } catch (err) {
+      await safeRefundUsage(userId, quotaWords);
+      throw err;
     }
-
-    const runId = await insertRun(supabase, {
-      userId,
-      kind: "plagiarism",
-      inputText: text,
-      wordCount,
-      score: plagiarism.score,
-      result: { plagiarism },
-    });
-
-    return Response.json({
-      plagiarism,
-      runId,
-      usage: {
-        used: updatedWordsUsed,
-        limit: PLAN_LIMITS[plan],
-      },
-    });
   } catch (err) {
     return errorResponse(err);
   }

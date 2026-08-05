@@ -55,3 +55,17 @@ export async function sendFeedbackNotification(opts: {
     "feedback"
   );
 }
+
+/** Called from lib/stripe-sync when a profile's plan moves up the ladder
+ *  (free→lite, lite→plus, etc.). Downgrades and same-plan replays do not notify. */
+export async function sendUpgradeNotification(opts: {
+  email: string;
+  fromPlan: string;
+  toPlan: string;
+}): Promise<void> {
+  await sendAdminEmail(
+    `Paid upgrade: ${opts.toPlan}`,
+    `${opts.email} upgraded from ${opts.fromPlan} to ${opts.toPlan}.`,
+    "upgrade"
+  );
+}

@@ -1,15 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowClockwiseIcon,
   ArrowLeftIcon,
-  CheckIcon,
   GitDiffIcon,
   SparkleIcon,
-  XIcon,
 } from "@phosphor-icons/react";
 import { analyzeText, verdictFor } from "@/lib/detector";
 import { normalize, resolveSentenceScores, verifiedCoverage } from "@/lib/winston-sentences";
@@ -18,7 +16,9 @@ import { ScoreGauge } from "@/components/detect/score-gauge";
 import { QuotaExceededModal } from "@/components/ui/quota-exceeded-modal";
 import { ConfirmRewriteAllModal } from "@/components/detect/confirm-rewrite-all-modal";
 import { RichEditor, type RichEditorHandle } from "@/components/editor/rich-editor";
+import { InlineSuggestionPopover } from "@/components/editor/inline-suggestion-popover";
 import { WinstonHighlightedText } from "@/components/detect/winston-highlighted-text";
+import { ExportMenu } from "@/components/detect/export-menu";
 import { VersionTabs } from "@/components/detect/version-tabs";
 import { VersionDiffModal, type DiffFromOption } from "@/components/detect/version-diff-modal";
 import { RescanResultsPanel } from "@/components/detect/rescan-results";
@@ -44,6 +44,25 @@ interface Suggestion {
   error: string | null;
   texts: string[] | null;
   selectedIndex: number;
+}
+
+interface DraftSnapshot {
+  text: string;
+  doc: object | null;
+  savedAt: number;
+}
+
+function draftStorageKey(runId: string): string {
+  return `editor-draft:${runId}`;
+}
+
+function relativeTime(ms: number): string {
+  const mins = Math.floor((Date.now() - ms) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 export function DetectEditorClient({
@@ -84,6 +103,7 @@ export function DetectEditorClient({
   const [provenance, setProvenance] = useState<ProvenanceMap>(emptyProvenance());
   const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [suggestionAnchor, setSuggestionAnchor] = useState<DOMRect | null>(null);
 
   const [rescanBusy, setRescanBusy] = useState(false);
   const [rescanError, setRescanError] = useState<string | null>(null);
@@ -94,6 +114,7 @@ export function DetectEditorClient({
   const [diffOpen, setDiffOpen] = useState(false);
   const [diffFromValue, setDiffFromValue] = useState(versions[versions.length - 1].id);
   const [rescanResults, setRescanResults] = useState<RescanResults | null>(null);
+  const [restoreBanner, setRestoreBanner] = useState<DraftSnapshot | null>(null);
 
   const live = useMemo(() => analyzeText(draft), [draft]);
 
@@ -125,6 +146,55 @@ export function DetectEditorClient({
   const verifiedScore = versionScore(selectedVersion);
   const verifiedVerdict = verdictFor(verifiedScore);
 
+  // On mount, offer to restore a draft left behind by an accidental
+  // navigation (there's no autosave to the server between scans, only on
+  // "Scan again"). Only surfaced when it actually differs from what just
+  // loaded, so a clean reopen never shows a pointless banner.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftStorageKey(run.id));
+      if (!raw) return;
+      const snapshot = JSON.parse(raw) as DraftSnapshot;
+      if (snapshot.text && snapshot.text !== versions[versions.length - 1].input_text) {
+        setRestoreBanner(snapshot);
+      }
+    } catch {
+      // Corrupt or inaccessible storage: nothing to restore.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run.id]);
+
+  // Debounced local safety net: every edit is written to localStorage (not
+  // the server) so an accidental navigation before the next "Scan again"
+  // doesn't lose work. Cleared on a successful rescan (see scanAgain) and on
+  // an explicit "Discard" of the restore banner.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        const snapshot: DraftSnapshot = { text: draft, doc: docJson, savedAt: Date.now() };
+        localStorage.setItem(draftStorageKey(run.id), JSON.stringify(snapshot));
+      } catch {
+        // Storage full/unavailable: autosave is a best-effort safety net.
+      }
+    }, 800);
+    return () => clearTimeout(t);
+  }, [draft, docJson, run.id]);
+
+  function restoreDraft() {
+    if (!restoreBanner) return;
+    editorRef.current?.replaceAll(restoreBanner.text, { doc: restoreBanner.doc ?? undefined });
+    setRestoreBanner(null);
+  }
+
+  function discardRestore() {
+    setRestoreBanner(null);
+    try {
+      localStorage.removeItem(draftStorageKey(run.id));
+    } catch {
+      // Ignore: nothing more to do if storage isn't available.
+    }
+  }
+
   function updateSelection() {
     setSelection(editorRef.current?.getSelectionTextRange() ?? null);
   }
@@ -132,6 +202,8 @@ export function DetectEditorClient({
   async function requestSuggestion(start: number, end: number, source: Suggestion["source"]) {
     const spanText = draft.slice(start, end);
     posthog.capture("rewrite_suggestion_requested", { source });
+    editorRef.current?.focusRange(start, end);
+    setSuggestionAnchor(editorRef.current?.getRangeRect(start, end) ?? null);
     setSuggestion({ start, end, spanText, source, busy: true, error: null, texts: null, selectedIndex: 0 });
     try {
       const res = await fetch("/api/rewrite-assist/suggest", {
@@ -143,6 +215,7 @@ export function DetectEditorClient({
       if (res.status === 402) {
         setQuota({ plan: data.plan, limit: data.limit });
         setSuggestion(null);
+        setSuggestionAnchor(null);
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Could not get a suggestion.");
@@ -185,12 +258,51 @@ export function DetectEditorClient({
     editorRef.current?.replaceTextRange(targetStart, targetEnd, text, { origin: "ai" });
     posthog.capture("rewrite_suggestion_applied", { source: suggestion.source });
     setSuggestion(null);
+    setSuggestionAnchor(null);
     setSelection(null);
   }
 
   function dismissSuggestion() {
     setSuggestion(null);
+    setSuggestionAnchor(null);
   }
+
+  // Keeps the popover glued to its sentence as the page scrolls/resizes
+  // (the editor's own scroll container included: scroll events don't
+  // bubble, but they do reach a capturing-phase document listener).
+  useEffect(() => {
+    if (!suggestion) return;
+    function reposition() {
+      setSuggestionAnchor(editorRef.current?.getRangeRect(suggestion!.start, suggestion!.end) ?? null);
+    }
+    window.addEventListener("resize", reposition);
+    document.addEventListener("scroll", reposition, true);
+    return () => {
+      window.removeEventListener("resize", reposition);
+      document.removeEventListener("scroll", reposition, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestion?.start, suggestion?.end]);
+
+  // Dismiss on outside click / Escape, same as every other dropdown/popover
+  // in this app (e.g. FilterMenu in components/ui/app-sidebar.tsx).
+  useEffect(() => {
+    if (!suggestion) return;
+    function onPointerDown(e: PointerEvent) {
+      const popover = document.getElementById("inline-suggestion-popover");
+      if (popover && !popover.contains(e.target as Node)) dismissSuggestion();
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") dismissSuggestion();
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestion !== null]);
 
   async function rewriteAll() {
     posthog.capture("rewrite_all_requested");
@@ -253,6 +365,11 @@ export function DetectEditorClient({
         });
         setDiffFromValue(newVersion.id);
         setRescanResults(buildRescanResults(previousVersion, newVersion, provenance));
+        try {
+          localStorage.removeItem(draftStorageKey(run.id));
+        } catch {
+          // Ignore: the version is now saved server-side either way.
+        }
       }
       router.refresh();
     } catch (e) {
@@ -305,6 +422,30 @@ export function DetectEditorClient({
 
         {rescanError && <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{rescanError}</p>}
 
+        {restoreBanner && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-line bg-accent-soft px-4 py-3">
+            <p className="text-sm text-ink">
+              Unsaved edit from {relativeTime(restoreBanner.savedAt)} found.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={restoreDraft}
+                className="text-xs font-medium text-accent hover:underline"
+              >
+                Restore
+              </button>
+              <button
+                type="button"
+                onClick={discardRestore}
+                className="text-xs font-medium text-faint hover:text-ink"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
+
         <VersionTabs versions={versions} selectedIndex={selectedIndex} onSelect={setSelectedIndex} />
 
         {rescanResults && (
@@ -314,34 +455,11 @@ export function DetectEditorClient({
         <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
           <div className="flex flex-col rounded-2xl border border-line bg-surface">
             <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-              <span className="text-sm font-medium">Report {selectedIndex + 1}</span>
-              {selectedWinston && (
-                <div className="flex items-center gap-2">
-                  <ScoreGauge score={verifiedScore} verdict={verifiedVerdict} size={32} />
-                  <span className="text-xs text-faint">Verified score</span>
-                </div>
-              )}
-            </div>
-            <div className="max-h-[55vh] min-h-[280px] flex-1 overflow-y-auto p-4">
-              {selectedWinston ? (
-                <WinstonHighlightedText
-                  text={selectedVersion.input_text}
-                  sentences={selectedWinston.sentences}
-                  flags={live.flags}
-                  showHuman
-                />
-              ) : (
-                <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted">
-                  {selectedVersion.input_text}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col rounded-2xl border border-line bg-surface">
-            <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
               <span className="text-sm font-medium">Your edit</span>
-              <span className="text-xs text-faint">Scan again for a real score</span>
+              <div className="flex items-center gap-2">
+                <ExportMenu getDoc={() => editorRef.current?.getDoc() ?? {}} title={run.title} />
+                <span className="text-xs text-faint">Scan again for a real score</span>
+              </div>
             </div>
             <RichEditor
               handleRef={editorRef}
@@ -386,73 +504,33 @@ export function DetectEditorClient({
               </button>
             </div>
           </div>
-        </div>
 
-        {suggestion && (
-          <div className="rounded-2xl border border-line bg-raised p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-faint">
-              Suggested rewrite for {suggestion.source === "sentence" ? "this sentence" : "your selection"}
-            </p>
-            <p className="mt-2 rounded-[10px] bg-surface p-3 text-sm text-muted line-through decoration-faint">
-              {suggestion.spanText}
-            </p>
-            {suggestion.busy ? (
-              <div className="mt-2 space-y-2">
-                <div className="h-10 animate-pulse rounded-[10px] bg-surface" />
-                <div className="h-10 animate-pulse rounded-[10px] bg-surface" />
-                <div className="h-10 animate-pulse rounded-[10px] bg-surface" />
-              </div>
-            ) : suggestion.error ? (
-              <p className="mt-2 text-sm text-bad">{suggestion.error}</p>
-            ) : (
-              <div className="mt-2 space-y-2">
-                {suggestion.texts?.map((text, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setSuggestion((s) => (s ? { ...s, selectedIndex: i } : s))}
-                    aria-pressed={i === suggestion.selectedIndex}
-                    className={`w-full rounded-[10px] p-3 text-left text-sm transition-colors ${
-                      i === suggestion.selectedIndex
-                        ? "bg-accent-soft ring-1 ring-inset ring-accent"
-                        : "bg-surface hover:bg-accent-soft/60"
-                    }`}
-                  >
-                    {text}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="mt-3 flex items-center gap-2">
-              <button
-                type="button"
-                disabled={suggestion.busy || !suggestion.texts?.[suggestion.selectedIndex]}
-                onClick={acceptSuggestion}
-                className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 text-xs font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <CheckIcon size={13} weight="bold" />
-                Use this
-              </button>
-              {!suggestion.busy && (
-                <button
-                  type="button"
-                  onClick={() => requestSuggestion(suggestion.start, suggestion.end, suggestion.source)}
-                  className="text-xs font-medium text-muted hover:text-ink"
-                >
-                  Try again
-                </button>
+          <div className="flex flex-col rounded-2xl border border-line bg-surface">
+            <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
+              <span className="text-sm font-medium">Report {selectedIndex + 1}</span>
+              {selectedWinston && (
+                <div className="flex items-center gap-2">
+                  <ScoreGauge score={verifiedScore} verdict={verifiedVerdict} size={32} />
+                  <span className="text-xs text-faint">Verified score</span>
+                </div>
               )}
-              <button
-                type="button"
-                onClick={dismissSuggestion}
-                className="ml-auto inline-flex items-center gap-1 text-xs text-faint hover:text-ink"
-              >
-                <XIcon size={12} weight="bold" />
-                Dismiss
-              </button>
+            </div>
+            <div className="max-h-[55vh] min-h-[280px] flex-1 overflow-y-auto p-4">
+              {selectedWinston ? (
+                <WinstonHighlightedText
+                  text={selectedVersion.input_text}
+                  sentences={selectedWinston.sentences}
+                  flags={live.flags}
+                  showHuman
+                />
+              ) : (
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted">
+                  {selectedVersion.input_text}
+                </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
 
         <div className="rounded-2xl border border-line bg-surface p-4">
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-faint">
@@ -465,9 +543,9 @@ export function DetectEditorClient({
               {flaggedSentences.map((s) => {
                 const origin = provenance.get(normalize(s.text)) ?? "user";
                 return (
-                <li key={`${s.start}-${s.end}`} className="rounded-[10px] border border-line p-3">
+                <li key={`${s.start}-${s.end}`} className="rounded-[10px] border border-line bg-raised p-3">
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm leading-relaxed">{s.text}</p>
+                    <p className="text-sm leading-relaxed text-ink">{s.text}</p>
                     {s.source === "verified" ? (
                       <span
                         className="shrink-0 rounded-full px-2 py-0.5 font-mono text-xs tabular-nums"
@@ -494,13 +572,16 @@ export function DetectEditorClient({
                     <p className="mt-1 text-[11px] font-medium text-faint">Verified score</p>
                   )}
                   {s.reasons.length > 0 && (
-                    <ul className="mt-1.5 space-y-0.5">
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {s.reasons.map((r) => (
-                        <li key={r} className="text-xs text-muted">
+                        <span
+                          key={r}
+                          className="rounded-full bg-surface px-2 py-1 text-xs leading-tight text-muted"
+                        >
                           {r}
-                        </li>
+                        </span>
                       ))}
-                    </ul>
+                    </div>
                   )}
                   <button
                     type="button"
@@ -517,6 +598,20 @@ export function DetectEditorClient({
           )}
         </div>
       </div>
+
+      <InlineSuggestionPopover
+        anchorRect={suggestionAnchor}
+        sourceLabel={suggestion?.source === "sentence" ? "this sentence" : "your selection"}
+        spanText={suggestion?.spanText ?? ""}
+        busy={suggestion?.busy ?? false}
+        error={suggestion?.error ?? null}
+        texts={suggestion?.texts ?? null}
+        selectedIndex={suggestion?.selectedIndex ?? 0}
+        onSelect={(i) => setSuggestion((s) => (s ? { ...s, selectedIndex: i } : s))}
+        onAccept={acceptSuggestion}
+        onRetry={() => suggestion && requestSuggestion(suggestion.start, suggestion.end, suggestion.source)}
+        onDismiss={dismissSuggestion}
+      />
 
       <ConfirmRewriteAllModal
         open={rewriteAllOpen}

@@ -10,6 +10,7 @@ import {
   isDevBypass,
   PLAN_LIMITS,
   refundUsage,
+  safeRefundUsage,
   wordsUsedInCurrentPeriod,
   type Plan,
 } from "@/lib/usage";
@@ -92,59 +93,65 @@ export async function POST(req: NextRequest) {
       plan,
       bypass
     );
-    const winston = await scoreWithWinston(text);
 
-    if (!winston) {
-      const refundedWordsUsed = await refundUsage(userId, requestedWords);
-      return Response.json({
-        winston: null,
-        usage: { used: refundedWordsUsed, limit: PLAN_LIMITS[plan] },
-      });
-    }
+    try {
+      const winston = await scoreWithWinston(text);
 
-    const winstonPayload = { score: winston.score, sentences: winston.sentences };
-    const runResult = { winston: winstonPayload };
-    let resultRunId: string | null;
+      if (!winston) {
+        const refundedWordsUsed = await refundUsage(userId, requestedWords);
+        return Response.json({
+          winston: null,
+          usage: { used: refundedWordsUsed, limit: PLAN_LIMITS[plan] },
+        });
+      }
 
-    if (runId) {
-      await appendRunVersion(supabase, {
-        runId,
-        inputText: text,
-        wordCount: requestedWords,
-        score: winston.score,
-        result: runResult,
-        doc,
-      });
-      resultRunId = runId;
-    } else {
-      resultRunId = await insertRun(supabase, {
-        userId,
-        kind: "detect",
-        inputText: text,
-        wordCount: requestedWords,
-        score: winston.score,
-        result: runResult,
-      });
-      if (resultRunId) {
-        await insertRunVersion(supabase, {
-          runId: resultRunId,
+      const winstonPayload = { score: winston.score, sentences: winston.sentences };
+      const runResult = { winston: winstonPayload };
+      let resultRunId: string | null;
+
+      if (runId) {
+        await appendRunVersion(supabase, {
+          runId,
           inputText: text,
           wordCount: requestedWords,
           score: winston.score,
           result: runResult,
           doc,
         });
+        resultRunId = runId;
+      } else {
+        resultRunId = await insertRun(supabase, {
+          userId,
+          kind: "detect",
+          inputText: text,
+          wordCount: requestedWords,
+          score: winston.score,
+          result: runResult,
+        });
+        if (resultRunId) {
+          await insertRunVersion(supabase, {
+            runId: resultRunId,
+            inputText: text,
+            wordCount: requestedWords,
+            score: winston.score,
+            result: runResult,
+            doc,
+          });
+        }
       }
-    }
 
-    return Response.json({
-      winston: winstonPayload,
-      runId: resultRunId,
-      usage: {
-        used: updatedWordsUsed,
-        limit: PLAN_LIMITS[plan],
-      },
-    });
+      return Response.json({
+        winston: winstonPayload,
+        runId: resultRunId,
+        usage: {
+          used: updatedWordsUsed,
+          limit: PLAN_LIMITS[plan],
+        },
+      });
+    } catch (err) {
+      await safeRefundUsage(userId, requestedWords);
+      throw err;
+    }
   } catch (err) {
     return errorResponse(err);
   }

@@ -28,6 +28,11 @@ const WINSTON_API_URL = "https://api.gowinston.ai/v2/ai-content-detection";
 const PLAGIARISM_API_URL = "https://api.gowinston.ai/v2/plagiarism";
 const FACT_CHECK_API_URL = "https://api.gowinston.ai/v2/fact-checker";
 
+/** Leave headroom under each route's maxDuration so we can refund quota before
+ *  the isolate is killed. */
+const DETECT_FETCH_TIMEOUT_MS = 25_000;
+const LONG_CHECK_FETCH_TIMEOUT_MS = 55_000;
+
 /**
  * Product-level floor, well above Winston's own per-endpoint minimums below:
  * detectors (ours and Winston's) are unreliable on short text, so every
@@ -86,6 +91,7 @@ export async function scoreWithWinston(text: string): Promise<WinstonResult | nu
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ text, sentences: true }),
+      signal: AbortSignal.timeout(DETECT_FETCH_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -167,6 +173,7 @@ export async function scoreWithPlagiarism(text: string): Promise<PlagiarismResul
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(LONG_CHECK_FETCH_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -242,6 +249,7 @@ export async function checkFacts(text: string): Promise<FactCheckResult | null> 
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(LONG_CHECK_FETCH_TIMEOUT_MS),
     });
 
     if (!res.ok) {

@@ -11,6 +11,7 @@ import {
   PLAN_LIMITS,
   FACT_CHECK_WORD_MULTIPLIER,
   refundUsage,
+  safeRefundUsage,
   wordsUsedInCurrentPeriod,
   type Plan,
 } from "@/lib/usage";
@@ -60,33 +61,39 @@ export async function POST(req: NextRequest) {
     assertWithinQuota(plan, wordsUsed, quotaWords, bypass);
 
     const updatedWordsUsed = await incrementUsage(supabase, userId, quotaWords, plan, bypass);
-    const factCheck = await checkFacts(text);
 
-    if (!factCheck) {
-      const refundedWordsUsed = await refundUsage(userId, quotaWords);
-      return Response.json({
-        factCheck: null,
-        usage: { used: refundedWordsUsed, limit: PLAN_LIMITS[plan] },
+    try {
+      const factCheck = await checkFacts(text);
+
+      if (!factCheck) {
+        const refundedWordsUsed = await refundUsage(userId, quotaWords);
+        return Response.json({
+          factCheck: null,
+          usage: { used: refundedWordsUsed, limit: PLAN_LIMITS[plan] },
+        });
+      }
+
+      const runId = await insertRun(supabase, {
+        userId,
+        kind: "fact_check",
+        inputText: text,
+        wordCount,
+        score: factCheck.score,
+        result: { factCheck },
       });
+
+      return Response.json({
+        factCheck,
+        runId,
+        usage: {
+          used: updatedWordsUsed,
+          limit: PLAN_LIMITS[plan],
+        },
+      });
+    } catch (err) {
+      await safeRefundUsage(userId, quotaWords);
+      throw err;
     }
-
-    const runId = await insertRun(supabase, {
-      userId,
-      kind: "fact_check",
-      inputText: text,
-      wordCount,
-      score: factCheck.score,
-      result: { factCheck },
-    });
-
-    return Response.json({
-      factCheck,
-      runId,
-      usage: {
-        used: updatedWordsUsed,
-        limit: PLAN_LIMITS[plan],
-      },
-    });
   } catch (err) {
     return errorResponse(err);
   }
