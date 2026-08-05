@@ -55,7 +55,11 @@ export function PublicToolForm({ kind }: { kind: CheckKind }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rateLimited, setRateLimited] = useState(false);
-  const [preview, setPreview] = useState<{ score: number; sentences: WinstonSentence[] } | null>(null);
+  const [preview, setPreview] = useState<{
+    score: number;
+    sentences: WinstonSentence[];
+    totalSentenceCount?: number;
+  } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const copy = TOOL_COPY[kind];
@@ -210,6 +214,7 @@ export function PublicToolForm({ kind }: { kind: CheckKind }) {
                   <WinstonSentenceList
                     sentences={preview.sentences}
                     revealCount={1}
+                    totalCount={preview.totalSentenceCount}
                     ctaHref={signupHref(copy.route)}
                     onSignup={continueToSignup}
                   />

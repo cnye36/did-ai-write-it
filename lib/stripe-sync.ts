@@ -37,7 +37,7 @@ async function updateProfileByUserId(
   const supabase = createServiceClient();
   const { data: existing } = await supabase
     .from("profiles")
-    .select("plan")
+    .select("plan, stripe_subscription_id")
     .eq("id", userId)
     .single();
 
@@ -45,7 +45,10 @@ async function updateProfileByUserId(
   if (error) throw new Error(`Failed to update profile: ${error.message}`);
 
   const planChanged = existing?.plan !== fields.plan;
-  if (opts.resetUsage || planChanged) {
+  const subscriptionChanged =
+    Boolean(fields.stripe_subscription_id) &&
+    existing?.stripe_subscription_id !== fields.stripe_subscription_id;
+  if ((opts.resetUsage && subscriptionChanged) || planChanged) {
     await resetUsagePeriod(userId);
   }
 }
@@ -112,8 +115,8 @@ export async function applyCheckoutSession(
   }
   if (!plan) return null;
 
-  // Checkout always starts a fresh credit cycle, even if a prior sync already
-  // flipped the plan (e.g. webhook raced the return URL).
+  // A new subscription starts a fresh credit cycle. Replaying the same
+  // checkout session or webhook must not reset usage again.
   await updateProfileByUserId(
     userId,
     {

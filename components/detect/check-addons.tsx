@@ -163,6 +163,112 @@ export function FactCheckAddonCard({ busy, error, result, runId, eligible, ineli
   );
 }
 
+const ADDON_BUTTON_BASE =
+  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+
+/** Compact pill version of the add-on cards above, for the score header on
+ * the detect page: a run button before, a small linked score chip after,
+ * instead of a full card taking up report real estate. */
+export function PlagiarismAddonButton({
+  busy,
+  error,
+  result,
+  runId,
+  eligible,
+  ineligibleReason,
+  onRun,
+}: AddonProps<PlagiarismResult>) {
+  if (result === undefined) {
+    return (
+      <button
+        type="button"
+        disabled={!eligible || busy}
+        title={!eligible ? ineligibleReason : (error ?? undefined)}
+        onClick={onRun}
+        className={`${ADDON_BUTTON_BASE} ${
+          error ? "border-bad/40 bg-bad-soft text-bad hover:border-bad/60" : "border-line text-ink hover:border-faint"
+        }`}
+      >
+        <FileMagnifyingGlassIcon size={14} weight="bold" />
+        {busy ? "Checking plagiarism..." : error ? "Retry plagiarism check" : "Run plagiarism check"}
+      </button>
+    );
+  }
+
+  if (result === null) {
+    return (
+      <span className={`${ADDON_BUTTON_BASE} border-line text-faint`}>
+        <FileMagnifyingGlassIcon size={14} weight="bold" />
+        Plagiarism unavailable
+      </span>
+    );
+  }
+
+  const verdict = plagiarismVerdict(result.score);
+  return (
+    <Link
+      href={runId ? `/app/plagiarism?run=${runId}` : "/app/plagiarism"}
+      className={`${ADDON_BUTTON_BASE} border-line text-ink hover:border-faint`}
+    >
+      <FileMagnifyingGlassIcon size={14} weight="bold" className="text-faint" />
+      <span className="font-mono tabular-nums" style={{ color: verdict.color }}>
+        {result.score}
+      </span>
+      Plagiarism
+    </Link>
+  );
+}
+
+export function FactCheckAddonButton({
+  busy,
+  error,
+  result,
+  runId,
+  eligible,
+  ineligibleReason,
+  onRun,
+}: AddonProps<FactCheckResult>) {
+  if (result === undefined) {
+    return (
+      <button
+        type="button"
+        disabled={!eligible || busy}
+        title={!eligible ? ineligibleReason : (error ?? undefined)}
+        onClick={onRun}
+        className={`${ADDON_BUTTON_BASE} ${
+          error ? "border-bad/40 bg-bad-soft text-bad hover:border-bad/60" : "border-line text-ink hover:border-faint"
+        }`}
+      >
+        <ClipboardTextIcon size={14} weight="bold" />
+        {busy ? "Checking facts..." : error ? "Retry fact check" : "Run fact check"}
+      </button>
+    );
+  }
+
+  if (result === null) {
+    return (
+      <span className={`${ADDON_BUTTON_BASE} border-line text-faint`}>
+        <ClipboardTextIcon size={14} weight="bold" />
+        Fact check unavailable
+      </span>
+    );
+  }
+
+  const verdict = factCheckVerdict(result.score);
+  return (
+    <Link
+      href={runId ? `/app/fact-check?run=${runId}` : "/app/fact-check"}
+      className={`${ADDON_BUTTON_BASE} border-line text-ink hover:border-faint`}
+    >
+      <ClipboardTextIcon size={14} weight="bold" className="text-faint" />
+      <span className="font-mono tabular-nums" style={{ color: verdict.color }}>
+        {result.score}
+      </span>
+      Fact check
+    </Link>
+  );
+}
+
 function AddonCard({
   icon,
   title,

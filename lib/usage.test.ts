@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addUtcMonths,
   formatPeriodResetLabel,
@@ -104,6 +104,7 @@ describe("formatPeriodResetLabel", () => {
 describe("isDevBypass", () => {
   afterEach(() => {
     delete process.env.DEV_BYPASS_EMAIL;
+    vi.unstubAllEnvs();
   });
 
   it("is false when DEV_BYPASS_EMAIL is unset", () => {
@@ -114,5 +115,11 @@ describe("isDevBypass", () => {
     process.env.DEV_BYPASS_EMAIL = "Dev@Example.com";
     expect(isDevBypass("dev@example.com")).toBe(true);
     expect(isDevBypass("other@example.com")).toBe(false);
+  });
+
+  it("is always disabled in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    process.env.DEV_BYPASS_EMAIL = "dev@example.com";
+    expect(isDevBypass("dev@example.com")).toBe(false);
   });
 });

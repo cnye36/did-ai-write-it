@@ -10,6 +10,7 @@ import {
   isDevBypass,
   PLAN_LIMITS,
   PLAGIARISM_WORD_MULTIPLIER,
+  refundUsage,
   wordsUsedInCurrentPeriod,
   type Plan,
 } from "@/lib/usage";
@@ -58,18 +59,16 @@ export async function POST(req: NextRequest) {
     const bypass = isDevBypass(email);
     assertWithinQuota(plan, wordsUsed, quotaWords, bypass);
 
+    const updatedWordsUsed = await incrementUsage(supabase, userId, quotaWords, plan, bypass);
     const plagiarism = await scoreWithPlagiarism(text);
 
-    // Nothing billable happened (unconfigured, too short, or the request
-    // failed): return the null result without touching the quota.
     if (!plagiarism) {
+      const refundedWordsUsed = await refundUsage(userId, quotaWords);
       return Response.json({
         plagiarism: null,
-        usage: { used: wordsUsed, limit: PLAN_LIMITS[plan] },
+        usage: { used: refundedWordsUsed, limit: PLAN_LIMITS[plan] },
       });
     }
-
-    const updatedWordsUsed = await incrementUsage(supabase, userId, quotaWords, plan, bypass);
 
     const runId = await insertRun(supabase, {
       userId,

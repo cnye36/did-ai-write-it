@@ -38,12 +38,16 @@ export function errorResponse(err: unknown): Response {
       { status: 402 }
     );
   }
+  if (err instanceof MissingKeyError) {
+    console.error(err.message);
+    return Response.json({ error: "Service temporarily unavailable." }, { status: 503 });
+  }
+
+  console.error("API request failed:", err);
   const message =
-    err instanceof MissingKeyError
-      ? err.message
-      : err instanceof Error
-        ? `Request failed: ${err.message}`
-        : "Request failed with an unknown error.";
-  const status = err instanceof MissingKeyError ? 503 : 500;
+    process.env.NODE_ENV === "development" && err instanceof Error
+      ? `Request failed: ${err.message}`
+      : "Request failed. Try again shortly.";
+  const status = 500;
   return Response.json({ error: message }, { status });
 }

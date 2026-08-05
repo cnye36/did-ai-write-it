@@ -9,6 +9,7 @@ import {
   incrementUsage,
   isDevBypass,
   PLAN_LIMITS,
+  refundUsage,
   wordsUsedInCurrentPeriod,
   type Plan,
 } from "@/lib/usage";
@@ -16,6 +17,7 @@ import {
 export const maxDuration = 30;
 
 const MAX_CHARS = DETECT_MAX_CHARS;
+const MAX_DOC_CHARS = 250_000;
 
 interface DetectBody {
   text: string;
@@ -44,6 +46,12 @@ export async function POST(req: NextRequest) {
         { error: `Text is too long. Keep it under ${MAX_CHARS.toLocaleString()} characters.` },
         { status: 400 }
       );
+    }
+    if (doc !== null && (typeof doc !== "object" || Array.isArray(doc))) {
+      return Response.json({ error: "Invalid editor document." }, { status: 400 });
+    }
+    if (doc !== null && JSON.stringify(doc).length > MAX_DOC_CHARS) {
+      return Response.json({ error: "Editor document is too large." }, { status: 400 });
     }
     const requestedWords = analyzeText(text).wordCount;
     if (requestedWords < MIN_WORDS_FOR_CHECK) {
@@ -77,18 +85,22 @@ export async function POST(req: NextRequest) {
     const bypass = isDevBypass(email);
     assertWithinQuota(plan, wordsUsed, requestedWords, bypass);
 
+    const updatedWordsUsed = await incrementUsage(
+      supabase,
+      userId,
+      requestedWords,
+      plan,
+      bypass
+    );
     const winston = await scoreWithWinston(text);
 
-    // Nothing billable happened (unconfigured, too short, or the request
-    // failed): return the null result without touching the quota.
     if (!winston) {
+      const refundedWordsUsed = await refundUsage(userId, requestedWords);
       return Response.json({
         winston: null,
-        usage: { used: wordsUsed, limit: PLAN_LIMITS[plan] },
+        usage: { used: refundedWordsUsed, limit: PLAN_LIMITS[plan] },
       });
     }
-
-    const updatedWordsUsed = await incrementUsage(supabase, userId, requestedWords, plan, bypass);
 
     const winstonPayload = { score: winston.score, sentences: winston.sentences };
     const runResult = { winston: winstonPayload };

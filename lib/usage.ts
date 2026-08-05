@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { QuotaExceededError } from "./api-errors";
+import { createServiceClient } from "./supabase/service";
 
 export type Plan = "free" | "lite" | "plus" | "pro";
 
@@ -73,24 +74,48 @@ export function assertWithinQuota(
  * that case); returns the new words_used total otherwise.
  */
 export async function incrementUsage(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   userId: string,
   words: number,
   plan: Plan,
   bypass: boolean
 ): Promise<number> {
-  const { data } = (await supabase
+  const service = createServiceClient();
+  const { data, error } = (await service
     .rpc("increment_usage", {
       p_user_id: userId,
       p_words: words,
       p_limit: bypass ? null : PLAN_LIMITS[plan],
     })
-    .single()) as { data: { words_used: number; plan: string; ok: boolean } | null };
+    .single()) as {
+    data: { words_used: number; plan: string; ok: boolean } | null;
+    error: { message: string } | null;
+  };
 
-  if (data && !data.ok) {
+  if (error || !data) {
+    console.error("Failed to update usage:", error?.message ?? "No usage row returned.");
+    throw new Error("Could not update usage.");
+  }
+  if (!data.ok) {
     throw new QuotaExceededError(plan, PLAN_LIMITS[plan]);
   }
-  return data?.words_used ?? words;
+  return data.words_used;
+}
+
+/** Undo a reservation when a paid provider returns no result. Service-role
+ *  only so clients cannot lower their own counters through the Data API. */
+export async function refundUsage(userId: string, words: number): Promise<number> {
+  const service = createServiceClient();
+  const { data, error } = await service.rpc("refund_usage", {
+    p_user_id: userId,
+    p_words: words,
+  });
+
+  if (error || typeof data !== "number") {
+    console.error("Failed to refund usage:", error?.message ?? "No usage total returned.");
+    throw new Error("Could not update usage.");
+  }
+  return data;
 }
 
 /** Parse a "YYYY-MM-DD" (or ISO) date as UTC midnight. */
@@ -155,6 +180,7 @@ export function utcToday(now = new Date()): string {
 
 /** True if the signed-in email matches DEV_BYPASS_EMAIL, exempting it from quota checks. */
 export function isDevBypass(email: string | undefined | null): boolean {
+  if (process.env.NODE_ENV === "production") return false;
   const bypassEmail = process.env.DEV_BYPASS_EMAIL;
   if (!bypassEmail || !email) return false;
   return email.toLowerCase() === bypassEmail.toLowerCase();

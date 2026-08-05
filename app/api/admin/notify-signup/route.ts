@@ -1,5 +1,13 @@
 import { NextRequest } from "next/server";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { sendSignupNotification } from "@/lib/resend";
+
+function secretsMatch(provided: string | null, expected: string): boolean {
+  if (!provided) return false;
+  const providedHash = createHash("sha256").update(provided).digest();
+  const expectedHash = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(providedHash, expectedHash);
+}
 
 /**
  * Hit by a Supabase Database Webhook (Database -> Webhooks in the dashboard,
@@ -15,7 +23,7 @@ import { sendSignupNotification } from "@/lib/resend";
  */
 export async function POST(req: NextRequest) {
   const secret = process.env.SUPABASE_WEBHOOK_SECRET;
-  if (!secret || req.headers.get("x-webhook-secret") !== secret) {
+  if (!secret || !secretsMatch(req.headers.get("x-webhook-secret"), secret)) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
 

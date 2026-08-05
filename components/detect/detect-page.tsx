@@ -22,7 +22,10 @@ import { ScoreGauge } from "@/components/detect/score-gauge";
 import { DetectionReportBody } from "@/components/detect/detection-report";
 import { WinstonHighlightedText } from "@/components/detect/winston-highlighted-text";
 import { DetectionSignals } from "@/components/detect/detection-signals";
-import { PlagiarismAddonCard, FactCheckAddonCard, type AddonState } from "@/components/detect/check-addons";
+import { ReportSidebar } from "@/components/detect/report-sidebar";
+import { RecentRunsPreview } from "@/components/detect/recent-runs-preview";
+import { buildSentenceReport } from "@/lib/sentence-report";
+import { PlagiarismAddonButton, FactCheckAddonButton, type AddonState } from "@/components/detect/check-addons";
 import { QuotaExceededModal } from "@/components/ui/quota-exceeded-modal";
 import { UploadTextButton } from "@/components/editor/upload-text-button";
 import type { WinstonSentence } from "@/components/detect/winston-sentence-list";
@@ -131,6 +134,14 @@ export function DetectPageClient({
   const live = useMemo(() => analyzeText(input), [input]);
   const canRun = live.wordCount >= MIN_WORDS_FOR_CHECK && !busy;
   const showReport = busy || result !== null;
+
+  const verified = result?.winston ?? null;
+  const scoreForDisplay = verified?.score ?? null;
+  const verdictForDisplay = scoreForDisplay !== null ? verdictFor(scoreForDisplay) : null;
+  const sentenceReport = useMemo(
+    () => buildSentenceReport(input, live, verified),
+    [input, live, verified]
+  );
 
   const charCount = input.trim().length;
   const wordCount = live.wordCount;
@@ -277,7 +288,7 @@ export function DetectPageClient({
   if (!showReport) {
     return (
       <>
-      <div className="space-y-6">
+      <div className="mx-auto max-w-[900px] space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">AI Detector</h1>
@@ -304,7 +315,7 @@ export function DetectPageClient({
               <span className="font-mono text-xs tabular-nums text-faint">
                 {live.wordCount} words
                 {live.wordCount < MIN_WORDS_FOR_CHECK
-                  ? ` · needs ${MIN_WORDS_FOR_CHECK}+ for a reliable score`
+                  ? ` · ${MIN_WORDS_FOR_CHECK} words min`
                   : ""}
               </span>
               <InfoTooltip text={WORD_COUNT_HELP_TEXT} />
@@ -367,6 +378,8 @@ export function DetectPageClient({
             <DetectionReportBody text={input} result={live} />
           </div>
         )}
+
+        {input.trim().length === 0 && <RecentRunsPreview />}
       </div>
       <QuotaExceededModal
         open={quota !== null}
@@ -378,24 +391,12 @@ export function DetectPageClient({
     );
   }
 
-  const verified = result?.winston ?? null;
-  const scoreForDisplay = verified?.score ?? null;
-  const verdictForDisplay = scoreForDisplay !== null ? verdictFor(scoreForDisplay) : null;
   const statusLabel = verified ? "Verified score" : busy ? "Verifying..." : "Real-detector check unavailable";
   const statusCaption = verified
     ? `${live.wordCount || initialRun?.word_count || 0} words`
     : busy
       ? `${live.wordCount} words · checking with a real detector...`
       : `${live.wordCount} words · try running the check again in a moment`;
-
-  const addonsActive =
-    plagiarism.result !== undefined ||
-    plagiarism.busy ||
-    plagiarism.error !== null ||
-    factCheck.result !== undefined ||
-    factCheck.busy ||
-    factCheck.error !== null;
-  const showAddons = verified !== null || addonsActive;
 
   return (
     <>
@@ -454,6 +455,21 @@ export function DetectPageClient({
           </div>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+          <PlagiarismAddonButton
+            {...plagiarism}
+            eligible={plagiarismEligible}
+            ineligibleReason={plagiarismIneligibleReason}
+            onRun={runPlagiarism}
+          />
+          <FactCheckAddonButton
+            {...factCheck}
+            eligible={factCheckEligible}
+            ineligibleReason={factCheckIneligibleReason}
+            onRun={runFactCheck}
+          />
+        </div>
+
         {live.metrics.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
             {live.metrics.map((m) => (
@@ -474,66 +490,48 @@ export function DetectPageClient({
 
       {error && <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{error}</p>}
 
-      {showAddons && (
-        <div>
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-faint">Add-on checks</p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <PlagiarismAddonCard
-              {...plagiarism}
-              eligible={plagiarismEligible}
-              ineligibleReason={plagiarismIneligibleReason}
-              onRun={runPlagiarism}
-            />
-            <FactCheckAddonCard
-              {...factCheck}
-              eligible={factCheckEligible}
-              ineligibleReason={factCheckIneligibleReason}
-              onRun={runFactCheck}
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
-        <div className="flex flex-col rounded-2xl border border-line bg-surface">
-          <div className="border-b border-line px-4 py-2.5">
-            <span className="text-sm font-medium">Original</span>
-          </div>
-          <div className="max-h-[65vh] min-h-[300px] flex-1 overflow-y-auto whitespace-pre-wrap p-4 text-sm leading-relaxed text-muted">
-            {input}
-          </div>
-        </div>
-
-        <div className="flex flex-col rounded-2xl border border-line bg-surface">
-          <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-            <span className="text-sm font-medium">Highlighted</span>
-            <div className="flex items-center gap-3 text-[11px] text-faint">
-              <span className="inline-flex items-center gap-1">
-                <span className="size-2 rounded-full" style={{ background: "var(--bad)" }} />
-                AI-flagged
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="size-2 rounded-full" style={{ background: "var(--warn)" }} />
-                Mixed
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="size-2 rounded-full" style={{ background: "var(--good)" }} />
-                Human
-              </span>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[2fr_1fr]">
+        <div className="space-y-4">
+          <div className="flex flex-col rounded-2xl border border-line bg-surface">
+            <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
+              <span className="text-sm font-medium">Highlighted text</span>
+              <div className="flex items-center gap-3 text-[11px] text-faint">
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-full" style={{ background: "var(--bad)" }} />
+                  AI-flagged
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-full" style={{ background: "var(--warn)" }} />
+                  Mixed
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="size-2 rounded-full" style={{ background: "var(--good)" }} />
+                  Human
+                </span>
+              </div>
+            </div>
+            <div className="max-h-[70vh] min-h-[300px] flex-1 overflow-y-auto p-4">
+              {verified ? (
+                <WinstonHighlightedText text={input} sentences={verified.sentences} flags={live.flags} showHuman />
+              ) : (
+                <DetectionReportBody text={input} result={live} />
+              )}
             </div>
           </div>
-          <div className="max-h-[65vh] min-h-[300px] flex-1 overflow-y-auto p-4">
-            {verified ? (
-              <WinstonHighlightedText text={input} sentences={verified.sentences} flags={live.flags} showHuman />
-            ) : (
-              <DetectionReportBody text={input} result={live} />
-            )}
+
+          <div className="rounded-2xl border border-line bg-surface p-4">
+            <DetectionSignals sentences={sentenceReport} verified={verified !== null} />
           </div>
         </div>
-      </div>
 
-      <div className="rounded-2xl border border-line bg-surface p-4">
-        <DetectionSignals text={input} live={live} verified={verified} />
+        <aside className="rounded-2xl border border-line bg-surface p-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+          <ReportSidebar
+            score={scoreForDisplay}
+            verdict={verdictForDisplay}
+            metrics={live.metrics}
+            sentences={sentenceReport}
+          />
+        </aside>
       </div>
     </div>
     <QuotaExceededModal

@@ -8,6 +8,7 @@ import {
   XCircleIcon,
 } from "@phosphor-icons/react";
 import type { FactCheckClaim, FactCheckVerdict } from "@/lib/winston";
+import { safeExternalUrl } from "@/lib/safe-url";
 
 const VERDICT_META: Record<FactCheckVerdict, { label: string; color: string; bg: string; icon: typeof CheckCircleIcon }> = {
   SUPPORTED: { label: "Supported", color: "var(--good)", bg: "var(--good-soft)", icon: CheckCircleIcon },
@@ -51,19 +52,28 @@ export function FactCheckClaims({ claims }: { claims: FactCheckClaim[] }) {
             <p className="mt-2 text-sm leading-relaxed text-muted">{c.explanation}</p>
             {c.links.length > 0 && (
               <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                {c.links.map((link, j) => (
-                  <li key={j}>
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
-                    >
-                      {link.title || link.url}
-                      <ArrowSquareOutIcon size={12} weight="bold" />
-                    </a>
-                  </li>
-                ))}
+                {c.links.map((link, j) => {
+                  const href = safeExternalUrl(link.url);
+                  return (
+                    <li key={j}>
+                      {href ? (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+                        >
+                          {link.title || link.url}
+                          <ArrowSquareOutIcon size={12} weight="bold" />
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted">
+                          {link.title || "Source unavailable"}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </li>

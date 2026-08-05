@@ -8,6 +8,7 @@ import {
   incrementUsage,
   isDevBypass,
   PLAN_LIMITS,
+  refundUsage,
   rewriteAssistQuotaWords,
   wordsUsedInCurrentPeriod,
   type Plan,
@@ -61,17 +62,20 @@ export async function POST(req: NextRequest) {
     const bypass = isDevBypass(email);
     assertWithinQuota(plan, wordsUsed, quotaWords, bypass);
 
-    const suggestions = await suggestRewrites({ fullText: text, start, end });
-
     const updatedWordsUsed = await incrementUsage(supabase, userId, quotaWords, plan, bypass);
-
-    return Response.json({
-      suggestions,
-      usage: {
-        used: updatedWordsUsed,
-        limit: PLAN_LIMITS[plan],
-      },
-    });
+    try {
+      const suggestions = await suggestRewrites({ fullText: text, start, end });
+      return Response.json({
+        suggestions,
+        usage: {
+          used: updatedWordsUsed,
+          limit: PLAN_LIMITS[plan],
+        },
+      });
+    } catch (err) {
+      await refundUsage(userId, quotaWords);
+      throw err;
+    }
   } catch (err) {
     return errorResponse(err);
   }

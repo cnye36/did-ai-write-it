@@ -71,7 +71,7 @@ const FAQ = [
   },
   {
     q: "What happens if I go over my word limit?",
-    a: "The free check on this page takes 200-500 words per scan (detectors are unreliable on shorter text) and is capped at 3 scans per day. Sign up for a higher monthly word allowance and the full sentence-by-sentence report.",
+    a: "The free check on this page takes up to 500 words per scan and is capped at 3 scans per day. Sign up for a higher monthly word allowance and the full sentence-by-sentence report.",
   },
   {
     q: "Do I need to install anything?",
@@ -80,6 +80,10 @@ const FAQ = [
   {
     q: "Does the AI detector work in languages other than English?",
     a: "Yes. AI detection covers a range of languages, including Spanish, French, German, Portuguese, and Chinese, and plagiarism checking covers well over a hundred. Accuracy is strongest in English and the other widely-supported languages; coverage keeps expanding.",
+  },
+  {
+    q: "Why is your minimum word count higher than most other detectors?",
+    a: "Below roughly 100 to 150 words, any detector, ours included, is closer to a guess than a measurement: there just is not enough writing pattern to score with confidence. We set our floor at 200 words to sit safely above that line, so every score you get back is one you can actually trust.",
   },
 ];
 

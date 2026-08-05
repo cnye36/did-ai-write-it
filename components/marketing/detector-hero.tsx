@@ -90,9 +90,11 @@ export function DetectorHero() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState<{ score: number; sentences: WinstonSentence[] } | null>(
-    null
-  );
+  const [preview, setPreview] = useState<{
+    score: number;
+    sentences: WinstonSentence[];
+    totalSentenceCount?: number;
+  } | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [rateLimited, setRateLimited] = useState(false);
 
@@ -323,6 +325,7 @@ export function DetectorHero() {
                     <WinstonSentenceList
                       sentences={preview.sentences}
                       revealCount={FREE_PREVIEW.revealCount}
+                      totalCount={preview.totalSentenceCount}
                       ctaHref={`/signup?next=${encodeURIComponent("/app/detect?autorun=1")}`}
                       onSignup={() => saveCheckHandoff({ text, kind: "detect" })}
                     />

@@ -27,11 +27,15 @@ function flaggedIndexes(sentences: WinstonSentence[]): number[] {
 export function WinstonSentenceList({
   sentences,
   revealCount,
+  totalCount,
   ctaHref,
   onSignup,
 }: {
   sentences: WinstonSentence[];
   revealCount?: number;
+  /** Total sentences in the source report when the server only returned the
+   *  revealable subset. */
+  totalCount?: number;
   ctaHref?: string;
   onSignup?: () => void;
 }) {
@@ -41,7 +45,7 @@ export function WinstonSentenceList({
   const cutoffIndex =
     revealCount !== undefined ? flagged[revealCount - 1] : undefined;
   const revealUpToIndex = cutoffIndex !== undefined ? cutoffIndex : sentences.length - 1;
-  const hiddenCount = Math.max(0, sentences.length - 1 - revealUpToIndex);
+  const hiddenCount = Math.max(0, (totalCount ?? sentences.length) - 1 - revealUpToIndex);
 
   return (
     <>
