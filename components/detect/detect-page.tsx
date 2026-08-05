@@ -107,6 +107,7 @@ export function DetectPageClient({
       );
       setError(null);
     } else {
+      setInput("");
       setResult(null);
     }
   }

@@ -73,6 +73,7 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
       setResult(resultFromRun(initialRun));
       setError(null);
     } else {
+      setInput("");
       setResult(null);
     }
   }

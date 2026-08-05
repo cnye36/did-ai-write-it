@@ -78,6 +78,7 @@ export function FactCheckPageClient({ initialRun }: { initialRun: RunRow | null 
       setResult(resultFromRun(initialRun));
       setError(null);
     } else {
+      setInput("");
       setResult(null);
     }
   }

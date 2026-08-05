@@ -45,7 +45,8 @@ const sections: LegalSection[] = [
           <li>
             <strong>Account data.</strong> Email address and authentication
             credentials when you sign up. Passwords are handled by our auth
-            provider and are not stored by us in plaintext.
+            provider and are not stored by us in plaintext. We also store your
+            optional preference for product-update emails.
           </li>
           <li>
             <strong>Content you submit.</strong> Text you paste or upload for
@@ -86,6 +87,13 @@ const sections: LegalSection[] = [
           <li>Prevent abuse (including rate-limiting anonymous scans)</li>
           <li>Respond to support requests and enforce our Terms</li>
           <li>Improve reliability and fix bugs</li>
+          <li>
+            Send product updates, feature announcements, and tips{" "}
+            <strong>only if you opt in</strong> during signup or later in
+            Billing. You can turn this off anytime. Account, security, and
+            billing emails are transactional and may still be sent when needed
+            to operate your account.
+          </li>
         </ul>
         <p>
           We do <strong>not</strong> sell your personal information. We do not
@@ -112,6 +120,11 @@ const sections: LegalSection[] = [
             <strong>Stripe.</strong> Payment processing when you subscribe or
             manage billing. Card details are handled by Stripe, not stored on
             our servers.
+          </li>
+          <li>
+            <strong>Email delivery.</strong> Transactional mail (for example
+            signup confirmation) and, if you opt in, product-update emails are
+            sent through our email provider.
           </li>
           <li>
             <strong>Detection infrastructure.</strong> AI detection, plagiarism,
@@ -192,6 +205,10 @@ const sections: LegalSection[] = [
         <p>You can:</p>
         <ul>
           <li>Access and update your account email through the signed-in app</li>
+          <li>
+            Opt in or out of product-update emails on the Billing page (or by
+            using the unsubscribe link in those emails once we send them)
+          </li>
           <li>Delete individual reports from your report history</li>
           <li>
             Manage or cancel a paid subscription through the Stripe billing

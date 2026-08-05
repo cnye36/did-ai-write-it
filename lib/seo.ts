@@ -5,7 +5,7 @@ export const SUPPORT_EMAIL = "support@didaiwriteit.com";
 /** Privacy requests (access, deletion, cookie questions). */
 export const PRIVACY_EMAIL = "privacy@didaiwriteit.com";
 /** Effective date shown on Privacy and Terms pages. */
-export const LEGAL_EFFECTIVE_DATE = "July 30, 2026";
+export const LEGAL_EFFECTIVE_DATE = "August 5, 2026";
 
 /** JSON-LD payloads render as a raw <script> tag; escape `<` so embedded
  * strings can't break out into HTML (see Next.js JSON-LD guide). */

@@ -4,6 +4,7 @@ import { wordsUsedInCurrentPeriod, type Plan } from "@/lib/usage";
 import { PLAN_ORDER, type BillingInterval } from "@/lib/plans";
 import { applyCheckoutSession, syncProfileFromStripe } from "@/lib/stripe-sync";
 import { BillingSummary } from "@/components/billing/billing-summary";
+import { MarketingEmailsToggle } from "@/components/billing/marketing-emails-toggle";
 import { PricingFaq } from "@/components/billing/pricing-faq";
 
 function isPlan(value: string | undefined): value is Plan {
@@ -60,7 +61,7 @@ export default async function BillingPage({
   const [{ data: profile }, { data: usage }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("plan, stripe_customer_id, stripe_subscription_id")
+      .select("plan, stripe_customer_id, stripe_subscription_id, marketing_emails")
       .eq("id", userId)
       .single(),
     supabase.from("usage").select("words_used, period_start").eq("user_id", userId).single(),
@@ -100,6 +101,8 @@ export default async function BillingPage({
         initialInterval={initialInterval}
         initialUpgradeOpen={initialUpgradeOpen && !success}
       />
+
+      <MarketingEmailsToggle initialEnabled={Boolean(profile?.marketing_emails)} />
 
       <div className="border-t border-line pt-8">
         <PricingFaq />

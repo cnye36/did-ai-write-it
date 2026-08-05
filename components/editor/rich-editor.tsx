@@ -11,7 +11,12 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { docToPlainText, pmRangeToTextRange, textRangeToPmRange } from "@/lib/editor-text";
+import {
+  docToPlainText,
+  pmPositionToTextOffset,
+  pmRangeToTextRange,
+  textRangeToPmRange,
+} from "@/lib/editor-text";
 import { normalize, resolveSentenceScores, type WinstonSentenceScore } from "@/lib/winston-sentences";
 import type { ProvenanceMap, ProvenanceSource } from "@/lib/provenance";
 import { EditorRibbon } from "@/components/editor/editor-ribbon";
@@ -128,12 +133,18 @@ export interface RichEditorHandle {
    *  formatting. */
   replaceAll(text: string, opts?: { origin?: ProvenanceSource; doc?: object }): void;
   focus(): void;
-  /** Selects and scrolls a plain-text range into view, e.g. to point the
-   *  editor at a sentence a suggestion popover was opened for. */
+  /** Selects a plain-text range and scrolls it to the center of the viewport
+   *  (through every scrollable ancestor, not just the editor's own scroll
+   *  container), so the sentence lands mid-screen with its surrounding
+   *  paragraph visible instead of pinned to the very top edge. */
   focusRange(start: number, end: number): void;
   /** Viewport-relative box for a plain-text range, for positioning a popover
    *  anchored to it. Null once the editor itself isn't mounted yet. */
   getRangeRect(start: number, end: number): DOMRect | null;
+  /** Plain-text offset under a viewport point (e.g. the cursor during a
+   *  hover), for showing a "suggest a rewrite" affordance on the sentence
+   *  under the pointer. Null when the point isn't over editor text. */
+  getTextOffsetAtClientPoint(clientX: number, clientY: number): number | null;
 }
 
 export function RichEditor({
@@ -143,6 +154,8 @@ export function RichEditor({
   provenance,
   onChange,
   onSelectionChange,
+  onEditorMouseMove,
+  onEditorMouseLeave,
   handleRef,
 }: {
   initialDoc: object | null;
@@ -151,6 +164,11 @@ export function RichEditor({
   provenance: ProvenanceMap | null;
   onChange: (next: { text: string; doc: object; origin: ProvenanceSource }) => void;
   onSelectionChange?: () => void;
+  /** Forwarded from the root element, so a caller can locate the sentence
+   *  under the pointer (via getTextOffsetAtClientPoint) without the editor
+   *  needing to know anything about what hovering it should do. */
+  onEditorMouseMove?: (e: React.MouseEvent) => void;
+  onEditorMouseLeave?: () => void;
   handleRef: Ref<RichEditorHandle>;
 }) {
   /*
@@ -234,7 +252,17 @@ export function RichEditor({
         if (!editor) return;
         const { segments } = docToPlainText(editor.state.doc);
         const { from, to } = textRangeToPmRange(segments, start, end);
-        editor.chain().focus().setTextSelection({ from, to }).scrollIntoView().run();
+        editor.chain().focus().setTextSelection({ from, to }).run();
+        // Tiptap's own .scrollIntoView() only nudges the nearest scrollable
+        // ancestor to the closest edge, which (with the page itself also
+        // scrollable) lands the sentence flush against the top of the
+        // viewport. The native scrollIntoView below walks every scrollable
+        // ancestor (the editor's own box, then the window) and centers each
+        // one, so the sentence's paragraph stays visible around it.
+        const mid = Math.round((from + to) / 2);
+        const domPos = editor.view.domAtPos(mid);
+        const el = domPos.node.nodeType === 1 ? (domPos.node as Element) : domPos.node.parentElement;
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
       },
       getRangeRect: (start, end) => {
         if (!editor) return null;
@@ -242,12 +270,23 @@ export function RichEditor({
         const { from, to } = textRangeToPmRange(segments, start, end);
         return posToDOMRect(editor.view, from, to);
       },
+      getTextOffsetAtClientPoint: (clientX, clientY) => {
+        if (!editor) return null;
+        const result = editor.view.posAtCoords({ left: clientX, top: clientY });
+        if (!result) return null;
+        const { segments } = docToPlainText(editor.state.doc);
+        return pmPositionToTextOffset(segments, result.pos);
+      },
     }),
     [editor]
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div
+      className="flex min-h-0 flex-1 flex-col"
+      onMouseMove={onEditorMouseMove}
+      onMouseLeave={onEditorMouseLeave}
+    >
       <EditorRibbon editor={editor} />
       <EditorContent editor={editor} className="min-h-0 flex-1" />
     </div>

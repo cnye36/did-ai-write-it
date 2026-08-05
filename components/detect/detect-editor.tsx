@@ -104,6 +104,23 @@ export function DetectEditorClient({
   const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [suggestionAnchor, setSuggestionAnchor] = useState<DOMRect | null>(null);
+  // "Suggest a rewrite" surfaced directly on the flagged sentence under the
+  // pointer, so the user doesn't have to scroll down to find it in the
+  // "Flagged in your edit" list below. Two-stage so it doesn't flicker
+  // between sentences sitting a word apart: hoverCandidateRef tracks
+  // whatever flagged sentence is currently under the pointer (bookkeeping
+  // only, never rendered, so it's a ref rather than state), and only gets
+  // promoted to hoverTarget (the one actually shown) after HOVER_DWELL_MS of
+  // holding still on it. Once shown, it's locked: further pointer movement
+  // inside the editor is ignored (see the early return in
+  // handleEditorMouseMove) so a tiny drift onto a neighboring sentence can't
+  // swap or dismiss it.
+  const hoverCandidateRef = useRef<{ start: number; end: number } | null>(null);
+  const [hoverTarget, setHoverTarget] = useState<{ start: number; end: number; rect: DOMRect } | null>(
+    null
+  );
+  const hoverDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [rescanBusy, setRescanBusy] = useState(false);
   const [rescanError, setRescanError] = useState<string | null>(null);
@@ -266,6 +283,92 @@ export function DetectEditorClient({
     setSuggestion(null);
     setSuggestionAnchor(null);
   }
+
+  const HOVER_DWELL_MS = 3000;
+  const HOVER_LEAVE_GRACE_MS = 300;
+
+  function clearHoverDwellTimer() {
+    if (hoverDwellTimer.current) {
+      clearTimeout(hoverDwellTimer.current);
+      hoverDwellTimer.current = null;
+    }
+  }
+
+  function clearHoverLeaveTimer() {
+    if (hoverLeaveTimer.current) {
+      clearTimeout(hoverLeaveTimer.current);
+      hoverLeaveTimer.current = null;
+    }
+  }
+
+  /** Grace period before actually hiding a locked target: the button sits
+   *  just outside the editor's own box, so the pointer briefly leaves the
+   *  editor in transit to it. Cancelled by the button's own onMouseEnter. */
+  function scheduleHoverTargetHide() {
+    clearHoverLeaveTimer();
+    hoverLeaveTimer.current = setTimeout(() => setHoverTarget(null), HOVER_LEAVE_GRACE_MS);
+  }
+
+  function handleEditorMouseMove(e: React.MouseEvent) {
+    if (suggestion) return;
+    // Locked: ignore pointer movement entirely so a tiny drift onto a
+    // neighboring sentence (they can sit a word apart) can't swap or
+    // dismiss the button that's already showing.
+    if (hoverTarget) return;
+
+    clearHoverLeaveTimer();
+    const offset = editorRef.current?.getTextOffsetAtClientPoint(e.clientX, e.clientY);
+    const match =
+      offset == null ? undefined : flaggedSentences.find((s) => offset >= s.start && offset < s.end);
+
+    if (!match) {
+      clearHoverDwellTimer();
+      hoverCandidateRef.current = null;
+      return;
+    }
+
+    const prev = hoverCandidateRef.current;
+    if (prev && prev.start === match.start && prev.end === match.end) return;
+
+    // A new candidate: restart the dwell timer from scratch.
+    clearHoverDwellTimer();
+    hoverCandidateRef.current = { start: match.start, end: match.end };
+    hoverDwellTimer.current = setTimeout(() => {
+      const rect = editorRef.current?.getRangeRect(match.start, match.end) ?? null;
+      if (rect) setHoverTarget({ start: match.start, end: match.end, rect });
+    }, HOVER_DWELL_MS);
+  }
+
+  function handleEditorMouseLeave() {
+    clearHoverDwellTimer();
+    hoverCandidateRef.current = null;
+    if (hoverTarget) scheduleHoverTargetHide();
+  }
+
+  // The hover target's rect is a snapshot; scrolling or editing invalidates
+  // it, so drop it rather than let a stale button drift away from its
+  // sentence.
+  useEffect(() => {
+    if (!hoverTarget) return;
+    function hide() {
+      setHoverTarget(null);
+    }
+    document.addEventListener("scroll", hide, true);
+    return () => document.removeEventListener("scroll", hide, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoverTarget !== null]);
+
+  useEffect(() => {
+    hoverCandidateRef.current = null;
+    setHoverTarget(null);
+  }, [draft]);
+
+  useEffect(() => {
+    return () => {
+      clearHoverDwellTimer();
+      clearHoverLeaveTimer();
+    };
+  }, []);
 
   // Keeps the popover glued to its sentence as the page scrolls/resizes
   // (the editor's own scroll container included: scroll events don't
@@ -472,7 +575,16 @@ export function DetectEditorClient({
                 setDraft(text);
                 setDocJson(doc);
               }}
-              onSelectionChange={updateSelection}
+              onSelectionChange={() => {
+                updateSelection();
+                // Clicking to place the cursor or select elsewhere is an
+                // unambiguous "I'm done with that sentence": release the
+                // lock so hovering a new one can dwell into the button too.
+                hoverCandidateRef.current = null;
+                setHoverTarget(null);
+              }}
+              onEditorMouseMove={handleEditorMouseMove}
+              onEditorMouseLeave={handleEditorMouseLeave}
             />
             {selection && !suggestion && (
               <div className="border-t border-line px-4 py-2.5">
@@ -489,11 +601,7 @@ export function DetectEditorClient({
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3">
               <div className="flex items-center gap-3">
                 <span className="font-mono text-xs tabular-nums text-faint">{live.wordCount} words</span>
-                <span className="text-[11px] text-faint">
-                  {coverage.verified === coverage.total
-                    ? "all sentences verified"
-                    : `${coverage.verified}/${coverage.total} verified, rest estimated`}
-                </span>
+                
               </div>
               <button
                 type="button"
@@ -598,6 +706,33 @@ export function DetectEditorClient({
           )}
         </div>
       </div>
+
+      {hoverTarget && !suggestion && (
+        <button
+          type="button"
+          onMouseEnter={clearHoverLeaveTimer}
+          onMouseLeave={scheduleHoverTargetHide}
+          onClick={() => {
+            const target = hoverTarget;
+            hoverCandidateRef.current = null;
+            setHoverTarget(null);
+            requestSuggestion(target.start, target.end, "sentence");
+          }}
+          style={{
+            position: "fixed",
+            zIndex: 30,
+            left: Math.max(8, hoverTarget.rect.left),
+            top:
+              hoverTarget.rect.top > 44
+                ? hoverTarget.rect.top - 34
+                : hoverTarget.rect.bottom + 6,
+          }}
+          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-raised px-2.5 py-1 text-xs font-medium text-ink shadow-md transition-colors hover:border-accent hover:text-accent"
+        >
+          <SparkleIcon size={12} weight="bold" />
+          Suggest a rewrite
+        </button>
+      )}
 
       <InlineSuggestionPopover
         anchorRect={suggestionAnchor}

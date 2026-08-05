@@ -4,14 +4,18 @@ import { useState } from "react";
 import { GoogleLogoIcon } from "@phosphor-icons/react";
 import { createClient } from "@/lib/supabase/client";
 import { safeAuthNext } from "@/lib/auth-next";
+import { setMarketingEmailsIntentCookie } from "@/lib/marketing-emails";
 import posthog from "posthog-js";
 
 export function GoogleSignInButton({
   next,
   label = "Continue with Google",
+  /** Only pass from signup. Login must omit this so returning users keep their preference. */
+  marketingEmails,
 }: {
   next?: string;
   label?: string;
+  marketingEmails?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +24,9 @@ export function GoogleSignInButton({
     posthog.capture("google_sign_in_started");
     setBusy(true);
     setError(null);
+    if (typeof marketingEmails === "boolean") {
+      setMarketingEmailsIntentCookie(marketingEmails);
+    }
     const destination = safeAuthNext(next ?? new URLSearchParams(window.location.search).get("next"));
     const supabase = createClient();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({

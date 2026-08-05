@@ -85,6 +85,11 @@ const sections: LegalSection[] = [
             We may suspend or terminate accounts that violate these Terms or
             create risk to the Service or other users.
           </li>
+          <li>
+            We may email you about your account, billing, and security. Product
+            updates and tip emails are optional and require your opt-in, as
+            described in our <Link href="/privacy">Privacy Policy</Link>.
+          </li>
         </ul>
       </>
     ),

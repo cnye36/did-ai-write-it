@@ -26,12 +26,36 @@ function TermsNote() {
   );
 }
 
+function MarketingOptIn({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5">
+      <input
+        type="checkbox"
+        className="mt-0.5 accent-accent"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span className="text-xs leading-relaxed text-muted">
+        Send me product updates and tips by email. Optional. You can change this anytime in
+        Billing. Account and billing emails are separate.
+      </span>
+    </label>
+  );
+}
+
 export function SignupForm({ next }: { next?: string }) {
   const router = useRouter();
   const destination = safeAuthNext(next);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [marketingEmails, setMarketingEmails] = useState(false);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +80,7 @@ export function SignupForm({ next }: { next?: string }) {
       email,
       password,
       options: {
+        data: { marketing_emails: marketingEmails },
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`,
       },
     });
@@ -64,13 +89,16 @@ export function SignupForm({ next }: { next?: string }) {
       setBusy(false);
       return;
     }
+    posthog.capture("user_signed_up", {
+      method: "password",
+      confirmation_required: !(data.session && data.user),
+      marketing_emails: marketingEmails,
+    });
     if (data.session && data.user) {
-      posthog.capture("user_signed_up", { method: "password", confirmation_required: false });
       router.push(destination);
       router.refresh();
       return;
     }
-    posthog.capture("user_signed_up", { method: "password", confirmation_required: true });
     setCheckEmail(true);
     setBusy(false);
   }
@@ -97,7 +125,12 @@ export function SignupForm({ next }: { next?: string }) {
       return;
     }
     if (data.session && data.user) {
-      posthog.capture("user_signed_up", { method: "password", confirmation_required: true, verified_via: "otp" });
+      posthog.capture("user_signed_up", {
+        method: "password",
+        confirmation_required: true,
+        verified_via: "otp",
+        marketing_emails: marketingEmails,
+      });
       router.push(destination);
       router.refresh();
       return;
@@ -153,7 +186,12 @@ export function SignupForm({ next }: { next?: string }) {
 
   return (
     <div className="space-y-4">
-      <GoogleSignInButton next={destination} label="Sign up with Google" />
+      <MarketingOptIn checked={marketingEmails} onChange={setMarketingEmails} />
+      <GoogleSignInButton
+        next={destination}
+        label="Sign up with Google"
+        marketingEmails={marketingEmails}
+      />
       <AuthDivider />
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-2">
@@ -208,8 +246,8 @@ export function SignupForm({ next }: { next?: string }) {
         >
           {busy ? "Creating account..." : "Create account"}
         </button>
+        <TermsNote />
       </form>
-      <TermsNote />
     </div>
   );
 }
