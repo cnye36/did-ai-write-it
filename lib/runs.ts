@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FactCheckResult, PlagiarismResult, WinstonSentenceScore } from "@/lib/winston";
 
-export type RunKind = "detect" | "plagiarism" | "fact_check" | "humanize";
+export type RunKind = "detect" | "plagiarism" | "fact_check";
 
 export interface DetectRunResult {
   winston: { score: number; sentences: WinstonSentenceScore[] };
@@ -52,14 +52,12 @@ export const RUN_KIND_LABEL: Record<RunKind, string> = {
   detect: "Detector",
   plagiarism: "Plagiarism",
   fact_check: "Fact check",
-  humanize: "Humanize",
 };
 
 export const RUN_KIND_HREF: Record<RunKind, string> = {
   detect: "/app/detect",
   plagiarism: "/app/plagiarism",
   fact_check: "/app/fact-check",
-  humanize: "/app/humanize",
 };
 
 /** Absolute date/time for a report, e.g. "Jul 31, 2:14 PM" — used wherever a

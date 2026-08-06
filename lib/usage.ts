@@ -44,10 +44,11 @@ export function rewriteAssistQuotaWords(wordCount: number): number {
 }
 
 /**
- * Shared quota gate for humanize and detect requests, both of which draw from
- * the same monthly words_used pool. Throws QuotaExceededError; no-op for the
- * DEV_BYPASS_EMAIL account. There is no per-request word cap; requests are
- * bounded only by each route's own MAX_CHARS.
+ * Shared quota gate for detect, plagiarism, and fact-check requests, all of
+ * which draw from the same monthly words_used pool. Throws
+ * QuotaExceededError; no-op for the DEV_BYPASS_EMAIL account. There is no
+ * per-request word cap; requests are bounded only by each route's own
+ * MAX_CHARS.
  */
 export function assertWithinQuota(
   plan: Plan,

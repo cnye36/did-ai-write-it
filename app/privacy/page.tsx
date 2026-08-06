@@ -132,9 +132,8 @@ const sections: LegalSection[] = [
             scores and reports we show you.
           </li>
           <li>
-            <strong>OpenAI or Anthropic.</strong> Only if you use rewrite or
-            humanize features when those are enabled. Submitted text is sent to
-            the configured model provider for that request.
+            <strong>OpenAI.</strong> Only if you use the rewrite (&ldquo;Fix flagged
+            lines&rdquo;) feature. Submitted text is sent to OpenAI for that request.
           </li>
           <li>
             <strong>Hosting and edge infrastructure.</strong> Our app is served

@@ -8,7 +8,6 @@ import { PlanComparisonTable } from "@/components/pricing/plan-comparison-table"
 
 const ROADMAP = [
   "AI writing assistant: draft clean copy from scratch (coming soon)",
-  "Humanizer: rewrite flagged text until it reads human (returning soon)",
   ".docx and .pdf upload, not just plain text",
   "Referral credits for teams that invite others",
 ];

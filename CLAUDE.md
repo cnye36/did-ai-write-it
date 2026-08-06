@@ -60,10 +60,11 @@ For multi-step tasks, state a brief plan:
 **didaiwriteit.com** (renamed from letaiwriteit.com, pivot dated 2026-07-25) is a **detector-first**
 content-integrity tool: paste or upload any text and get a real, Winston-verified read on it across
 three checks, AI detection, plagiarism, and fact-checking, either standalone or bundled from the
-detector as opt-in add-ons. The humanizer (rewrite until it reads human) is **paused, not deleted**
-as of 2026-07-27: unlinked from nav and `/pricing`, its route (`app/app/humanize/page.tsx`) redirects
-to `/app/detect`, but the engine (`lib/humanize.ts`, `/api/humanize`) is untouched and easy to bring
-back, since this was a product-positioning call ("just a detector, for now"), not a technical one.
+detector as opt-in add-ons. The old multi-pass humanizer (rewrite until it reads human, `lib/humanize.ts`
++ `/api/humanize`) was **removed outright as of 2026-08-05**, not paused: this product is never going
+back to a "rewrite until it clears a threshold" pitch. The in-editor "Fix flagged lines" tool
+(`lib/rewrite-assist.ts`, see below) is a separate, single-shot rewrite helper scoped to the detect
+report and is unaffected by this removal.
 
 **2026-07-27: plagiarism + fact-checker wired in, pricing rebuilt around the detector, report
 history shipped.** Three changes landed together:
@@ -78,8 +79,7 @@ history shipped.** Three changes landed together:
 - **Pricing was rebuilt detector-first.** No more per-request word cap (`PLAN_MAX_OUTPUT_WORDS` and
   `MaxOutputWordsExceededError` are gone); `/api/detect` and `/api/plagiarism` instead bound a
   single request by a flat character ceiling matching Winston's own documented limits per endpoint
-  (150k detect, 120k plagiarism, 10k fact-check, `/api/humanize` unchanged at 12k chars since that
-  one is genuinely output-token-bound). Monthly quotas (`PLAN_LIMITS`) went up across the board to
+  (150k detect, 120k plagiarism, 10k fact-check). Monthly quotas (`PLAN_LIMITS`) went up across the board to
   match: **Free** 2,000, **Lite** 40,000, **Plus** 150,000, **Pro** 500,000 words/month, same
   price points. See `docs/subscriptions.md` for the full before/after.
 - **Every successful check is now saved** to a `runs` table (`supabase/migrations/0004_runs.sql`,
@@ -102,9 +102,9 @@ one source of truth rather than a second, frequently-wrong number sitting next t
 heuristic survives only as: free, instant, zero-network live word count before a check runs; pattern-
 based flag highlighting with no attached score (the line-by-line report, the Fix editor's "Flagged in
 your edit" list, where an unscanned sentence shows "Not yet scanned" instead of a guessed number) so
-triage still works without presenting a fabricated number as fact; the "Signal breakdown" sub-metric
-bars on the report page (Vocabulary/Cadence/Rhythm/etc., framed as diagnostic signals, not a
-competing overall score); and the per-pass scoring signal feeding the humanize pipeline's prompts.
+triage still works without presenting a fabricated number as fact; and the "Signal breakdown"
+sub-metric bars on the report page (Vocabulary/Cadence/Rhythm/etc., framed as diagnostic signals, not
+a competing overall score).
 
 Positioning: *"Did AI write it? Find out."* Framing is deliberately **professional/marketing**
 (LinkedIn posts, newsletters, marketing copy), **not** academic-cheating. The project pivoted from a
@@ -114,15 +114,14 @@ on detect + humanize, and then again (2026-07-25) to the current detector-first 
 didaiwriteit.com domain was acquired: the exact-match domain is a real SEO angle for "did ai write
 it"-style search intent, and none of the competitors above lead with detection the way this one now
 does. Multi-provider aggregation (GPTZero, Turnitin, alongside Winston) is on the roadmap but not
-built; only Winston is wired in today. A from-scratch "guaranteed pass" voice feature is a possible
-v2, not scoped (see `docs/BUILD_PLAN.md`).
+built; only Winston is wired in today. The multi-pass "rewrite until it passes" humanizer is a closed
+question, not a paused one: as of 2026-08-05 the product is staying detector-first for good, so do
+not resurrect that engine or re-scope a "guaranteed pass" rewrite feature without the user asking.
 
 **Stack:** Next.js 16 (App Router, Turbopack), TypeScript, Tailwind v4, pnpm, WSL2. Dual light/dark
 themes, cobalt accent (`#2b47e0`, chosen to stand apart from the competitors' purple). **OpenAI**
-powers the humanize engine by default; Anthropic is wired in as a second provider (`lib/rewrite.ts`),
-switchable via `HUMANIZE_PROVIDER=anthropic` for A/B testing which model clears real detectors
-better, since the two are genuinely different APIs (sampling knobs, multi-candidate mechanism), not
-just a base URL swap.
+powers rewrite-assist, the single-shot "Fix flagged lines" helper on a detect report
+(`lib/rewrite-assist.ts`).
 
 ## Commands
 
@@ -133,19 +132,17 @@ Run everything through WSL with nvm sourced (default WSL node is v18; project ne
   same directory, so stop the first before starting another.
 - `pnpm build` — production build
 - `pnpm lint` — ESLint (flat config, `eslint-config-next`)
-- `pnpm test` — Vitest once (`vitest run`). Single file: `pnpm vitest run lib/humanize.test.ts`
+- `pnpm test` — Vitest once (`vitest run`). Single file: `pnpm vitest run lib/detector.test.ts`
 - **Use pnpm, never npm** (npm throws a bogus ERESOLVE against the pnpm tree). pnpm installs prompt
   interactively — prefix `CI=true` to auto-confirm.
-- Keys in `.env.local` (copy from `.env.local.example`): `OPENAI_API_KEY` (humanize),
-  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`/`SUPABASE_SECRET_KEY` (auth/DB),
-  `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`STRIPE_PRICE_{LITE,PLUS,PRO}_{MONTHLY,ANNUAL}`
-  (billing, six price IDs total). Optional: `OPENAI_MODEL` (default `gpt-5.5`), `OPENAI_BASE_URL`
-  (point at any OpenAI-compatible serverless provider — Together/DeepInfra/Groq — with no code
-  change), `HUMANIZE_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` (+ optional `ANTHROPIC_MODEL`, default
-  `claude-sonnet-5`) to run the humanize engine on Claude instead, `WINSTON_API_KEY` (powers AI
-  detection, plagiarism, and fact-checking everywhere, plus the optional real-detector check on
-  humanize output, see `lib/winston.ts`), `DEV_BYPASS_EMAIL` (one account exempt from all word
-  quotas).
+- Keys in `.env.local` (copy from `.env.local.example`): `OPENAI_API_KEY` (rewrite-assist's "Fix
+  flagged lines" helper), `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`/
+  `SUPABASE_SECRET_KEY` (auth/DB), `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/
+  `STRIPE_PRICE_{LITE,PLUS,PRO}_{MONTHLY,ANNUAL}` (billing, six price IDs total). Optional:
+  `OPENAI_BASE_URL` (point at any OpenAI-compatible serverless provider — Together/DeepInfra/Groq —
+  with no code change), `REWRITE_ASSIST_MODEL` (default `gpt-5.6-terra`), `WINSTON_API_KEY` (powers
+  AI detection, plagiarism, and fact-checking everywhere, see `lib/winston.ts`), `DEV_BYPASS_EMAIL`
+  (one account exempt from all word quotas).
 - Browser-pane **screenshots time out in this environment**; verify via page text / JS eval / network
   inspection instead.
 
@@ -157,28 +154,21 @@ Run everything through WSL with nvm sourced (default WSL node is v18; project ne
 `profiles` (plan, Stripe IDs), `usage` (monthly word counter, rolled over by comparing
 `period_start` to the current month, not a cron job), and `runs` (saved report history, see the
 2026-07-27 note above) live in Postgres (`supabase/migrations/`). Text handed from the landing page
-to the detector or humanizer rides in `sessionStorage` under `HANDOFF_KEY` (`lib/handoff.ts`).
+to the detector rides in `sessionStorage` under `HANDOFF_KEY` (`lib/handoff.ts`).
 Quota enforcement is a single shared `assertWithinQuota()` in `lib/usage.ts` checking monthly
-`PLAN_LIMITS`, used by `/api/humanize`, `/api/detect`, `/api/plagiarism`, and `/api/fact-check`
+`PLAN_LIMITS`, used by `/api/detect`, `/api/plagiarism`, and `/api/fact-check`
 since they all draw from the same monthly word pool, not separate quotas; there is no per-request
 word cap, only each route's own flat `MAX_CHARS` (see the 2026-07-27 note above). `preview_checks`
 (ip, created_at) is a separate, unauthenticated rate-limit table for the anonymous homepage scan,
 unrelated to per-user quota, written only via the service-role client since there's no user session
 to scope it to.
 
-**The humanize engine — `lib/humanize.ts` (the core product).** `runHumanizePipeline(original,
-rewrite, opts)` is **provider-agnostic** (takes a `rewrite` callback, so the loop is unit-testable
-and the model is swappable via `lib/rewrite.ts`) and **detector-agnostic**: every candidate is always
-scored with `analyzeText` (free, feeds the per-pass prompt), and when `opts.scoreExternally` is
-supplied (Winston, wired in from `/api/humanize`) that score becomes the authority for accept/reject
-and for the `targetScore` stop condition instead, since a good heuristic score does not reliably
-predict a good real-detector score. `scoreExternally` returning null for a given text (unconfigured,
-request failed) falls back to the heuristic for that comparison, so it's never a hard dependency.
-Best-of-n candidate selection (`lib/rewrite.ts`'s `pickBest`) is Winston-aware the same way. Stops at
-`targetScore` (default 85) or `maxPasses` (default 4), so clean text costs zero model calls; note the
-bar gets harder to clear once Winston is driving it. Guards reject an empty response or a rewrite
-that drifts outside 0.5x–2x the original word count. Returns `{ text, before, after, externalBefore,
-externalAfter, passes }`.
+**`lib/rewrite-assist.ts`** is the "Fix flagged lines" editor's AI backend, the only rewrite feature
+left in the product (the old multi-pass humanizer is gone, see above). Single-shot, not a pass loop:
+`suggestRewrites()` proposes a few alternatives for one flagged span (or an arbitrary selection),
+`rewriteWholeDocument()` does one whole-draft attempt. Neither one calls Winston: the editor's
+explicit "Scan again" action is the only way a rewrite's score gets verified, on purpose (see the
+provenance-coloring note on `RichEditor` below), so this file never claims a rewrite "passed."
 
 **`lib/detector.ts`** — pure, synchronous, unit-tested heuristic scorer (`analyzeText`), no network,
 safe on every keystroke. Scores 0–100 where **higher = more human**, on four weighted metrics
@@ -224,10 +214,6 @@ detector's add-on cards so the three don't drift.
 
 **API routes (`app/api/*/route.ts`)** are thin. All errors funnel through `errorResponse()` in
 `lib/api-errors.ts`: 503 for a missing key (`MissingKeyError`), 500 otherwise.
-- `/api/humanize` — OpenAI (`lib/openai.ts`: `getOpenAI()`, `OPENAI_MODEL`). Requires auth. Body
-  `{ text, targetScore?, maxPasses? }` → `{ text, before, after, passes, model, usage }`. Quota
-  checks skipped for the `DEV_BYPASS_EMAIL` account; a passing request calls the `increment_usage`
-  Postgres RPC.
 - `/api/detect`, `/api/plagiarism`, `/api/fact-check` — the three standalone, quota-metered checks,
   identically shaped: requires auth, bounded by that endpoint's own flat `MAX_CHARS`, quota checked
   via `assertWithinQuota` before calling Winston (plagiarism/fact-check charge `wordCount *
@@ -267,7 +253,7 @@ detector's add-on cards so the three don't drift.
   monthly/annual toggle, plan cards, a feature-by-feature table across AI detection, plagiarism/fact
   checking, usage, and platform groups (some rows still badged "Coming soon", e.g. multi-provider
   AI-detection aggregation and API access — see `docs/subscriptions.md`), and a non-plan-specific
-  roadmap teaser that includes the humanizer ("returning soon").
+  roadmap teaser (no humanizer entry: it is not coming back).
 - `app/login/page.tsx`, `app/signup/page.tsx`, `app/auth/callback/route.ts` — Supabase email/password
   auth (`components/auth/`), gated off `/app` by `proxy.ts`.
 - `app/app/**` — product shell behind login, under `app/app/layout.tsx`. Nav (`components/app-nav.tsx`,
@@ -286,33 +272,25 @@ detector's add-on cards so the three don't drift.
     entry. `DetectPageClient` additionally shows the free heuristic quick-estimate before a check
     runs, and once verified, an "Add-on checks" row (`components/detector-addons.tsx`) offering the
     plagiarism and fact checks inline on the same text without navigating away.
-  - `app/app/humanize/page.tsx` — paused (see the 2026-07-27 note above): a one-line redirect to
-    `/app/detect`, not the old paste/upload UI. `/api/humanize` and its page UI are otherwise intact
-    for whenever this comes back.
   - `app/app/billing/page.tsx` — current plan/usage, `components/billing/plan-picker.tsx` (Stripe
     Checkout per plan) and `manage-subscription-button.tsx` (Stripe Billing Portal).
 
-**Prompts live in `lib/prompts.ts`**, not inline. `buildHumanizeSystem()` (no arguments — always a
-plain, natural human register, there's no voice fingerprint anymore) and `buildHumanizeUser(text,
-result, pass)`, which feeds the detector's actual flags and weakest metrics back into each pass.
-Both share the `ANTI_TELL_RULES` block (banned words, no em dashes, no "not just X, it's Y") — this
-is the **single source of truth for AI tells** and must stay in sync with `LEXICON` in
-`lib/detector.ts`: edit one, check the other, so humanized text actually scores well against the
-detector grading it.
+**Rewrite-assist's prompts live inline in `lib/rewrite-assist.ts`** (`buildSuggestSystem`/
+`buildRewriteAllSystem`), not in a shared prompts module. Its banned-word/no-em-dash list is a
+smaller, separately-maintained copy of the same tells `lib/detector.ts`'s `LEXICON` flags; keep the
+two in sync by hand if either changes.
 
-**Tests:** `lib/detector.test.ts` (6), `lib/humanize.test.ts` (7, pipeline logic), `lib/openai.test.ts`
-(1, an SDK contract test against a mock server — pins the OpenAI **v6** request/response shape so an
-SDK upgrade can't break the engine silently), `lib/usage.test.ts` (plan limits, period rollover,
-`isDevBypass`).
+**Tests:** `lib/detector.test.ts` (6), `lib/usage.test.ts` (plan limits, period rollover,
+`isDevBypass`), `lib/rewrite-assist.test.ts`.
 
 ## Current state & how to proceed (handoff)
 
 **Done and verified:** landing page, client-side detection (now per-sentence, with a line-by-line
-report — `components/detection-report.tsx`), the full multi-pass humanize engine (confirmed live
-against `gpt-5.5`: e.g. 50→80→100 over two passes, currently paused/unlinked, not deleted), dual
-themes, Supabase auth + per-plan word quotas, Stripe subscriptions (Checkout/webhook/portal, monthly
-+ annual), the detector-first `/pricing` comparison page, Winston-backed plagiarism and fact-checking
-(standalone tools plus detector add-ons), and per-user report history (`runs` table + sidebar).
+report — `components/detection-report.tsx`), dual themes, Supabase auth + per-plan word quotas,
+Stripe subscriptions (Checkout/webhook/portal, monthly + annual), the detector-first `/pricing`
+comparison page, Winston-backed plagiarism and fact-checking (standalone tools plus detector
+add-ons), per-user report history (`runs` table + sidebar), and the in-editor "Fix flagged lines"
+rewrite-assist tool. The old multi-pass humanizer was removed outright on 2026-08-05, not paused.
 
 **Known debt / gaps (in priority order — see `docs/BUILD_PLAN.md` for the full milestone writeup):**
 1. **AI detection itself is still only single-provider (Winston).** Plagiarism and fact-checking are
@@ -333,11 +311,6 @@ themes, Supabase auth + per-plan word quotas, Stripe subscriptions (Checkout/web
    highlighting); safe to delete.
 4. **Upload only handles `.txt`/`.md`** (client-side `file.text()`); add `.docx`/`.pdf`.
 5. **Growth hooks** (referral codes, SEO landing pages) — how this category actually grows.
-
-**Model/infra strategy:** no owned server, ever. Launch on OpenAI; scale on **serverless inference**
-via `OPENAI_BASE_URL` (per-token, ~$0 fixed cost). Later, distill logged winning rewrites into a
-LoRA fine-tune of a **7B–14B** open model (8B sweet spot — humanization is style-transfer, not
-knowledge-heavy). The dataset (AI→human-passing pairs) is harvested for free from pipeline output.
 
 ## Styling & UI work
 
@@ -361,7 +334,7 @@ variants) with light values on `:root` and overrides under `.dark`, toggled by `
   (`rounded-[10px]`).
 - **Icons:** Phosphor (`@phosphor-icons/react`) only. Never hand-roll SVG icon paths.
 - **No em dashes anywhere in UI copy** (the app is literally an em-dash detector). Use periods,
-  commas, colons, or parentheses. This is also enforced in `ANTI_TELL_RULES`.
+  commas, colons, or parentheses. This is also enforced in `lib/rewrite-assist.ts`'s prompts.
 - **Real images, never div-based fake screenshots.** Local assets live in `public/img/`.
 - **Motion** via `motion` (`components/reveal.tsx` for scroll reveals); always honor
   `prefers-reduced-motion`. Keep it subtle and motivated, not decorative.

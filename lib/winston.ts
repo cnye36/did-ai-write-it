@@ -4,13 +4,6 @@
   lib/usage.ts's PLAGIARISM_WORD_MULTIPLIER / FACT_CHECK_WORD_MULTIPLIER for
   why those two draw down the monthly quota faster than a detection check).
 
-  AI-detection is called on every rewrite candidate (lib/rewrite.ts's
-  best-of-n selection and lib/humanize.ts's per-pass accept/reject), not just
-  a before/after report, since that's what it takes to actually select for
-  what a real detector rewards instead of our own heuristic proxy. Plagiarism
-  and fact-check are standalone, user-triggered checks only (never called
-  from the humanize pipeline).
-
   Same 0-100/higher-is-human scale as our heuristic for AI detection
   (verified against their docs), so scores and verdicts are directly
   comparable and `verdictFor` from lib/detector.ts is reused rather than
@@ -20,8 +13,7 @@
 
   Never a hard dependency: if the key isn't configured, the text is below
   Winston's minimum length, or the request fails for any reason, callers get
-  null back. The humanize pipeline falls back to the heuristic score alone;
-  the plagiarism/fact-check UI shows an "unavailable" state.
+  null back and the UI shows an "unavailable" state.
 */
 
 const WINSTON_API_URL = "https://api.gowinston.ai/v2/ai-content-detection";
@@ -109,12 +101,6 @@ export async function scoreWithWinston(text: string): Promise<WinstonResult | nu
     console.error("Winston AI request errored:", err);
     return null;
   }
-}
-
-/** Adapter matching lib/humanize.ts's ExternalScorer shape: (text) => Promise<number | null>. */
-export async function winstonScoreOnly(text: string): Promise<number | null> {
-  const result = await scoreWithWinston(text);
-  return result ? result.score : null;
 }
 
 export interface PlagiarismSource {

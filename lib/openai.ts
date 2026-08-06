@@ -2,15 +2,9 @@ import OpenAI from "openai";
 import { MissingKeyError } from "./api-errors";
 
 /*
-  Model is env-configurable so the humanize engine can be pointed at a cheaper
-  model (or an OpenAI-compatible serverless provider) without a code change.
-*/
-export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-5.5";
-
-/*
-  Separate from OPENAI_MODEL on purpose: rewrite-assist (lib/rewrite-assist.ts)
-  is new logic, independent of the humanize engine, so its model can be tuned
-  without touching the (paused but intact) humanizer's config.
+  Model is env-configurable so rewrite-assist (lib/rewrite-assist.ts) can be
+  pointed at a cheaper model (or an OpenAI-compatible serverless provider)
+  without a code change.
 */
 export const REWRITE_ASSIST_MODEL = process.env.REWRITE_ASSIST_MODEL ?? "gpt-5.6-terra";
 

@@ -1,8 +1,7 @@
 /*
-  Rewrite Assist: the "Fix" editor's AI backend. Deliberately separate logic
-  from lib/humanize.ts/lib/rewrite.ts/lib/prompts.ts (the paused multi-pass,
-  candidate-scored humanizer). This is a single-shot helper: rewrite one
-  highlighted span, or the whole draft once if asked, never a pass loop.
+  Rewrite Assist: the "Fix flagged lines" editor's AI backend. A single-shot
+  helper: rewrite one highlighted span, or the whole draft once if asked,
+  never a multi-pass loop.
 */
 
 import { analyzeText, reasonsForRange, type DetectorResult } from "./detector";
@@ -14,8 +13,7 @@ const CONTEXT_RADIUS_CHARS = 1200;
  *  surrounding context window above. */
 export const REWRITE_ASSIST_SELECTION_MAX_CHARS = 2000;
 
-/** Matches humanize's existing single-shot whole-document cap: this is the
- *  same shape of call (one LLM pass over the full draft), just new logic. */
+/** Whole-document cap: one LLM pass over the full draft. */
 export const REWRITE_ASSIST_MAX_CHARS = 12_000;
 
 /** Bounded context around [start, end), not the whole document: keeps both
