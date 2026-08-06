@@ -81,10 +81,6 @@ const FAQ = [
     q: "Does the AI detector work in languages other than English?",
     a: "Yes. AI detection covers a range of languages, including Spanish, French, German, Portuguese, and Chinese, and plagiarism checking covers well over a hundred. Accuracy is strongest in English and the other widely-supported languages; coverage keeps expanding.",
   },
-  {
-    q: "Why is your minimum word count higher than most other detectors?",
-    a: "Below roughly 100 to 150 words, any detector, ours included, is closer to a guess than a measurement: there just is not enough writing pattern to score with confidence. We set our floor at 200 words to sit safely above that line, so every score you get back is one you can actually trust.",
-  },
 ];
 
 const SOFTWARE_APPLICATION_JSON_LD = {
@@ -140,12 +136,12 @@ export default function Landing() {
             >
               Fact check
             </Link>
-            <Link
+            {/* <Link
               href="/blog"
               className="hidden text-sm text-muted transition-colors hover:text-ink md:block"
             >
               Blog
-            </Link>
+            </Link> */}
             <Link
               href="/pricing"
               className="hidden text-sm text-muted transition-colors hover:text-ink sm:block"
