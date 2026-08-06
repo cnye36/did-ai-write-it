@@ -25,6 +25,7 @@ import { PlagiarismSources } from "@/components/plagiarism/plagiarism-sources";
 import { QuotaExceededModal } from "@/components/ui/quota-exceeded-modal";
 import { DetectAddonCard, FactCheckAddonCard, type AddonState, type DetectAddonResult } from "@/components/detect/check-addons";
 import { UploadTextButton } from "@/components/editor/upload-text-button";
+import { ShareReportButton } from "@/components/share/share-report-modal";
 import { useHandoffInput } from "@/lib/handoff";
 import posthog from "posthog-js";
 
@@ -359,6 +360,7 @@ export function PlagiarismPageClient({ initialRun }: { initialRun: RunRow | null
             <PencilSimpleIcon size={16} weight="bold" />
             Edit text
           </button>
+          {result?.runId && <ShareReportButton runId={result.runId} />}
         </div>
       </div>
 

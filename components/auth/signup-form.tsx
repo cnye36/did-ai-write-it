@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { safeAuthNext } from "@/lib/auth-next";
 import { AuthDivider, GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import posthog from "posthog-js";
 
 const MIN_PASSWORD_LENGTH = 6;
+const CAPTCHA_REQUIRED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
 function TermsNote() {
   return (
@@ -60,6 +62,8 @@ export function SignupForm({ next }: { next?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,6 +77,10 @@ export function SignupForm({ next }: { next?: string }) {
       setError("Passwords don't match.");
       return;
     }
+    if (CAPTCHA_REQUIRED && !captchaToken) {
+      setError("Please complete the verification challenge.");
+      return;
+    }
 
     setBusy(true);
     const supabase = createClient();
@@ -82,11 +90,14 @@ export function SignupForm({ next }: { next?: string }) {
       options: {
         data: { marketing_emails: marketingEmails },
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`,
+        captchaToken: captchaToken ?? undefined,
       },
     });
     if (signUpError) {
       setError(signUpError.message);
       setBusy(false);
+      setCaptchaToken(null);
+      setCaptchaResetKey((k) => k + 1);
       return;
     }
     posthog.capture("user_signed_up", {
@@ -236,12 +247,19 @@ export function SignupForm({ next }: { next?: string }) {
             className="w-full rounded-[10px] border border-line bg-surface p-3 text-sm outline-none transition-colors placeholder:text-faint focus:border-accent"
           />
         </div>
+        {CAPTCHA_REQUIRED && (
+          <TurnstileWidget
+            key={captchaResetKey}
+            onVerify={setCaptchaToken}
+            onExpire={() => setCaptchaToken(null)}
+          />
+        )}
         {error && (
           <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{error}</p>
         )}
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || (CAPTCHA_REQUIRED && !captchaToken)}
           className="w-full rounded-full bg-accent px-6 py-3 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {busy ? "Creating account..." : "Create account"}

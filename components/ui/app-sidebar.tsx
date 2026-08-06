@@ -9,6 +9,7 @@ import {
   FunnelIcon,
   GearIcon,
   ListIcon,
+  MagnifyingGlassIcon,
   PlusIcon,
   TrashIcon,
   XIcon,
@@ -172,13 +173,17 @@ export function AppSidebar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Set<RunKind>>(new Set());
+  const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
 
   const activeId = searchParams.get("run");
   // "New" always starts a fresh check on whichever tool is currently open,
   // falling back to the detector when the sidebar shows on a non-tool page.
   const newReportHref = NAV_LINKS.find((l) => pathname?.startsWith(l.href))?.href ?? "/app/detect";
-  const visibleRuns = filters.size === 0 ? runs : runs.filter((r) => filters.has(r.kind));
+  const trimmedQuery = query.trim().toLowerCase();
+  const visibleRuns = runs
+    .filter((r) => filters.size === 0 || filters.has(r.kind))
+    .filter((r) => trimmedQuery === "" || r.title.toLowerCase().includes(trimmedQuery));
   const usagePct = wordLimit > 0 ? Math.min(100, (wordsUsed / wordLimit) * 100) : 0;
 
   function toggleFilter(kind: RunKind) {
@@ -282,17 +287,47 @@ export function AppSidebar({
         </div>
       </div>
 
+      {runs.length > 0 && (
+        <div className="px-3 pb-2">
+          <div className="relative">
+            <MagnifyingGlassIcon
+              size={14}
+              weight="bold"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint"
+            />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search reports"
+              aria-label="Search reports"
+              className="w-full rounded-[10px] border border-line bg-surface py-1.5 pl-8 pr-7 text-xs text-ink outline-none placeholder:text-faint focus:border-faint"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-ink"
+              >
+                <XIcon size={12} weight="bold" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className={`min-h-0 flex-1 overflow-y-auto ${pending ? "opacity-60" : ""}`}>
         {visibleRuns.length === 0 ? (
           <div className="px-4 py-10 text-center">
             <ClockCounterClockwiseIcon size={28} className="mx-auto text-faint" weight="duotone" />
             <p className="mt-3 text-sm font-medium text-ink">
-              {runs.length === 0 ? "No reports yet" : "No reports match this filter"}
+              {runs.length === 0 ? "No reports yet" : "No reports match"}
             </p>
             <p className="mt-1 text-xs leading-relaxed text-muted">
               {runs.length === 0
                 ? "Every verified check you run is saved here so you can reopen the full breakdown later."
-                : "Try selecting a different filter."}
+                : "Try a different search term or filter."}
             </p>
           </div>
         ) : (

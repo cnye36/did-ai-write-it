@@ -31,6 +31,7 @@ import { UploadTextButton } from "@/components/editor/upload-text-button";
 import type { WinstonSentence } from "@/components/detect/winston-sentence-list";
 import { VersionTabs } from "@/components/detect/version-tabs";
 import { VersionDiffModal, type DiffFromOption } from "@/components/detect/version-diff-modal";
+import { ShareReportButton } from "@/components/share/share-report-modal";
 import posthog from "posthog-js";
 
 interface DetectResponse {
@@ -434,6 +435,7 @@ export function DetectPageClient({
               <PencilSimpleIcon size={16} weight="bold" />
               Edit text
             </button>
+            {result?.runId && <ShareReportButton runId={result.runId} />}
             {versions.length > 1 && diffFromValue && (
               <button
                 type="button"

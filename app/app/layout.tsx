@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/ui/app-sidebar";
+import { LowCreditBanner } from "@/components/ui/low-credit-banner";
 import { createClient } from "@/lib/supabase/server";
 import type { RunListItem } from "@/lib/runs";
-import { PLAN_LIMITS, wordsUsedInCurrentPeriod, type Plan } from "@/lib/usage";
+import { isDevBypass, PLAN_LIMITS, wordsUsedInCurrentPeriod, type Plan } from "@/lib/usage";
 import { isAdmin } from "@/lib/admin";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -25,6 +26,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
   const plan = (profile?.plan as Plan | undefined) ?? "free";
   const wordsUsed = wordsUsedInCurrentPeriod(usage?.period_start, usage?.words_used);
+  const wordLimit = PLAN_LIMITS[plan];
+  const usagePct = wordLimit > 0 ? Math.min(100, (wordsUsed / wordLimit) * 100) : 0;
 
   return (
     <div className="flex min-h-[100dvh] flex-col md:flex-row">
@@ -34,12 +37,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           email={email}
           plan={plan}
           wordsUsed={wordsUsed}
-          wordLimit={PLAN_LIMITS[plan]}
+          wordLimit={wordLimit}
           isAdmin={isAdmin(email)}
         />
       </Suspense>
       <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10">
-        <div className="mx-auto w-full max-w-[1800px]">{children}</div>
+        <div className="mx-auto w-full max-w-[1800px] space-y-4">
+          {!isDevBypass(email) && <LowCreditBanner usedPct={usagePct} />}
+          {children}
+        </div>
       </main>
     </div>
   );
