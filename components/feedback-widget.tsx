@@ -12,7 +12,13 @@ const KIND_OPTIONS: { value: FeedbackKind; label: string; icon: typeof BugIcon }
   { value: "feedback", label: "Share feedback", icon: ChatCircleTextIcon },
 ];
 
-export function FeedbackWidget({ onNavigate }: { onNavigate?: () => void }) {
+export function FeedbackWidget({
+  onNavigate,
+  collapsed = false,
+}: {
+  onNavigate?: () => void;
+  collapsed?: boolean;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<FeedbackKind>("bug");
@@ -62,10 +68,14 @@ export function FeedbackWidget({ onNavigate }: { onNavigate?: () => void }) {
           setOpen(true);
           onNavigate?.();
         }}
-        className="flex items-center gap-2 rounded-[10px] px-3 py-2 text-sm text-muted transition-colors hover:bg-surface hover:text-ink"
+        aria-label={collapsed ? "Feedback" : undefined}
+        title={collapsed ? "Feedback" : undefined}
+        className={`flex items-center rounded-[10px] py-2 text-sm text-muted transition-colors hover:bg-surface hover:text-ink ${
+          collapsed ? "justify-center px-2" : "gap-2 px-3"
+        }`}
       >
         <ChatCircleTextIcon size={14} weight="bold" />
-        Feedback
+        {!collapsed && "Feedback"}
       </button>
 
       <Modal open={open} onClose={close} className="max-w-md">

@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 const TITLE = "Did AI Write It? | Free AI Content Detector";
 const DESCRIPTION =
-  "Paste any text and get an instant AI-detection score, sentence by sentence, free and with no account needed. Built for checking LinkedIn posts, newsletters, and marketing copy before they go out.";
+  "Paste any text for a clear AI-detection result and sentence-level signals, free and with no account needed. Built for LinkedIn posts, newsletters, and marketing copy.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

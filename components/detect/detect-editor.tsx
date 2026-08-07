@@ -9,10 +9,10 @@ import {
   GitDiffIcon,
   SparkleIcon,
 } from "@phosphor-icons/react";
-import { analyzeText, verdictFor } from "@/lib/detector";
-import { normalize, resolveSentenceScores, verifiedCoverage } from "@/lib/winston-sentences";
+import { analyzeText } from "@/lib/detector";
+import { detectionPresentation } from "@/lib/detection-presentation";
+import { normalize, resolveSentenceScores } from "@/lib/winston-sentences";
 import { emptyProvenance, recordProvenance, type ProvenanceMap } from "@/lib/provenance";
-import { ScoreGauge } from "@/components/detect/score-gauge";
 import { QuotaExceededModal } from "@/components/ui/quota-exceeded-modal";
 import { ConfirmRewriteAllModal } from "@/components/detect/confirm-rewrite-all-modal";
 import { RichEditor, type RichEditorHandle } from "@/components/editor/rich-editor";
@@ -142,7 +142,6 @@ export function DetectEditorClient({
     () => resolveSentenceScores(draft, latestWinston?.sentences),
     [draft, latestWinston]
   );
-  const coverage = verifiedCoverage(resolved);
   const flaggedSentences = useMemo(
     () => resolved.filter((s) => s.verdict !== "human"),
     [resolved]
@@ -161,7 +160,6 @@ export function DetectEditorClient({
   );
 
   const verifiedScore = versionScore(selectedVersion);
-  const verifiedVerdict = verdictFor(verifiedScore);
 
   // On mount, offer to restore a draft left behind by an accidental
   // navigation (there's no autosave to the server between scans, only on
@@ -453,7 +451,7 @@ export function DetectEditorClient({
       if (!res.ok) throw new Error(data.error ?? "Scan failed.");
       if (data.winston) {
         const newVersion: RunVersion = {
-          id: `local-${Date.now()}`,
+          id: data.versionId ?? `local-${Date.now()}`,
           input_text: draft,
           word_count: analyzeText(draft).wordCount,
           score: data.winston.score,
@@ -499,7 +497,7 @@ export function DetectEditorClient({
             <p className="mt-2 text-xs font-medium uppercase tracking-wide text-faint">Revision History</p>
             <h1 className="text-2xl font-semibold tracking-tight">{run.title}</h1>
             <p className="mt-1 text-sm text-muted">
-              Fix what got flagged, at your own pace. Scan again whenever you want a real score.
+              Review what got flagged, revise at your own pace, then scan again for a verified result.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -561,7 +559,7 @@ export function DetectEditorClient({
               <span className="text-sm font-medium">Your edit</span>
               <div className="flex items-center gap-2">
                 <ExportMenu getDoc={() => editorRef.current?.getDoc() ?? {}} title={run.title} />
-                <span className="text-xs text-faint">Scan again for a real score</span>
+                <span className="text-xs text-faint">Scan again for a verified result</span>
               </div>
             </div>
             <RichEditor
@@ -617,10 +615,9 @@ export function DetectEditorClient({
             <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
               <span className="text-sm font-medium">Report {selectedIndex + 1}</span>
               {selectedWinston && (
-                <div className="flex items-center gap-2">
-                  <ScoreGauge score={verifiedScore} verdict={verifiedVerdict} size={32} />
-                  <span className="text-xs text-faint">Verified score</span>
-                </div>
+                <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-muted">
+                  {detectionPresentation(verifiedScore).signal}
+                </span>
               )}
             </div>
             <div className="max-h-[55vh] min-h-[280px] flex-1 overflow-y-auto p-4">
@@ -628,7 +625,6 @@ export function DetectEditorClient({
                 <WinstonHighlightedText
                   text={selectedVersion.input_text}
                   sentences={selectedWinston.sentences}
-                  flags={live.flags}
                   showHuman
                 />
               ) : (
@@ -656,13 +652,13 @@ export function DetectEditorClient({
                     <p className="text-sm leading-relaxed text-ink">{s.text}</p>
                     {s.source === "verified" ? (
                       <span
-                        className="shrink-0 rounded-full px-2 py-0.5 font-mono text-xs tabular-nums"
+                        className="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold"
                         style={{
                           background: s.verdict === "mixed" ? "var(--warn-soft)" : "var(--bad-soft)",
                           color: s.verdict === "mixed" ? "var(--warn)" : "var(--bad)",
                         }}
                       >
-                        {s.score}
+                        {detectionPresentation(s.score).signal}
                       </span>
                     ) : (
                       <span
@@ -676,21 +672,6 @@ export function DetectEditorClient({
                       </span>
                     )}
                   </div>
-                  {s.source === "verified" && (
-                    <p className="mt-1 text-[11px] font-medium text-faint">Verified score</p>
-                  )}
-                  {s.reasons.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {s.reasons.map((r) => (
-                        <span
-                          key={r}
-                          className="rounded-full bg-surface px-2 py-1 text-xs leading-tight text-muted"
-                        >
-                          {r}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                   <button
                     type="button"
                     onClick={() => requestSuggestion(s.start, s.end, "sentence")}

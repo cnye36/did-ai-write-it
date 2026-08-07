@@ -46,11 +46,11 @@ const CLUSTERS = [
 const FAQ = [
   {
     q: "Is Did AI Write It? more accurate than GPTZero?",
-    a: "Neither tool is certain on every input. Did AI Write It? runs every check through our verified detection model rather than a heuristic, and shows the reasoning behind every flagged sentence so you can judge the call yourself.",
+    a: "Neither tool is certain on every input. Did AI Write It? runs every check through a verified detection model, then adds an independent language review grounded in exact excerpts.",
   },
   {
     q: "Can I use both GPTZero and Did AI Write It? on the same draft?",
-    a: "Yes. Running a draft through more than one detector is a reasonable way to build confidence before a piece goes out, especially on borderline scores.",
+    a: "Yes. Running a draft through more than one detector is a reasonable way to build confidence before a piece goes out, especially when the signals are unclear.",
   },
   {
     q: "Does Did AI Write It? have a free plan like GPTZero?",
@@ -203,7 +203,7 @@ export default function VsGptZeroPage() {
         <section className="border-t border-line py-20 md:py-28">
           <Reveal>
             <CtaPanel
-              heading="See your score, not just theirs."
+              heading="See the evidence, not just the result."
               body="Paste your draft and get an AI-detection, plagiarism, and fact-check score in one report."
             />
           </Reveal>

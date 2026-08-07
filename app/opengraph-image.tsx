@@ -60,7 +60,7 @@ export default function Image() {
             Did <span style={{ color: "#8496ff" }}>AI </span> Write It?
           </div>
           <div style={{ fontSize: 30, color: "#a3a3af", maxWidth: 820 }}>
-            Real, verified AI-detection, plagiarism, and fact-check scores for any draft.
+            Clear AI-detection results, plagiarism matches, and fact checks for any draft.
           </div>
         </div>
       </div>

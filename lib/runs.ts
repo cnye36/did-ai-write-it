@@ -1,10 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FactCheckResult, PlagiarismResult, WinstonSentenceScore } from "@/lib/winston";
+import type { DetectionInsight } from "@/lib/detection-insight";
 
 export type RunKind = "detect" | "plagiarism" | "fact_check";
 
+export const RUN_KINDS: RunKind[] = ["detect", "plagiarism", "fact_check"];
+
 export interface DetectRunResult {
   winston: { score: number; sentences: WinstonSentenceScore[] };
+  insight?: DetectionInsight;
 }
 
 export interface PlagiarismRunResult {
@@ -131,16 +135,24 @@ interface RunVersionInput {
 export async function insertRunVersion(
   supabase: SupabaseClient,
   { runId, inputText, wordCount, score, result, doc = null }: RunVersionInput
-): Promise<void> {
-  const { error } = await supabase.from("run_versions").insert({
-    run_id: runId,
-    input_text: inputText,
-    word_count: wordCount,
-    score: scoreToInt(score),
-    result,
-    doc,
-  });
-  if (error) console.error("Failed to save run version:", error.message);
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("run_versions")
+    .insert({
+      run_id: runId,
+      input_text: inputText,
+      word_count: wordCount,
+      score: scoreToInt(score),
+      result,
+      doc,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    console.error("Failed to save run version:", error.message);
+    return null;
+  }
+  return data.id as string;
 }
 
 /** A manual rescan of an existing run: appends a new version and mirrors it
@@ -150,8 +162,15 @@ export async function insertRunVersion(
 export async function appendRunVersion(
   supabase: SupabaseClient,
   { runId, inputText, wordCount, score, result, doc = null }: RunVersionInput
-): Promise<void> {
-  await insertRunVersion(supabase, { runId, inputText, wordCount, score, result, doc });
+): Promise<string | null> {
+  const versionId = await insertRunVersion(supabase, {
+    runId,
+    inputText,
+    wordCount,
+    score,
+    result,
+    doc,
+  });
 
   const { error } = await supabase
     .from("runs")
@@ -166,6 +185,7 @@ export async function appendRunVersion(
     .eq("id", runId);
 
   if (error) console.error("Failed to update run:", error.message);
+  return versionId;
 }
 
 export async function listRunVersions(

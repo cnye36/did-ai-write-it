@@ -5,12 +5,17 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CheckIcon,
+  CheckCircleIcon,
   ClockCounterClockwiseIcon,
+  ClipboardTextIcon,
+  FileMagnifyingGlassIcon,
+  FilesIcon,
   FunnelIcon,
   GearIcon,
   ListIcon,
   MagnifyingGlassIcon,
   PlusIcon,
+  SidebarSimpleIcon,
   TrashIcon,
   XIcon,
 } from "@phosphor-icons/react";
@@ -24,13 +29,18 @@ import { BrandLink } from "@/components/marketing/brand-link";
 import { UserNav } from "@/components/auth/user-nav";
 import { FeedbackWidget } from "@/components/feedback-widget";
 import type { Plan } from "@/lib/usage";
-import { verdictFor } from "@/lib/detector";
-import { plagiarismVerdict, factCheckVerdict } from "@/lib/score-verdicts";
+import { scoreBadge } from "@/lib/run-badge";
 
-const NAV_LINKS: { href: string; label: string; kind: RunKind }[] = [
-  { href: "/app/detect", label: "Detector", kind: "detect" },
-  { href: "/app/plagiarism", label: "Plagiarism", kind: "plagiarism" },
-  { href: "/app/fact-check", label: "Fact Check", kind: "fact_check" },
+const RESULT_DOT_CLASS = {
+  good: "bg-good",
+  warn: "bg-warn",
+  bad: "bg-bad",
+};
+
+const NAV_LINKS = [
+  { href: "/app/detect", label: "Detector", kind: "detect" as const, icon: FileMagnifyingGlassIcon },
+  { href: "/app/plagiarism", label: "Plagiarism", kind: "plagiarism" as const, icon: ClipboardTextIcon },
+  { href: "/app/fact-check", label: "Fact Check", kind: "fact_check" as const, icon: CheckCircleIcon },
 ];
 
 function relativeTime(iso: string): string {
@@ -43,37 +53,6 @@ function relativeTime(iso: string): string {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-type Tone = "good" | "warn" | "bad";
-
-const TONE_CLASSES: Record<Tone, string> = {
-  good: "bg-good-soft text-good",
-  warn: "bg-warn-soft text-warn",
-  bad: "bg-bad-soft text-bad",
-};
-
-function toneFromColor(color: string): Tone {
-  return color === "var(--good)" ? "good" : color === "var(--warn)" ? "warn" : "bad";
-}
-
-const TONE_LABEL: Record<Tone, string> = { good: "Pass", warn: "Mixed", bad: "Fail" };
-
-/** Compact pass/mixed/fail badge for the sidebar, reusing each kind's own
- *  canonical verdict thresholds (lib/detector's verdictFor, lib/score-verdicts)
- *  instead of a raw 0-100 score, which doesn't scan well in a short list row. */
-function scoreBadge(kind: RunKind, score: number | null): { label: string; tone: Tone } | null {
-  if (score == null) return null;
-  let tone: Tone;
-  if (kind === "plagiarism") {
-    tone = toneFromColor(plagiarismVerdict(score).color);
-  } else if (kind === "fact_check") {
-    tone = toneFromColor(factCheckVerdict(score).color);
-  } else {
-    const verdict = verdictFor(score);
-    tone = verdict === "human" ? "good" : verdict === "mixed" ? "warn" : "bad";
-  }
-  return { label: TONE_LABEL[tone], tone };
 }
 
 function FilterMenu({
@@ -124,19 +103,25 @@ function FilterMenu({
           role="menu"
           className="absolute right-0 top-8 z-20 w-44 overflow-hidden rounded-[10px] border border-line bg-raised shadow-xl"
         >
-          {NAV_LINKS.map((link) => (
-            <button
-              key={link.kind}
-              type="button"
-              role="menuitemcheckbox"
-              aria-checked={active.has(link.kind)}
-              onClick={() => onToggle(link.kind)}
-              className="flex w-full items-center justify-between px-3 py-2 text-sm text-muted transition-colors hover:bg-surface hover:text-ink"
-            >
-              {link.label}
-              {active.has(link.kind) && <CheckIcon size={14} weight="bold" className="text-accent" />}
-            </button>
-          ))}
+          {NAV_LINKS.map((link) => {
+            const Icon = link.icon;
+            return (
+              <button
+                key={link.kind}
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={active.has(link.kind)}
+                onClick={() => onToggle(link.kind)}
+                className="flex w-full items-center justify-between px-3 py-2 text-sm text-muted transition-colors hover:bg-surface hover:text-ink"
+              >
+                <span className="flex items-center gap-2">
+                  <Icon size={14} weight="bold" />
+                  {link.label}
+                </span>
+                {active.has(link.kind) && <CheckIcon size={14} weight="bold" className="text-accent" />}
+              </button>
+            );
+          })}
           {active.size > 0 && (
             <button
               type="button"
@@ -171,6 +156,7 @@ export function AppSidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Set<RunKind>>(new Set());
   const [query, setQuery] = useState("");
@@ -217,27 +203,50 @@ export function AppSidebar({
 
   const panel = (
     <div className="flex h-full flex-col">
-      <div className="px-4 py-4">
+      <div className="flex items-center justify-between gap-2 px-4 py-4">
         <BrandLink onClick={() => setMobileOpen(false)} />
+        <button
+          type="button"
+          onClick={() => setCollapsed(true)}
+          aria-label="Collapse sidebar"
+          title="Collapse sidebar"
+          className="hidden rounded-full p-1.5 text-faint transition-colors hover:bg-surface hover:text-ink md:inline-flex"
+        >
+          <SidebarSimpleIcon size={17} weight="bold" />
+        </button>
       </div>
       <div className="border-b border-line" />
 
       <nav className="flex flex-col gap-0.5 p-3">
         {NAV_LINKS.map((link) => {
           const active = pathname?.startsWith(link.href);
+          const Icon = link.icon;
           return (
             <Link
               key={link.href}
               href={link.href}
               onClick={() => setMobileOpen(false)}
-              className={`rounded-[10px] px-3 py-2 text-sm transition-colors ${
+              className={`flex items-center gap-2 rounded-[10px] px-3 py-2 text-sm transition-colors ${
                 active ? "bg-accent-soft font-medium text-accent" : "text-muted hover:bg-surface hover:text-ink"
               }`}
             >
+              <Icon size={14} weight="bold" />
               {link.label}
             </Link>
           );
         })}
+        <Link
+          href="/app/reports"
+          onClick={() => setMobileOpen(false)}
+          className={`flex items-center gap-2 rounded-[10px] px-3 py-2 text-sm transition-colors ${
+            pathname?.startsWith("/app/reports")
+              ? "bg-accent-soft font-medium text-accent"
+              : "text-muted hover:bg-surface hover:text-ink"
+          }`}
+        >
+          <FilesIcon size={14} weight="bold" />
+          Reports
+        </Link>
         {isAdmin && (
           <Link
             href="/admin"
@@ -266,6 +275,13 @@ export function AppSidebar({
           )}
         </div>
         <div className="flex items-center gap-1">
+          <Link
+            href="/app/reports"
+            onClick={() => setMobileOpen(false)}
+            className="rounded-full px-2 py-1 text-[11px] font-medium text-faint transition-colors hover:text-ink"
+          >
+            View all
+          </Link>
           <Link
             href={newReportHref}
             onClick={() => setMobileOpen(false)}
@@ -352,10 +368,11 @@ export function AppSidebar({
                       <span className="text-[11px] text-faint">{relativeTime(run.updated_at ?? run.created_at)}</span>
                       {badge && (
                         <span
-                          className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${TONE_CLASSES[badge.tone]}`}
-                        >
-                          {badge.label}
-                        </span>
+                          role="img"
+                          aria-label={badge.label}
+                          title={badge.label}
+                          className={`ml-auto size-2 shrink-0 rounded-full ${RESULT_DOT_CLASS[badge.tone]}`}
+                        />
                       )}
                     </div>
                     <p
@@ -405,6 +422,81 @@ export function AppSidebar({
     </div>
   );
 
+  const collapsedPanel = (
+    <div className="flex h-full flex-col items-center">
+      <div className="flex flex-col items-center gap-2 py-3">
+        <BrandLink className="[&>span]:hidden" />
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
+          className="inline-flex rounded-full p-1.5 text-faint transition-colors hover:bg-surface hover:text-ink"
+        >
+          <SidebarSimpleIcon size={17} weight="bold" />
+        </button>
+      </div>
+      <div className="w-full border-b border-line" />
+
+      <nav className="flex w-full flex-col items-center gap-1 p-2">
+        {NAV_LINKS.map((link) => {
+          const active = pathname?.startsWith(link.href);
+          const Icon = link.icon;
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-label={link.label}
+              title={link.label}
+              className={`inline-flex size-10 items-center justify-center rounded-[10px] transition-colors ${
+                active ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface hover:text-ink"
+              }`}
+            >
+              <Icon size={18} weight="bold" />
+            </Link>
+          );
+        })}
+        <Link
+          href="/app/reports"
+          aria-label="Reports"
+          title="Reports"
+          className={`inline-flex size-10 items-center justify-center rounded-[10px] transition-colors ${
+            pathname?.startsWith("/app/reports")
+              ? "bg-accent-soft text-accent"
+              : "text-muted hover:bg-surface hover:text-ink"
+          }`}
+        >
+          <FilesIcon size={18} weight="bold" />
+        </Link>
+        {isAdmin && (
+          <Link
+            href="/admin"
+            aria-label="Admin"
+            title="Admin"
+            className={`inline-flex size-10 items-center justify-center rounded-[10px] transition-colors ${
+              pathname?.startsWith("/admin")
+                ? "bg-accent-soft text-accent"
+                : "text-muted hover:bg-surface hover:text-ink"
+            }`}
+          >
+            <GearIcon size={18} weight="bold" />
+          </Link>
+        )}
+        <FeedbackWidget collapsed />
+      </nav>
+
+      <div className="mt-auto w-full border-t border-line p-2">
+        <UserNav
+          email={email}
+          plan={plan}
+          wordsUsed={wordsUsed}
+          wordLimit={wordLimit}
+          collapsed
+        />
+      </div>
+    </div>
+  );
+
   return (
     <>
       <div className="flex items-center justify-between border-b border-line bg-raised px-4 py-2.5 md:hidden">
@@ -433,8 +525,12 @@ export function AppSidebar({
         </div>
       )}
 
-      <aside className="hidden w-72 shrink-0 border-r border-line bg-raised md:flex md:h-[100dvh] md:flex-col md:sticky md:top-0">
-        {panel}
+      <aside
+        className={`hidden shrink-0 border-r border-line bg-raised transition-[width] duration-200 md:flex md:h-[100dvh] md:flex-col md:sticky md:top-0 ${
+          collapsed ? "w-16" : "w-72"
+        }`}
+      >
+        {collapsed ? collapsedPanel : panel}
       </aside>
     </>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { formatRunDateTime, type RunVersion } from "@/lib/runs";
+import { detectionPresentation } from "@/lib/detection-presentation";
 
 /** "Report 1 / Report 2 / ..." pill row shared by the main report page and the
  *  Fix editor, so a run's rescan history reads the same way in both places.
@@ -31,7 +32,7 @@ export function VersionTabs({
         >
           Report {i + 1}
           {i === 0 && <span className="text-faint"> (Original)</span>}
-          {v.score != null && <span> · {v.score}</span>}
+          {v.score != null && <span> · {detectionPresentation(v.score).signal}</span>}
           <span className="text-faint"> · {formatRunDateTime(v.created_at)}</span>
         </button>
       ))}

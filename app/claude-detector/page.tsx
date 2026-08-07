@@ -8,7 +8,7 @@ import { jsonLdScriptProps } from "@/lib/seo";
 
 const TITLE = "Claude Detector: Check If Claude Wrote It";
 const DESCRIPTION =
-  "Paste any email, report, or post and get a real, verified score for whether Claude wrote it. Free instant check, no account needed.";
+  "Paste any email, report, or post and get a clear, verified result for whether Claude likely wrote it. Free instant check, no account needed.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -72,7 +72,7 @@ export default function ClaudeDetectorPage() {
               </h1>
               <p className="mx-auto mt-5 max-w-[46ch] text-lg leading-relaxed text-muted">
                 Paste the email, report, or post you are not sure about and
-                get a real detection score in seconds, before it goes out
+                get a clear detector result in seconds, before it goes out
                 under your name.
               </p>
             </Reveal>

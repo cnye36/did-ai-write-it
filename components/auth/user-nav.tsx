@@ -14,11 +14,13 @@ export function UserNav({
   plan,
   wordsUsed,
   wordLimit,
+  collapsed = false,
 }: {
   email: string;
   plan: Plan;
   wordsUsed: number;
   wordLimit: number;
+  collapsed?: boolean;
 }) {
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
@@ -62,13 +64,21 @@ export function UserNav({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex w-full items-center gap-2.5 rounded-[10px] px-2 py-1.5 text-left transition-colors hover:bg-surface active:scale-[0.99]"
+        aria-label={collapsed ? `Account: ${email}` : undefined}
+        title={collapsed ? email : undefined}
+        className={`flex w-full items-center rounded-[10px] py-1.5 text-left transition-colors hover:bg-surface active:scale-[0.99] ${
+          collapsed ? "justify-center px-1" : "gap-2.5 px-2"
+        }`}
       >
         <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
           {initial}
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{email}</span>
-        <CaretUpDownIcon size={14} weight="bold" className="shrink-0 text-faint" />
+        {!collapsed && (
+          <>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{email}</span>
+            <CaretUpDownIcon size={14} weight="bold" className="shrink-0 text-faint" />
+          </>
+        )}
       </button>
 
       {open && (

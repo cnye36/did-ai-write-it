@@ -90,21 +90,21 @@ history shipped.** Three changes landed together:
   so a plagiarism run can't be opened from the fact-check page); `/api/runs` lists/deletes,
   `/api/runs/[id]` fetches one.
 
-**The free heuristic (`lib/detector.ts`) never shows a numeric score to a user anywhere
-(as of 2026-07-31).** It scores most AI text as too human to be credible as *the* score for a
-product literally named "did AI write it," and per-sentence calibration against real Winston data
-(`pnpm calibrate`) confirmed it, so Winston AI is the only source of a displayed 0-100 number: the
-public homepage scan (`/api/preview-detect`, rate-limited) and the signed-in detector (`/api/detect`).
-Every "quick estimate" / heuristic score readout that used to show before or alongside a Winston
-result (the pre-check textarea, the report header while `/api/detect` is in flight or unavailable,
-the Fix editor's "Your edit" pane, the version-diff modal's unscanned side) has been removed outright,
-one source of truth rather than a second, frequently-wrong number sitting next to the real one. The
-heuristic survives only as: free, instant, zero-network live word count before a check runs; pattern-
-based flag highlighting with no attached score (the line-by-line report, the Fix editor's "Flagged in
-your edit" list, where an unscanned sentence shows "Not yet scanned" instead of a guessed number) so
-triage still works without presenting a fabricated number as fact; and the "Signal breakdown"
-sub-metric bars on the report page (Vocabulary/Cadence/Rhythm/etc., framed as diagnostic signals, not
-a competing overall score).
+**AI-detection results are verdict-led, not score-led (as of 2026-08-07).** Winston's raw
+higher-is-human number is still stored for thresholds, history, and calibration, but the primary UI
+shows qualified language (`Likely AI-generated`, `Mixed or unclear signals`, `Likely human-written`)
+plus signal strength. The public preview never exposes the number. A signed-in full report has one
+collapsed `Technical details` disclosure containing the exact overall model output and an explicit
+warning that it is not the percentage of words written by AI. Sentence numbers, score deltas, gauges,
+and numeric version badges are hidden throughout the detector and revision workflow.
+
+The free heuristic (`lib/detector.ts`) still never shows a numeric score. It supplies instant word
+count and unscanned flag highlighting only. Its canned pattern reasons are no longer presented as an
+explanation of Winston's result. Signed-in reports can instead call `/api/detection-insight`, which
+uses `lib/detection-insight.ts` and an OpenAI-compatible model to independently review representative
+passages. Every displayed observation must quote exact submitted text, is persisted inside the run
+version's JSON result, and is explicitly framed as visible writing analysis rather than Winston's
+private reasoning or proof of authorship.
 
 Positioning: *"Did AI write it? Find out."* Framing is deliberately **professional/marketing**
 (LinkedIn posts, newsletters, marketing copy), **not** academic-cheating. The project pivoted from a
@@ -120,8 +120,8 @@ not resurrect that engine or re-scope a "guaranteed pass" rewrite feature withou
 
 **Stack:** Next.js 16 (App Router, Turbopack), TypeScript, Tailwind v4, pnpm, WSL2. Dual light/dark
 themes, cobalt accent (`#2b47e0`, chosen to stand apart from the competitors' purple). **OpenAI**
-powers rewrite-assist, the single-shot "Fix flagged lines" helper on a detect report
-(`lib/rewrite-assist.ts`).
+powers both grounded detection insights (`lib/detection-insight.ts`) and rewrite-assist, the
+single-shot "Fix flagged lines" helper on a detect report (`lib/rewrite-assist.ts`).
 
 ## Commands
 
@@ -135,12 +135,13 @@ Run everything through WSL with nvm sourced (default WSL node is v18; project ne
 - `pnpm test` — Vitest once (`vitest run`). Single file: `pnpm vitest run lib/detector.test.ts`
 - **Use pnpm, never npm** (npm throws a bogus ERESOLVE against the pnpm tree). pnpm installs prompt
   interactively — prefix `CI=true` to auto-confirm.
-- Keys in `.env.local` (copy from `.env.local.example`): `OPENAI_API_KEY` (rewrite-assist's "Fix
-  flagged lines" helper), `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`/
+- Keys in `.env.local` (copy from `.env.local.example`): `OPENAI_API_KEY` (detection insights and
+  rewrite-assist), `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`/
   `SUPABASE_SECRET_KEY` (auth/DB), `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/
   `STRIPE_PRICE_{LITE,PLUS,PRO}_{MONTHLY,ANNUAL}` (billing, six price IDs total). Optional:
   `OPENAI_BASE_URL` (point at any OpenAI-compatible serverless provider — Together/DeepInfra/Groq —
-  with no code change), `REWRITE_ASSIST_MODEL` (default `gpt-5.6-terra`), `WINSTON_API_KEY` (powers
+  with no code change), `REWRITE_ASSIST_MODEL` (default `gpt-5.6-terra`),
+  `DETECTION_INSIGHT_MODEL` (defaults to the rewrite model), `WINSTON_API_KEY` (powers
   AI detection, plagiarism, and fact-checking everywhere, see `lib/winston.ts`), `DEV_BYPASS_EMAIL`
   (one account exempt from all word quotas).
 - Browser-pane **screenshots time out in this environment**; verify via page text / JS eval / network
@@ -205,12 +206,10 @@ bounds and score polarity, so never assume one endpoint's shape or scale applies
   "never a hard dependency" contract: unconfigured key, under-length text, or a failed request all
   return `null`, never throw.
 
-**Score gauges** (`components/gauge.tsx`) take an explicit `color`/`label` rather than a fixed
-verdict enum, since plagiarism's inverted polarity and fact-check's own thresholds don't fit
-AI-detection's human/mixed/ai vocabulary. `components/score-gauge.tsx` (AI detection only) is now a
-thin wrapper around `Gauge`; `lib/score-verdicts.ts` holds `plagiarismVerdict`/`factCheckVerdict`,
-the color/label thresholds for the other two, shared between their standalone pages and the
-detector's add-on cards so the three don't drift.
+**Score gauges** (`components/ui/gauge.tsx`) are limited to plagiarism and fact-check reports.
+AI detection uses `DetectionVerdict` and `DetectionTechnicalDetails` instead. `lib/score-verdicts.ts`
+holds `plagiarismVerdict`/`factCheckVerdict`, the color/label thresholds for those two checks, shared
+between their standalone pages and detector add-on cards so they do not drift.
 
 **API routes (`app/api/*/route.ts`)** are thin. All errors funnel through `errorResponse()` in
 `lib/api-errors.ts`: 503 for a missing key (`MissingKeyError`), 500 otherwise.
@@ -220,7 +219,12 @@ detector's add-on cards so the three don't drift.
   PLAGIARISM_WORD_MULTIPLIER`/`FACT_CHECK_WORD_MULTIPLIER`, both `2`, reflecting Winston's real
   2-credit/word cost there), `increment_usage` and `insertRun` (saves to `runs`, see below) both
   fire only when Winston actually returns a result, never on a `null`/unconfigured/failed one, since
-  nothing billable happened. Bodies: `{ text }` → `{ winston | plagiarism | factCheck, runId, usage }`.
+  nothing billable happened. Detection additionally returns `versionId` so follow-up insight calls
+  can target the saved scan without accepting arbitrary text from the browser.
+- `/api/detection-insight` — authenticated, owner-scoped follow-up for a saved detect run/version.
+  Returns an existing persisted insight when present; otherwise asks the configured OpenAI-compatible
+  model for structured, excerpt-grounded observations and merges them into that version's JSON result.
+  It never delays or changes the billable Winston result.
 - `/api/runs` — `GET` lists the signed-in user's recent runs (id/kind/title/word_count/score/created_at
   only, not the full text/result, for the sidebar); `DELETE ?id=` removes one, owner-scoped by RLS
   and an explicit `.eq("user_id", userId)`.
@@ -338,8 +342,8 @@ variants) with light values on `:root` and overrides under `.dark`, toggled by `
 - **Real images, never div-based fake screenshots.** Local assets live in `public/img/`.
 - **Motion** via `motion` (`components/reveal.tsx` for scroll reveals); always honor
   `prefers-reduced-motion`. Keep it subtle and motivated, not decorative.
-- Reuse existing primitives — `Gauge` (generic score ring; `ScoreGauge` wraps it for AI-detection's
-  human/mixed/ai vocabulary specifically), `DetectionReport`, `Reveal`, `ThemeToggle` — before
+- Reuse existing primitives — `Gauge` (plagiarism/fact-check only), `DetectionVerdict`,
+ `DetectionReport`, `Reveal`, `ThemeToggle` — before
   building new ones. Match the tone and density of the existing pages.
 - **Winston stays out of marketing copy and headlines.** It's the real-detector brand behind every
   score, but it only appears as a small attribution badge inside an actual report card (see the

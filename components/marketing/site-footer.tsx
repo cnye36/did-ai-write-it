@@ -35,7 +35,7 @@ export function SiteFooter() {
           <BrandName />
         </p>
         <p className="mt-1 max-w-[46ch] text-sm text-muted">
-          Real AI-detection scores for any draft. Built for professional
+          Clear AI-detection results for any draft. Built for professional
           writing, not for passing off homework.
         </p>
         <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1">

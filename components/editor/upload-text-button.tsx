@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { UploadSimpleIcon } from "@phosphor-icons/react";
 
-const ACCEPT = ".txt,.md,.pdf,.docx";
+const ACCEPT = ".txt,.md,.csv,.pdf,.docx";
 
 export function UploadTextButton({
   onText,

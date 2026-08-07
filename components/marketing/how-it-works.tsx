@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { motion, useInView, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { CursorClickIcon } from "@phosphor-icons/react";
-import { ScoreGauge } from "@/components/detect/score-gauge";
+import { DetectionVerdict } from "@/components/detect/detection-verdict";
 import { Reveal } from "@/components/ui/reveal";
-import type { Verdict } from "@/lib/detector";
 
 const STEPS = [
   {
@@ -18,7 +16,7 @@ const STEPS = [
   },
   {
     title: "Get your results",
-    body: "See your score and exactly which lines got flagged, with the reasoning behind each one.",
+    body: "Get a clear result, highlighted passages, and grounded writing insights.",
   },
 ];
 
@@ -148,15 +146,14 @@ function ScanGraphic() {
   );
 }
 
-const DEMO_SCORE = 82;
-const DEMO_VERDICT: Verdict = "human";
-
 function ResultsGraphic() {
   const reduce = useReducedMotion();
 
   return (
     <div className="flex h-40 items-center gap-4 rounded-xl bg-surface p-3">
-      <AnimatedScoreGauge target={DEMO_SCORE} verdict={DEMO_VERDICT} />
+      <div className="max-w-32 shrink-0">
+        <DetectionVerdict score={82} compact />
+      </div>
       <div className="flex-1 space-y-1.5">
         <div className="h-2 w-[88%] rounded-full bg-line" />
         <motion.div
@@ -169,34 +166,6 @@ function ResultsGraphic() {
         />
         <div className="h-2 w-[52%] rounded-full bg-line" />
       </div>
-    </div>
-  );
-}
-
-function AnimatedScoreGauge({ target, verdict }: { target: number; verdict: Verdict }) {
-  const reduce = useReducedMotion();
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.6 });
-  const [score, setScore] = useState(reduce ? target : 0);
-
-  useEffect(() => {
-    if (!inView || reduce) return;
-    const duration = 900;
-    const start = performance.now();
-    let raf: number;
-    function tick(now: number) {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setScore(Math.round(eased * target));
-      if (t < 1) raf = requestAnimationFrame(tick);
-    }
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [inView, reduce, target]);
-
-  return (
-    <div ref={ref} className="shrink-0">
-      <ScoreGauge score={score} verdict={verdict} size={72} />
     </div>
   );
 }

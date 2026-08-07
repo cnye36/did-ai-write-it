@@ -44,7 +44,7 @@ const SIGNALS = [
 ];
 
 const CHECKS = [
-  { title: "AI detection", body: "A real, verified score for every sentence." },
+  { title: "AI detection", body: "A clear result with verified sentence-level signals." },
   { title: "Plagiarism", body: "Matched sources and highlighted overlap, inline." },
   { title: "Fact-check", body: "Claim-by-claim verdicts with sources, not just a score." },
 ];
@@ -59,11 +59,11 @@ const COMPARE_LINKS = [
 const FAQ = [
   {
     q: "How does the AI detector work?",
-    a: "Paste or upload any text and it is scanned sentence by sentence for the patterns AI writing leaves behind: flattened sentence rhythm, stock vocabulary, and predictable structure. You get a 0 to 100 score plus the reasoning behind every flagged line.",
+    a: "Paste or upload any text and it is checked by a verified detection model. You get a clear overall result, sentence-level signals, and an independent language review of passages that stand out.",
   },
   {
-    q: "How accurate is the AI detection score?",
-    a: "No detector, ours included, is 100 percent certain on every input. Treat the score as a strong signal to investigate further, not a verdict on its own, especially on shorter drafts.",
+    q: "How accurate is the AI detection result?",
+    a: "No detector, ours included, is certain on every input. Treat the result as a signal to investigate further, not proof on its own, especially on shorter drafts.",
   },
   {
     q: "What should I use this for?",
@@ -167,8 +167,8 @@ export default function Landing() {
               Paste it below to find out.
             </h1>
             <p className="mx-auto mt-5 max-w-[46ch] text-lg leading-relaxed text-muted">
-              Get an AI-detection score for any draft in seconds, down to
-              the exact sentence, with the reasoning behind every flag.
+              Get a clear detector result, sentence-level signals, and grounded
+              writing insights for any draft.
             </p>
           </Reveal>
         </div>

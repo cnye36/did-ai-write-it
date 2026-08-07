@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { GitDiffIcon, MagnifyingGlassIcon, PencilSimpleIcon, PlusIcon, WrenchIcon } from "@phosphor-icons/react";
-import { analyzeText, verdictFor } from "@/lib/detector";
+import { analyzeText } from "@/lib/detector";
 import { useHandoffInput } from "@/lib/handoff";
 import type { DetectRunResult, RunRow, RunVersion } from "@/lib/runs";
 import {
@@ -18,8 +18,8 @@ import {
   type FactCheckResult,
 } from "@/lib/winston";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { ScoreGauge } from "@/components/detect/score-gauge";
-import { DetectionReportBody } from "@/components/detect/detection-report";
+import { DetectionVerdict } from "@/components/detect/detection-verdict";
+import { DetectionInsightPanel } from "@/components/detect/detection-insight-panel";
 import { WinstonHighlightedText } from "@/components/detect/winston-highlighted-text";
 import { DetectionSignals } from "@/components/detect/detection-signals";
 import { ReportSidebar } from "@/components/detect/report-sidebar";
@@ -32,11 +32,14 @@ import type { WinstonSentence } from "@/components/detect/winston-sentence-list"
 import { VersionTabs } from "@/components/detect/version-tabs";
 import { VersionDiffModal, type DiffFromOption } from "@/components/detect/version-diff-modal";
 import { ShareReportButton } from "@/components/share/share-report-modal";
+import type { DetectionInsight } from "@/lib/detection-insight";
 import posthog from "posthog-js";
 
 interface DetectResponse {
   winston: { score: number; sentences: WinstonSentence[] } | null;
   runId?: string | null;
+  versionId?: string | null;
+  insight?: DetectionInsight;
   usage: { used: number; limit: number };
 }
 
@@ -47,6 +50,7 @@ function resultFromRun(run: RunRow): DetectResponse {
   return {
     winston: payload.winston,
     runId: run.id,
+    insight: payload.insight,
     usage: { used: 0, limit: 0 },
   };
 }
@@ -56,6 +60,8 @@ function resultFromVersion(v: RunVersion, runId: string): DetectResponse {
   return {
     winston: payload.winston,
     runId,
+    versionId: v.id,
+    insight: payload.insight,
     usage: { used: 0, limit: 0 },
   };
 }
@@ -91,12 +97,16 @@ export function DetectPageClient({
   const [wantFactCheck, setWantFactCheck] = useState(false);
   const [plagiarism, setPlagiarism] = useState<AddonState<PlagiarismResult>>(EMPTY_ADDON);
   const [factCheck, setFactCheck] = useState<AddonState<FactCheckResult>>(EMPTY_ADDON);
+  const [insightBusy, setInsightBusy] = useState(false);
+  const [insightError, setInsightError] = useState<string | null>(null);
 
   // Sidebar navigation passes a new initialRun (and its versions); sync during render (no effect).
   if ((initialRun?.id ?? null) !== loadedRunId) {
     setLoadedRunId(initialRun?.id ?? null);
     setPlagiarism(EMPTY_ADDON);
     setFactCheck(EMPTY_ADDON);
+    setInsightBusy(false);
+    setInsightError(null);
     const lastIndex = Math.max(0, versions.length - 1);
     setSelectedVersionIndex(lastIndex);
     setDiffFromValue(versions.length > 1 ? versions[Math.max(0, versions.length - 2)].id : null);
@@ -122,6 +132,8 @@ export function DetectPageClient({
     setResult(resultFromVersion(version, initialRun.id));
     setPlagiarism(EMPTY_ADDON);
     setFactCheck(EMPTY_ADDON);
+    setInsightBusy(false);
+    setInsightError(null);
   }
 
   const diffFromOptions: DiffFromOption[] = versions.map((v, i) => ({
@@ -139,11 +151,30 @@ export function DetectPageClient({
 
   const verified = result?.winston ?? null;
   const scoreForDisplay = verified?.score ?? null;
-  const verdictForDisplay = scoreForDisplay !== null ? verdictFor(scoreForDisplay) : null;
   const sentenceReport = useMemo(
-    () => buildSentenceReport(input, live, verified),
-    [input, live, verified]
+    () => buildSentenceReport(input, verified),
+    [input, verified]
   );
+
+  const requestInsight = useCallback(async (runId: string, versionId?: string | null) => {
+    setInsightBusy(true);
+    setInsightError(null);
+    try {
+      const res = await fetch("/api/detection-insight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runId, versionId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Writing insights are unavailable.");
+      setResult((current) => (current ? { ...current, insight: data.insight } : current));
+      router.refresh();
+    } catch (e) {
+      setInsightError(e instanceof Error ? e.message : "Writing insights are unavailable.");
+    } finally {
+      setInsightBusy(false);
+    }
+  }, [router]);
 
   const charCount = input.trim().length;
   const wordCount = live.wordCount;
@@ -185,6 +216,7 @@ export function DetectPageClient({
       setResult(next);
       if (next.runId) {
         router.replace(`/app/detect?run=${next.runId}`);
+        void requestInsight(next.runId, next.versionId);
       }
       router.refresh();
     } catch (e) {
@@ -199,6 +231,7 @@ export function DetectPageClient({
     plagiarismEligible,
     wantFactCheck,
     factCheckEligible,
+    requestInsight,
   ]);
 
   async function runPlagiarism() {
@@ -295,8 +328,7 @@ export function DetectPageClient({
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">AI Detector</h1>
             <p className="mt-1 max-w-[60ch] text-sm leading-relaxed text-muted">
-              Paste any text and get a verified AI-detection score for every
-              sentence.
+              Paste any text for a clear detector result and sentence-level signals.
             </p>
           </div>
           <button
@@ -372,15 +404,6 @@ export function DetectPageClient({
 
         {error && <p className="rounded-[10px] bg-bad-soft px-4 py-3 text-sm text-bad">{error}</p>}
 
-        {live.wordCount >= 15 && (
-          <div className="rounded-2xl border border-line bg-surface p-4">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-faint">
-              Line-by-line report
-            </p>
-            <DetectionReportBody text={input} result={live} />
-          </div>
-        )}
-
         {input.trim().length === 0 && <RecentRunsPreview />}
       </div>
       <QuotaExceededModal
@@ -393,7 +416,7 @@ export function DetectPageClient({
     );
   }
 
-  const statusLabel = verified ? "Verified score" : busy ? "Verifying..." : "Real-detector check unavailable";
+  const statusLabel = verified ? "Verified result" : busy ? "Verifying..." : "Real-detector check unavailable";
   const statusCaption = verified
     ? `${live.wordCount || initialRun?.word_count || 0} words`
     : busy
@@ -406,8 +429,8 @@ export function DetectPageClient({
       <div className="space-y-3 rounded-2xl border border-line bg-raised px-5 py-4">
         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
-            {scoreForDisplay !== null && verdictForDisplay !== null ? (
-              <ScoreGauge score={scoreForDisplay} verdict={verdictForDisplay} size={72} />
+            {scoreForDisplay !== null ? (
+              <DetectionVerdict score={scoreForDisplay} />
             ) : (
               <div className="size-[72px] shrink-0 animate-pulse rounded-full bg-surface" aria-hidden />
             )}
@@ -473,18 +496,6 @@ export function DetectPageClient({
           />
         </div>
 
-        {live.metrics.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
-            {live.metrics.map((m) => (
-              <span
-                key={m.id}
-                className="rounded-full bg-surface px-2.5 py-1 text-xs text-muted"
-              >
-                {m.label}: <span className="font-mono tabular-nums text-ink">{m.score}/100</span>
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       {versions.length > 0 && (
@@ -515,23 +526,39 @@ export function DetectPageClient({
             </div>
             <div className="max-h-[70vh] min-h-[300px] flex-1 overflow-y-auto p-4">
               {verified ? (
-                <WinstonHighlightedText text={input} sentences={verified.sentences} flags={live.flags} showHuman />
+                <WinstonHighlightedText text={input} sentences={verified.sentences} showHuman />
+              ) : busy ? (
+                <div className="space-y-3">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className="h-4 animate-pulse rounded bg-line"
+                      style={{ width: `${94 - i * 9}%` }}
+                    />
+                  ))}
+                </div>
               ) : (
-                <DetectionReportBody text={input} result={live} />
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{input}</p>
               )}
             </div>
           </div>
 
+          {verified && result?.runId && (
+            <DetectionInsightPanel
+              insight={result.insight ?? null}
+              busy={insightBusy}
+              error={insightError}
+              onGenerate={() => requestInsight(result.runId!, selectedVersion?.id ?? result.versionId)}
+            />
+          )}
           <div className="rounded-2xl border border-line bg-surface p-4">
-            <DetectionSignals sentences={sentenceReport} verified={verified !== null} />
+            <DetectionSignals sentences={sentenceReport} />
           </div>
         </div>
 
         <aside className="rounded-2xl border border-line bg-surface p-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
           <ReportSidebar
             score={scoreForDisplay}
-            verdict={verdictForDisplay}
-            metrics={live.metrics}
             sentences={sentenceReport}
           />
         </aside>

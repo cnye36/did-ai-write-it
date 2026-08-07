@@ -1,8 +1,8 @@
 "use client";
 
-/** Generic ring gauge: a 0-100 score, explicit color and label. Used by
- * ScoreGauge (AI-detection, higher-is-human) and directly by the plagiarism
- * and fact-check reports, whose score polarity and labels differ per check. */
+/** Generic ring gauge for plagiarism and fact-check reports, whose score
+ * polarity and labels differ per check. AI detection is verdict-led and does
+ * not use a numeric gauge. */
 export function Gauge({
   score,
   color,

@@ -35,7 +35,7 @@ export const MIN_WORDS_FOR_CHECK = 200;
 
 /** Explains MIN_WORDS_FOR_CHECK in the UI; shared so the wording stays identical everywhere it's shown. */
 export const WORD_COUNT_HELP_TEXT =
-  "The more words you check, the more reliable the score. Short text is more likely to produce a false positive or false negative.";
+  "The more words you check, the more reliable the result. Short text is more likely to produce a false positive or false negative.";
 
 /** Winston rejects requests under this length; shorter text is skipped rather than erroring. */
 export const WINSTON_MIN_CHARS = 300;

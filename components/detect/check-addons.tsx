@@ -8,10 +8,10 @@ import {
   CaretRightIcon,
 } from "@phosphor-icons/react";
 import { Gauge } from "@/components/ui/gauge";
+import { DetectionVerdict } from "@/components/detect/detection-verdict";
 import { PlagiarismSources } from "@/components/plagiarism/plagiarism-sources";
 import { FactCheckClaims } from "@/components/fact-check/fact-check-claims";
 import { plagiarismVerdict, factCheckVerdict } from "@/lib/score-verdicts";
-import { verdictFor, type Verdict } from "@/lib/detector";
 import type { PlagiarismResult, FactCheckResult } from "@/lib/winston";
 import type { WinstonSentence } from "@/components/detect/winston-sentence-list";
 
@@ -37,17 +37,6 @@ export interface DetectAddonResult {
   sentences: WinstonSentence[];
 }
 
-const DETECT_VERDICT_COLOR: Record<Verdict, string> = {
-  human: "var(--good)",
-  mixed: "var(--warn)",
-  ai: "var(--bad)",
-};
-const DETECT_VERDICT_LABEL: Record<Verdict, string> = {
-  human: "Reads human",
-  mixed: "Borderline",
-  ai: "Reads AI",
-};
-
 /** Any of the three checks, run inline as a compact add-on card wherever it
  * isn't the page's own primary check. Fully controlled: the parent owns
  * state and fetching, so a check can be pre-selected and kicked off
@@ -58,7 +47,7 @@ export function DetectAddonCard({ busy, error, result, runId, eligible, ineligib
       <AddonCard
         icon={<SparkleIcon size={18} weight="bold" />}
         title="AI detection"
-        description={eligible ? "Run a verified AI-detection score on this text." : ineligibleReason}
+        description={eligible ? "Run a verified AI-detection check on this text." : ineligibleReason}
         busy={busy}
         error={error}
         disabled={!eligible}
@@ -73,13 +62,12 @@ export function DetectAddonCard({ busy, error, result, runId, eligible, ineligib
     );
   }
 
-  const verdict = verdictFor(result.score);
   return (
     <AddonResultCard
       icon={<SparkleIcon size={18} weight="bold" />}
       title="AI detection"
-      gauge={<Gauge score={result.score} color={DETECT_VERDICT_COLOR[verdict]} label={DETECT_VERDICT_LABEL[verdict]} size={56} />}
-      caption={`${result.sentences.length} sentence${result.sentences.length === 1 ? "" : "s"} scored`}
+      gauge={<DetectionVerdict score={result.score} compact />}
+      caption={`${result.sentences.length} sentence${result.sentences.length === 1 ? "" : "s"} analyzed`}
       href={runId ? `/app/detect?run=${runId}` : "/app/detect"}
     />
   );

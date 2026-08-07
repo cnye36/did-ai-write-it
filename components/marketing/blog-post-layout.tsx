@@ -109,7 +109,7 @@ export function BlogPostLayout({
           <Reveal>
             <CtaPanel
               heading="See what a real detector says about your draft."
-              body="Paste any text and get a verified score, sentence by sentence, with the reasoning behind every flag."
+              body="Paste any text for a verified result, sentence-level signals, and grounded writing insights."
             />
           </Reveal>
         </section>

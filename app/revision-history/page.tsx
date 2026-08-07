@@ -28,7 +28,7 @@ const STEPS = [
   {
     icon: CheckCircleIcon,
     title: "Get a verified report",
-    body: "Run a check and see a real, verified score with a sentence-by-sentence breakdown of what's flagged.",
+    body: "Run a check and get a verified result with a sentence-by-sentence breakdown of what is flagged.",
   },
   {
     icon: SparkleIcon,
@@ -37,13 +37,13 @@ const STEPS = [
   },
   {
     icon: ArrowClockwiseIcon,
-    title: "Rescan for a real score",
+    title: "Rescan for a verified result",
     body: "Scan again whenever you're ready. It's the same verified check, run again, not an estimate.",
   },
   {
     icon: GitDiffIcon,
     title: "See exactly what changed",
-    body: "Compare any two reports side by side: what moved, whether the score improved, and whether you or the AI rewrote it.",
+    body: "Compare any two reports side by side: what moved, how the detector result changed, and whether you or the AI rewrote it.",
   },
 ];
 
@@ -62,7 +62,7 @@ const FAQ = [
   },
   {
     q: "What does 'verified' mean in the editor?",
-    a: "Only text that has actually been rescanned carries a real score. Anything you've since edited shows as not yet scanned until your next rescan, so you never mistake a guess for a verified result.",
+    a: "Only text that has actually been rescanned carries a verified result. Anything you have since edited shows as not yet scanned until your next rescan, so you never mistake a guess for a verified result.",
   },
 ];
 
@@ -145,12 +145,12 @@ export default function RevisionHistoryPage() {
                 {
                   icon: PencilSimpleIcon,
                   title: "You always know who wrote what",
-                  body: "Sentences you type yourself and sentences from an AI-suggested rewrite are tracked separately, right up until you rescan and get a verified score for both.",
+                  body: "Sentences you type yourself and sentences from an AI-suggested rewrite are tracked separately, right up until you rescan and get a verified result for both.",
                 },
                 {
                   icon: ArrowClockwiseIcon,
                   title: "Verified rescans, every time",
-                  body: "\"Scan again\" runs the same verified check as your first report. It's never a heuristic standing in for a real score.",
+                  body: "\"Scan again\" runs the same verified check as your first report. It is never a heuristic standing in for a verified result.",
                 },
                 {
                   icon: GitDiffIcon,

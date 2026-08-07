@@ -40,11 +40,42 @@ function getClientIp(req: NextRequest): string | null {
   return null;
 }
 
-/** Match the existing UI rule: reveal through the first flagged sentence,
- *  while keeping all later sentence text out of the anonymous API response. */
+/** Up to this many flagged (non-human) sentences are revealed, when the text
+ *  has that many, so the free preview actually demonstrates the detector
+ *  instead of gating on whichever sentence happens to be flagged first. */
+const REVEAL_FLAGGED_TARGET = 5;
+/** Sentences revealed when nothing is flagged at all, so a clean document
+ *  still gets a short "about a paragraph" teaser instead of either the full
+ *  report or nothing. */
+const MIN_TEASER_SENTENCES = 4;
+
+/**
+ * Withhold sentence text server-side (not just visually) past the reveal
+ * point, so the full result never round-trips to an anonymous client. Reveals
+ * through the Nth flagged sentence, plus one sentence past it when one
+ * exists, so the UI can show a blurred "flagged further down" teaser without
+ * a second request.
+ */
 function revealableSentences(sentences: WinstonSentenceScore[]): WinstonSentenceScore[] {
-  const firstFlagged = sentences.findIndex((sentence) => verdictFor(sentence.score) !== "human");
-  return firstFlagged === -1 ? sentences : sentences.slice(0, firstFlagged + 1);
+  const flaggedCount = sentences.filter((s) => verdictFor(s.score) !== "human").length;
+
+  if (flaggedCount === 0) {
+    return sentences.slice(0, Math.min(sentences.length, MIN_TEASER_SENTENCES));
+  }
+
+  const target = Math.min(REVEAL_FLAGGED_TARGET, flaggedCount);
+  let seen = 0;
+  let cutoffIndex = sentences.length - 1;
+  for (let i = 0; i < sentences.length; i++) {
+    if (verdictFor(sentences[i].score) !== "human") {
+      seen++;
+      if (seen === target) {
+        cutoffIndex = i;
+        break;
+      }
+    }
+  }
+  return sentences.slice(0, Math.min(sentences.length, cutoffIndex + 2));
 }
 
 export async function POST(req: NextRequest) {

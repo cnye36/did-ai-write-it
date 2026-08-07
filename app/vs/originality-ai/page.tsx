@@ -72,7 +72,7 @@ export default function VsOriginalityAiPage() {
               <p className="mt-5 max-w-[48ch] text-lg leading-relaxed text-muted">
                 Originality.ai is built for agencies checking freelance
                 content at scale, priced in credits with no free tier. Did AI
-                Write It? gives you a real, verified score for free before you
+                Write It? gives you a clear, verified result for free before you
                 ever reach for a card.
               </p>
               <Link
@@ -180,7 +180,7 @@ export default function VsOriginalityAiPage() {
           <Reveal>
             <CtaPanel
               heading="Start free. Upgrade only if you need to."
-              body="No credits to buy before your first real score. Paste a draft and see for yourself."
+              body="No credits to buy before your first verified result. Paste a draft and see for yourself."
             />
           </Reveal>
         </section>

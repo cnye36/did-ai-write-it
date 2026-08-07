@@ -1,6 +1,7 @@
 "use client";
 
-import { reasonsForRange, verdictFor, type Flag } from "@/lib/detector";
+import { verdictFor } from "@/lib/detector";
+import { detectionPresentation } from "@/lib/detection-presentation";
 import { locateWinstonSentences } from "@/lib/winston-sentences";
 import type { WinstonSentence } from "./winston-sentence-list";
 
@@ -31,24 +32,18 @@ function buildSegments(text: string, sentences: WinstonSentence[]): Segment[] {
 }
 
 /**
- * Original text with each Winston-scored sentence marked. `flags`, when given,
- * are our own heuristic's pattern matches (lib/detector.ts) laid over Winston's
- * sentence ranges so the hover tooltip can name a likely reason, since Winston
- * itself returns a score only, never an explanation.
- *
- * With `showHuman`, passing sentences get a green underline too, so a reader
+ * Original text with each Winston-scored sentence marked. With `showHuman`,
+ * passing sentences get a green underline too, so a reader
  * fixing a draft can tell "already fine" apart from "not scored". Off by
  * default: on a clean document it would mark essentially every sentence.
  */
 export function WinstonHighlightedText({
   text,
   sentences,
-  flags,
   showHuman = false,
 }: {
   text: string;
   sentences: WinstonSentence[];
-  flags?: Flag[];
   showHuman?: boolean;
 }) {
   const segments = buildSegments(text, sentences);
@@ -59,15 +54,8 @@ export function WinstonHighlightedText({
         if (seg.score === undefined) return <span key={i}>{seg.text}</span>;
         const verdict = verdictFor(seg.score);
         if (verdict === "human" && !showHuman) return <span key={i}>{seg.text}</span>;
-        const reasons = flags ? reasonsForRange(flags, seg.start, seg.end) : [];
-        const title =
-          reasons.length > 0
-            ? `${seg.score}/100 human · likely reason: ${reasons.join("; ")}`
-            : verdict === "human"
-              ? `${seg.score}/100 human · no AI-pattern flags detected in this sentence`
-              : `${seg.score}/100 human`;
         return (
-          <mark key={i} data-severity={verdict} title={title}>
+          <mark key={i} data-severity={verdict} title={detectionPresentation(seg.score).signal}>
             {seg.text}
           </mark>
         );

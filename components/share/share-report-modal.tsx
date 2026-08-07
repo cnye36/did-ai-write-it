@@ -81,7 +81,7 @@ export function ShareReportButton({ runId }: { runId: string }) {
         <div className="p-6">
           <h2 className="text-lg font-semibold tracking-tight">Share this report</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted">
-            Anyone with the link can view a read-only copy of this score and highlighted text.
+            Anyone with the link can view a read-only copy of this result and highlighted text.
             No sign-in, no editing.
           </p>
 

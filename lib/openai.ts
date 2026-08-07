@@ -7,6 +7,8 @@ import { MissingKeyError } from "./api-errors";
   without a code change.
 */
 export const REWRITE_ASSIST_MODEL = process.env.REWRITE_ASSIST_MODEL ?? "gpt-5.6-terra";
+export const DETECTION_INSIGHT_MODEL =
+  process.env.DETECTION_INSIGHT_MODEL ?? REWRITE_ASSIST_MODEL;
 
 export function getOpenAI(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -29,12 +31,13 @@ export function getOpenAI(): OpenAI {
 */
 export async function createSampledCompletion(
   client: OpenAI,
-  params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
+  params: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+  options?: { timeout?: number }
 ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
   const p = { ...params };
   for (;;) {
     try {
-      return await client.chat.completions.create(p);
+      return await client.chat.completions.create(p, options);
     } catch (err) {
       if (
         err instanceof OpenAI.APIError &&

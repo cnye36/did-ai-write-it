@@ -18,6 +18,7 @@ import {
   textRangeToPmRange,
 } from "@/lib/editor-text";
 import { normalize, resolveSentenceScores, type WinstonSentenceScore } from "@/lib/winston-sentences";
+import { detectionPresentation } from "@/lib/detection-presentation";
 import type { ProvenanceMap, ProvenanceSource } from "@/lib/provenance";
 import { EditorRibbon } from "@/components/editor/editor-ribbon";
 
@@ -73,7 +74,7 @@ function buildDecorations(
     decorations.push(
       Decoration.inline(from, to, {
         class: `score-mark score-${s.verdict}`,
-        title: `${s.score}/100 human, verified${s.reasons.length ? ` · ${s.reasons.join("; ")}` : ""}`,
+        title: `${detectionPresentation(s.score).signal}, verified`,
       })
     );
   }

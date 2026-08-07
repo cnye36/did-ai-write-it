@@ -7,9 +7,8 @@ import { SiteFooter } from "@/components/marketing/site-footer";
 import { createServiceClient } from "@/lib/supabase/service";
 import { formatRunDateTime, RUN_KIND_LABEL } from "@/lib/runs";
 import type { DetectRunResult, FactCheckRunResult, PlagiarismRunResult, RunKind } from "@/lib/runs";
-import { verdictFor } from "@/lib/detector";
 import { plagiarismVerdict, factCheckVerdict } from "@/lib/score-verdicts";
-import { ScoreGauge } from "@/components/detect/score-gauge";
+import { DetectionVerdict } from "@/components/detect/detection-verdict";
 import { Gauge } from "@/components/ui/gauge";
 import { WinstonHighlightedText } from "@/components/detect/winston-highlighted-text";
 import { PlagiarismHighlightedText } from "@/components/plagiarism/plagiarism-highlighted-text";
@@ -50,20 +49,22 @@ async function loadSharedRun(token: string): Promise<SharedRun | null> {
 
 function ReportBody({ run }: { run: SharedRun }) {
   if (run.kind === "detect") {
-    const { winston } = run.result as DetectRunResult;
-    const verdict = verdictFor(winston.score);
+    const { winston, insight } = run.result as DetectRunResult;
     return (
       <>
-        <div className="flex items-center gap-4">
-          <ScoreGauge score={winston.score} verdict={verdict} size={72} />
-          <div>
-            <p className="text-sm font-semibold">AI-detection score</p>
-            <p className="mt-0.5 text-xs text-faint">{run.word_count.toLocaleString()} words</p>
-          </div>
+        <div>
+          <DetectionVerdict score={winston.score} />
+          <p className="mt-2 text-xs text-faint">{run.word_count.toLocaleString()} words analyzed</p>
         </div>
         <div className="rounded-2xl border border-line bg-surface p-4">
           <WinstonHighlightedText text={run.input_text} sentences={winston.sentences} showHuman />
         </div>
+        {insight && (
+          <div className="rounded-2xl border border-line bg-surface p-4">
+            <p className="text-sm font-semibold text-ink">Writing insights</p>
+            <p className="mt-2 text-sm leading-relaxed text-muted">{insight.summary}</p>
+          </div>
+        )}
       </>
     );
   }
@@ -149,7 +150,7 @@ export default async function SharedReportPage({ params }: { params: Promise<{ t
         </div>
 
         <div className="rounded-2xl border border-dashed border-line p-5 text-center">
-          <p className="text-sm text-muted">Want a verified score for your own text?</p>
+          <p className="text-sm text-muted">Want a verified result for your own text?</p>
           <Link
             href="/"
             className="mt-3 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink transition-transform active:scale-[0.97]"

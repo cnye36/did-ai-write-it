@@ -25,7 +25,7 @@ const GROUPS: ComparisonGroup[] = [
   {
     title: "AI detection",
     rows: [
-      { label: "Real, verified detection score", values: [true, true, true, true] },
+      { label: "Clear, verified detection result", values: [true, true, true, true] },
       { label: "Full sentence-by-sentence report", values: [true, true, true, true] },
       { label: "Up to 150,000 characters per check", values: [true, true, true, true] },
       { label: "Multi-language support (Spanish, French, German, Portuguese, Chinese, and more)", values: [true, true, true, true] },

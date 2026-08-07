@@ -3,6 +3,7 @@
 import { Fragment, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import { diffText, type DiffEntry } from "@/lib/diff";
+import { detectionTransition } from "@/lib/detection-presentation";
 import { formatRunDateTime } from "@/lib/runs";
 
 export interface DiffSide {
@@ -14,18 +15,6 @@ export interface DiffSide {
 
 export interface DiffFromOption extends DiffSide {
   value: string;
-}
-
-function ScoreDelta({ from, to }: { from: number | null; to: number | null }) {
-  if (from == null || to == null) return null;
-  const delta = to - from;
-  const tone = delta > 0 ? "text-good" : delta < 0 ? "text-bad" : "text-faint";
-  return (
-    <span className={`font-mono text-xs tabular-nums ${tone}`}>
-      {delta >= 0 ? "+" : ""}
-      {delta}
-    </span>
-  );
 }
 
 function BeforeCell({ entry }: { entry: DiffEntry }) {
@@ -154,11 +143,8 @@ export function VersionDiffModal({
               {wordDelta})
             </span>
           </span>
-          {(from.score != null || to.score != null) && (
-            <span className="flex items-center gap-1.5">
-              score {from.score ?? "—"} → {to.score ?? "—"}
-              <ScoreDelta from={from.score} to={to.score} />
-            </span>
+          {from.score != null && to.score != null && (
+            <span>{detectionTransition(from.score, to.score)}</span>
           )}
         </div>
 

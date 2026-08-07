@@ -108,9 +108,10 @@ export async function POST(req: NextRequest) {
       const winstonPayload = { score: winston.score, sentences: winston.sentences };
       const runResult = { winston: winstonPayload };
       let resultRunId: string | null;
+      let versionId: string | null = null;
 
       if (runId) {
-        await appendRunVersion(supabase, {
+        versionId = await appendRunVersion(supabase, {
           runId,
           inputText: text,
           wordCount: requestedWords,
@@ -129,7 +130,7 @@ export async function POST(req: NextRequest) {
           result: runResult,
         });
         if (resultRunId) {
-          await insertRunVersion(supabase, {
+          versionId = await insertRunVersion(supabase, {
             runId: resultRunId,
             inputText: text,
             wordCount: requestedWords,
@@ -143,6 +144,7 @@ export async function POST(req: NextRequest) {
       return Response.json({
         winston: winstonPayload,
         runId: resultRunId,
+        versionId,
         usage: {
           used: updatedWordsUsed,
           limit: PLAN_LIMITS[plan],

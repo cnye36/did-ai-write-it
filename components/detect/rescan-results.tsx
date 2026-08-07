@@ -1,6 +1,7 @@
 "use client";
 
 import { XIcon } from "@phosphor-icons/react";
+import { detectionPresentation, detectionTransition } from "@/lib/detection-presentation";
 import type { RescanResults } from "@/lib/rescan-results";
 
 const SOURCE_LABEL: Record<string, string> = { ai: "AI rewrite", user: "You", unknown: "Edited" };
@@ -10,20 +11,23 @@ const SOURCE_COLOR: Record<string, string> = {
   unknown: "var(--faint)",
 };
 
-function DeltaBadge({ delta }: { delta: number | null }) {
-  if (delta === null) return <span className="text-xs text-faint">new sentence</span>;
-  const tone = delta > 0 ? "text-good" : delta < 0 ? "text-bad" : "text-faint";
-  return (
-    <span className={`font-mono text-xs tabular-nums ${tone}`}>
-      {delta >= 0 ? "+" : ""}
-      {delta}
-    </span>
-  );
+function ResultChange({
+  oldScore,
+  newScore,
+}: {
+  oldScore: number | null;
+  newScore: number | null;
+}) {
+  if (newScore === null) return <span className="text-xs text-faint">Not scored</span>;
+  if (oldScore === null) {
+    return <span className="text-xs text-faint">{detectionPresentation(newScore).signal}</span>;
+  }
+  return <span className="text-xs text-faint">{detectionTransition(oldScore, newScore)}</span>;
 }
 
 /** What actually happened in the rescan just run: every changed sentence,
- *  tagged with who wrote it and whether Winston's real score for it went up
- *  or down. Renders nothing when nothing changed since the last scan. */
+ *  tagged with who wrote it and how its detector classification changed.
+ *  Renders nothing when nothing changed since the last scan. */
 export function RescanResultsPanel({
   results,
   onDismiss,
@@ -77,10 +81,7 @@ export function RescanResultsPanel({
               </span>
             </div>
             <div className="shrink-0 text-right">
-              <div className="font-mono text-xs tabular-nums text-faint">
-                {c.oldScore ?? "—"} → {c.newScore ?? "—"}
-              </div>
-              <DeltaBadge delta={c.delta} />
+              <ResultChange oldScore={c.oldScore} newScore={c.newScore} />
             </div>
           </li>
         ))}
