@@ -1,7 +1,7 @@
 "use client";
 
 import Script from "next/script";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -32,12 +32,19 @@ export function TurnstileWidget({
   const widgetIdRef = useRef<string | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
 
+  // Stable event callbacks so the widget mounts once per script-ready
+  // transition, not on every parent re-render (e.g. every keystroke in the
+  // form above it, which would otherwise pass a new inline onExpire each time
+  // and tear down/recreate the challenge mid-solve).
+  const onVerifyEvent = useEffectEvent(onVerify);
+  const onExpireEvent = useEffectEvent(onExpire);
+
   useEffect(() => {
     if (!scriptReady || !containerRef.current || !window.turnstile || widgetIdRef.current) return;
     const id = window.turnstile.render(containerRef.current, {
       sitekey: SITE_KEY,
-      callback: onVerify,
-      "expired-callback": onExpire,
+      callback: (token: string) => onVerifyEvent(token),
+      "expired-callback": () => onExpireEvent(),
       theme: "auto",
     });
     widgetIdRef.current = id;
@@ -45,7 +52,7 @@ export function TurnstileWidget({
       window.turnstile?.remove(id);
       widgetIdRef.current = null;
     };
-  }, [scriptReady, onVerify, onExpire]);
+  }, [scriptReady]);
 
   if (!SITE_KEY) return null;
 
